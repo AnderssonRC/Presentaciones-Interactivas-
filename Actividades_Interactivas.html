@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="dia">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Actividades Interactivas — Presentaciones Didácticas para Docentes</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&amp;family=Outfit:wght@400;500;600;700&amp;family=Space+Grotesk:wght@400;500;600;700&amp;display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    @keyframes aip-spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <!-- React + Babel -->
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin="anonymous"></script>
+
+  <!-- Firebase (compat: expone la global `firebase`, sin necesidad de bundler) -->
+  <script src="https://www.gstatic.com/firebasejs/12.3.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/12.3.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore-compat.js"></script>
+
+  <!-- Inicialización de Firebase (debe ir ANTES de db.js) -->
+  <script src="js/firebase-config.js"></script>
+
+  <!-- Datos / capa de acceso -->
+  <script src="js/db.js"></script>
+
+  <!-- Componentes (text/babel + preset react para compilar JSX en el navegador) -->
+  <script type="text/babel" data-presets="react" src="js/tweaks-panel.jsx"></script>
+  <script type="text/babel" data-presets="react" src="js/ui.jsx"></script>
+  <script type="text/babel" data-presets="react" src="js/activities.jsx"></script>
+  <script type="text/babel" data-presets="react" src="js/login.jsx"></script>
+  <script type="text/babel" data-presets="react" src="js/dashboard.jsx"></script>
+  <script type="text/babel" data-presets="react" src="js/editor.jsx"></script>
+  <script type="text/babel" data-presets="react" src="js/presenter.jsx"></script>
+  <script type="text/babel" data-presets="react" src="js/app.jsx"></script>
+</body>
+</html>

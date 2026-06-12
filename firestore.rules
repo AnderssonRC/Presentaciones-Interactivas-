@@ -1,0 +1,24 @@
+rules_version = '2';
+
+// Reglas de seguridad de Firestore para "Actividades Interactivas".
+//
+// Modelo de datos:
+//   users/{uid}/presentations/{presId}
+//
+// Principio: cada docente solo puede leer y escribir SUS propias presentaciones.
+// Nadie puede acceder a los datos de otro usuario, ni siquiera estando autenticado.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Documentos de presentaciones, anidados bajo el uid del dueño.
+    match /users/{uid}/presentations/{presId} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // Todo lo demás queda bloqueado por defecto.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
