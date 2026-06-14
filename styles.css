@@ -57,7 +57,7 @@ body {
 }
 h1, h2, h3, h4 { font-family: var(--font-display); margin: 0; text-wrap: balance; }
 p { text-wrap: pretty; }
-button { font-family: var(--font-body); cursor: pointer; }
+button { font-family: var(--font-body); cursor: pointer; color: inherit; }
 input, textarea, select { font-family: var(--font-body); color: inherit; }
 
 .kicker {
@@ -220,6 +220,7 @@ input, textarea, select { font-family: var(--font-body); color: inherit; }
 }
 .slide-thumb {
   border: 1.5px solid var(--line); border-radius: 10px; background: var(--surface);
+  color: var(--ink);
   padding: 10px 12px; text-align: left; width: 100%;
   display: flex; flex-direction: column; gap: 3px; position: relative;
   transition: border-color .12s ease;
@@ -245,6 +246,7 @@ input, textarea, select { font-family: var(--font-body); color: inherit; }
 .tool-card {
   display: grid; grid-template-columns: 38px 1fr auto; align-items: center; gap: 12px;
   border: 1px solid var(--line); border-radius: 11px; background: var(--surface);
+  color: var(--ink);
   padding: 9px 11px; text-align: left; width: 100%;
   transition: all .12s ease;
 }
