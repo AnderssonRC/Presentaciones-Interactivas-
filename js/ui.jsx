@@ -1,4 +1,4 @@
-/* UI compartida: iconos, logo, slide escalado, entrada de imagen por URL */
+/* UI compartida: iconos, logo, slide escalado */
 const { useState, useEffect, useRef, useMemo, useCallback } = React;
 
 function Icon({ name, size = 20 }) {
@@ -32,8 +32,6 @@ function Icon({ name, size = 20 }) {
     mas: <g><path d="M12 5v14M5 12h14" /></g>,
     salir: <g><path d="M9 4H5.5A1.5 1.5 0 0 0 4 5.5v13A1.5 1.5 0 0 0 5.5 20H9M15 16l4-4-4-4M19 12H9.5" /></g>,
     tv: <g><rect x="3" y="5" width="18" height="12.5" rx="2" /><path d="M8.5 21h7" /></g>,
-    imagen: <g><rect x="3" y="4.5" width="18" height="15" rx="2" /><circle cx="8.5" cy="10" r="1.8" /><path d="M21 16l-5-5-9 8.5" /></g>,
-    enlace: <g><path d="M9 13a4 4 0 0 0 5.7.3l2.6-2.6a4 4 0 0 0-5.7-5.7l-1.3 1.3M15 11a4 4 0 0 0-5.7-.3L6.7 13.3a4 4 0 0 0 5.7 5.7l1.3-1.3" /></g>,
   };
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -101,76 +99,15 @@ function ScaledSlide({ children, maxH }) {
   );
 }
 
-/* ---------- Imagen por URL ----------
-   Modelo de imagen unificado: { tipo: 'url', valor: '<enlace>' }.
-   En modo presentación solo muestra; en modo editable permite pegar el enlace. */
-function normalizeImagen(img) {
-  if (!img) return { tipo: 'url', valor: '' };
-  if (typeof img === 'string') return { tipo: 'url', valor: img };
-  return { tipo: img.tipo || 'url', valor: img.valor || '' };
-}
-
-function SlideImage({ imagen }) {
-  const img = normalizeImagen(imagen);
-  const [error, setError] = useState(false);
-  useEffect(() => { setError(false); }, [img.valor]);
-
-  if (!img.valor || error) {
-    return (
-      <div style={{
-        width: '100%', height: 760, borderRadius: 28, display: 'grid', placeItems: 'center',
-        background: '#EEF1EA', color: '#9AA396', textAlign: 'center', padding: 40,
-      }}>
-        <div>
-          <Icon name="imagen" size={64} />
-          <div style={{ marginTop: 16, fontSize: 26, fontWeight: 600 }}>
-            {error ? 'No se pudo cargar la imagen' : 'Sin imagen'}
-          </div>
-        </div>
-      </div>
-    );
-  }
-  return (
-    <img src={img.valor} alt="" onError={() => setError(true)}
-      style={{ width: '100%', height: 760, objectFit: 'cover', borderRadius: 28, display: 'block' }} />
-  );
-}
-
-/* Campo para pegar el enlace de una imagen (editor) */
-function ImageInput({ imagen, onChange }) {
-  const img = normalizeImagen(imagen);
-  return (
-    <div style={{ width: '100%' }}>
-      <SlideImage imagen={img} />
-      <div style={{ marginTop: 18, display: 'flex', alignItems: 'center', gap: 12, background: '#161A15', border: '3px solid #2A2F29', borderRadius: 16, padding: '14px 20px' }}>
-        <span style={{ color: '#9AA396', flexShrink: 0 }}><Icon name="enlace" size={30} /></span>
-        <input
-          type="url"
-          value={img.valor}
-          onChange={(e) => onChange({ tipo: 'url', valor: e.target.value })}
-          placeholder="Pega aquí el enlace de una imagen (https://…)"
-          spellCheck="false"
-          style={{ flex: 1, minWidth: 0, border: 'none', background: 'transparent', outline: 'none', color: '#F2F5EF', fontSize: 28, fontFamily: 'var(--font-display)' }}
-        />
-        {img.valor && (
-          <button onClick={() => onChange({ tipo: 'url', valor: '' })} title="Quitar imagen"
-            style={{ flexShrink: 0, background: 'transparent', border: 'none', color: '#9AA396', fontSize: 30, cursor: 'pointer', lineHeight: 1 }}>✕</button>
-        )}
-      </div>
-    </div>
-  );
-}
-
 /* Diapositiva de contenido (imagen + texto). editable => inputs */
 function ContenidoSlide({ slide, materia, accent, editable, onChange }) {
   const set = (k) => (e) => onChange && onChange({ ...slide, [k]: e.target.value });
-  const setImagen = (imagen) => onChange && onChange({ ...slide, imagen });
   return (
     <div className="slide-pad" style={{ flexDirection: 'row', gap: 90, alignItems: 'stretch' }}>
       <div style={{ flex: '1.15 1 0', display: 'flex', flexDirection: 'column', justifyContent: 'center', minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 22 }}>
           <div style={{ width: 56, height: 14, background: accent }}></div>
-          <div className="s-kicker" style={{ color: '#3A413A' }}>{materia}</div>
+          <div className="s-kicker" style={{ color: 'var(--slide-kicker)' }}>{materia}</div>
         </div>
         {editable ? (
           <textarea className="slide-input s-title" rows="2" value={slide.titulo} onChange={set('titulo')} placeholder="Título de la plantilla" spellCheck="false"></textarea>
@@ -184,9 +121,7 @@ function ContenidoSlide({ slide, materia, accent, editable, onChange }) {
         )}
       </div>
       <div style={{ flex: '0.85 1 0', display: 'flex', alignItems: 'center' }}>
-        {editable
-          ? <ImageInput imagen={slide.imagen} onChange={setImagen} />
-          : <SlideImage imagen={slide.imagen} />}
+        <image-slot id={'img-' + slide.id} shape="rounded" radius="28" placeholder="Arrastra una imagen del tema aquí" style={{ width: '100%', height: 760 }}></image-slot>
       </div>
     </div>
   );
@@ -208,4 +143,4 @@ function ActividadSlidePreview({ slide }) {
   );
 }
 
-Object.assign(window, { Icon, Logo, ThemeToggle, ScaledSlide, ContenidoSlide, ActividadSlidePreview, SlideImage, ImageInput, normalizeImagen });
+Object.assign(window, { Icon, Logo, ThemeToggle, ScaledSlide, ContenidoSlide, ActividadSlidePreview });
