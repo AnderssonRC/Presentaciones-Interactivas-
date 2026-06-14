@@ -265,6 +265,7 @@ input, textarea, select { font-family: var(--font-body); color: inherit; }
 .group-block {
   border: 1px solid var(--line); border-radius: 12px; background: var(--surface);
   overflow: hidden; transition: border-color .12s ease;
+  flex-shrink: 0;
 }
 .group-block.open { border-color: var(--muted); }
 .group-head {
