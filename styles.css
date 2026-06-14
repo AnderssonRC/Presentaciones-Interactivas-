@@ -261,6 +261,38 @@ input, textarea, select { font-family: var(--font-body); color: inherit; }
 }
 .tool-card:hover .tool-add { background: var(--acento); color: var(--acento-text); }
 
+/* ---------- Grupos de Interacciones (acordeón) ---------- */
+.group-block {
+  border: 1px solid var(--line); border-radius: 12px; background: var(--surface);
+  overflow: hidden; transition: border-color .12s ease;
+}
+.group-block.open { border-color: var(--muted); }
+.group-head {
+  display: flex; align-items: center; gap: 11px; width: 100%;
+  border: none; background: transparent; color: var(--ink);
+  padding: 11px 12px; text-align: left;
+}
+.group-head:hover { background: var(--surface2); }
+.group-ico {
+  width: 34px; height: 34px; border-radius: 9px; display: grid; place-items: center;
+  color: #08120B; flex-shrink: 0;
+}
+.group-caret { color: var(--muted); display: grid; place-items: center; transition: transform .18s ease; transform: rotate(90deg); }
+.group-block.open .group-caret { transform: rotate(-90deg); }
+.group-body {
+  display: none; flex-direction: column; gap: 7px;
+  padding: 4px 10px 11px;
+}
+.group-block.open .group-body { display: flex; }
+
+.tool-soon { opacity: .6; cursor: not-allowed; }
+.tool-soon:hover { border-color: var(--line); transform: none; }
+.soon-tag {
+  font-size: 10px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--muted); background: var(--surface2); border: 1px solid var(--line);
+  border-radius: 999px; padding: 3px 8px; white-space: nowrap;
+}
+
 .config-card {
   background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
   padding: 20px 22px; display: flex; flex-direction: column; gap: 14px; box-shadow: var(--shadow);
