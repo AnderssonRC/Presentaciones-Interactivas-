@@ -3,6 +3,7 @@
 
 function Editor({ pres, onChange, onBack, onPresent, theme, setTheme }) {
   const [sel, setSel] = React.useState(0);
+  const [openGroup, setOpenGroup] = React.useState('evaluadoras');
   const slides = pres.slides;
   const current = slides[Math.min(sel, slides.length - 1)];
 
@@ -141,25 +142,55 @@ function Editor({ pres, onChange, onBack, onPresent, theme, setTheme }) {
           )}
         </div>
 
-        {/* ---- columna 3: herramientas de actividades interactivas ---- */}
+        {/* ---- columna 3: Grupos de Interacciones (menú desplegable) ---- */}
         <div className="editor-tools">
           <div>
-            <div className="kicker">Herramientas de</div>
-            <h3 style={{ fontSize: 16.5, fontWeight: 800, marginTop: 2 }}>Actividades Interactivas</h3>
-            <p style={{ margin: '6px 0 8px', fontSize: 12.5, color: 'var(--muted)' }}>
-              Haz clic para añadir la actividad después de la plantilla seleccionada.
+            <div className="kicker">Grupos de</div>
+            <h3 style={{ fontSize: 16.5, fontWeight: 800, marginTop: 2 }}>Interacciones</h3>
+            <p style={{ margin: '6px 0 10px', fontSize: 12.5, color: 'var(--muted)' }}>
+              Abre un grupo y haz clic en una actividad para añadirla después de la plantilla seleccionada.
             </p>
           </div>
-          {AIP.TOOLS.map((t) => (
-            <button key={t.id} className="tool-card" onClick={() => addActividad(t.id)} title={'Añadir ' + t.nombre}>
-              <span className="tool-ico" style={{ background: t.color }}><Icon name={t.icon} size={19} /></span>
-              <span style={{ minWidth: 0 }}>
-                <span style={{ display: 'block', fontWeight: 700, fontSize: 13.5 }}>{t.nombre}</span>
-                <span style={{ display: 'block', fontSize: 11.5, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.desc}</span>
-              </span>
-              <span className="tool-add">+</span>
-            </button>
-          ))}
+
+          {AIP.GROUPS.map((g) => {
+            const tools = AIP.groupTools(g);
+            const isOpen = openGroup === g.id;
+            const total = tools.length;
+            const listas = tools.filter((t) => !t.soon).length;
+            return (
+              <div key={g.id} className={'group-block' + (isOpen ? ' open' : '')}>
+                <button className="group-head" onClick={() => setOpenGroup(isOpen ? null : g.id)}
+                  aria-expanded={isOpen}>
+                  <span className="group-ico" style={{ background: g.color }}><Icon name={g.icon} size={18} /></span>
+                  <span style={{ minWidth: 0, flex: 1 }}>
+                    <span style={{ display: 'block', fontWeight: 800, fontSize: 14 }}>{g.nombre}</span>
+                    <span style={{ display: 'block', fontSize: 11.5, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {listas} {listas === 1 ? 'disponible' : 'disponibles'}{total > listas ? ' · ' + (total - listas) + ' próximamente' : ''}
+                    </span>
+                  </span>
+                  <span className="group-caret"><Icon name="flecha" size={16} /></span>
+                </button>
+
+                <div className="group-body">
+                  {tools.map((t) => (
+                    <button key={t.id} className={'tool-card' + (t.soon ? ' tool-soon' : '')}
+                      onClick={() => { if (!t.soon) addActividad(t.id); }}
+                      disabled={t.soon}
+                      title={t.soon ? t.nombre + ' · Próximamente' : 'Añadir ' + t.nombre}>
+                      <span className="tool-ico" style={{ background: t.color }}><Icon name={t.icon} size={19} /></span>
+                      <span style={{ minWidth: 0 }}>
+                        <span style={{ display: 'block', fontWeight: 700, fontSize: 13.5 }}>{t.nombre}</span>
+                        <span style={{ display: 'block', fontSize: 11.5, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.desc}</span>
+                      </span>
+                      {t.soon
+                        ? <span className="soon-tag">Pronto</span>
+                        : <span className="tool-add">+</span>}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>
