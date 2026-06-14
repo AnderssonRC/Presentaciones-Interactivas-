@@ -37,6 +37,69 @@
 
   const toolById = (id) => TOOLS.find((t) => t.id === id) || TOOLS[0];
 
+  /* ====== Grupos de Interacciones ======
+     Cada grupo agrupa actividades EXISTENTES (por id, con { ref: 'id' }) y,
+     opcionalmente, actividades "próximamente" que aún no están construidas
+     (objeto completo con soon: true). */
+  const GROUPS = [
+    {
+      id: 'fisicas',
+      nombre: 'Pausas Físicas',
+      desc: 'Activan el cuerpo: movimiento por zonas',
+      color: '#F53711',
+      icon: 'rayo',
+      tools: [
+        { id: 'pf-cabeza', nombre: 'Cabeza',        desc: 'Movilidad de cuello y rostro', color: '#F53711', icon: 'user', soon: true },
+        { id: 'pf-torso',  nombre: 'Torso medio',   desc: 'Brazos, hombros y espalda',    color: '#F53711', icon: 'user', soon: true },
+        { id: 'pf-tren',   nombre: 'Tren inferior', desc: 'Piernas, cadera y equilibrio', color: '#F53711', icon: 'user', soon: true },
+      ],
+    },
+    {
+      id: 'cognitivos',
+      nombre: 'Activadores Cognitivos',
+      desc: 'Despiertan el pensamiento y el ingenio',
+      color: '#116CF5',
+      icon: 'bulb',
+      tools: [
+        { id: 'acertijo',   nombre: 'Acertijo',            desc: 'Resuelve el enigma del docente',     color: '#116CF5', icon: 'pregunta', soon: true },
+        { ref: 'ahorcado' },
+        { ref: 'reto' },
+        { id: 'organiza',   nombre: 'Organiza la frase',   desc: 'Ordena palabras, párrafos o letras', color: '#116CF5', icon: 'ordena',   soon: true },
+        { id: 'descubre',   nombre: 'Descubre la palabra', desc: 'Adivínala en seis intentos',         color: '#116CF5', icon: 'letras',   soon: true },
+        { id: 'errores',    nombre: 'Busca los errores',   desc: 'Encuentra fallos en la imagen',      color: '#116CF5', icon: 'eye',      soon: true },
+        { id: 'stop',       nombre: 'Stop',                desc: 'Categorías contra el reloj',         color: '#116CF5', icon: 'clock',    soon: true },
+        { ref: 'sopa' },
+        { id: 'colorea',    nombre: 'Colorea con números', desc: 'Pinta siguiendo la clave numérica',  color: '#116CF5', icon: 'chart',    soon: true },
+        { id: 'crucigrama', nombre: 'Crucigrama',          desc: 'Cruza palabras por sus pistas',      color: '#116CF5', icon: 'sopa',     soon: true },
+        { ref: 'completa' },
+        { ref: 'adivina' },
+      ],
+    },
+    {
+      id: 'evaluadoras',
+      nombre: 'Pausas Evaluadoras',
+      desc: 'Comprueban y consolidan lo aprendido',
+      color: '#11F555',
+      icon: 'check',
+      tools: [
+        { ref: 'ruleta' }, { ref: 'elige' }, { ref: 'crea' }, { ref: 'problema' },
+        { ref: 'vf' }, { ref: 'pares' }, { ref: 'ordena' }, { ref: 'memorama' },
+        { ref: 'encuesta' }, { ref: 'lluvia' }, { ref: 'temporizador' }, { ref: 'selector' },
+        { ref: 'dado' }, { ref: 'marcador' }, { ref: 'debate' },
+      ],
+    },
+  ];
+
+  /* Resuelve cada entrada de un grupo a un objeto completo de herramienta.
+     - { ref: 'id' }          -> toma la herramienta existente del catálogo TOOLS
+     - objeto con soon: true  -> actividad futura (deshabilitada) */
+  function groupTools(group) {
+    return group.tools.map((entry) => {
+      if (entry.ref) return Object.assign({}, toolById(entry.ref), { soon: false });
+      return entry;
+    });
+  }
+
   function defaultConfig(toolId) {
     const t = toolById(toolId);
     const base = { titulo: t.nombre, instrucciones: t.desc + '.', duracion: 120, items: [] };
@@ -189,7 +252,7 @@
   }
 
   window.AIP = {
-    uid, TOOLS, toolById, defaultConfig, seedPresentations,
+    uid, TOOLS, GROUPS, groupTools, toolById, defaultConfig, seedPresentations,
     // auth
     signUp, signIn, signOut, onAuth, currentUid,
     // datos
