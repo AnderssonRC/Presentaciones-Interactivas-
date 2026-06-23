@@ -28,11 +28,15 @@
   <!-- Inicialización de Firebase (debe ir ANTES de db.js) -->
   <script src="js/firebase-config.js"></script>
 
+  <!-- Ejemplos y guías de actividades (antes de db.js: defaultConfig los usa) -->
+  <script src="js/examples.js"></script>
+
   <!-- Datos / capa de acceso -->
   <script src="js/db.js"></script>
 
   <!-- Componentes (text/babel + preset react para compilar JSX en el navegador) -->
   <script type="text/babel" data-presets="react" src="js/tweaks-panel.jsx"></script>
+  <script type="text/babel" data-presets="react" src="js/canvas.jsx"></script>
   <script type="text/babel" data-presets="react" src="js/ui.jsx"></script>
   <script type="text/babel" data-presets="react" src="js/activities.jsx"></script>
   <script type="text/babel" data-presets="react" src="js/login.jsx"></script>
