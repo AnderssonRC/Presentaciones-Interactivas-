@@ -99,31 +99,16 @@ function ScaledSlide({ children, maxH }) {
   );
 }
 
-/* Diapositiva de contenido (imagen + texto). editable => inputs */
-function ContenidoSlide({ slide, materia, accent, editable, onChange }) {
-  const set = (k) => (e) => onChange && onChange({ ...slide, [k]: e.target.value });
+/* Diapositiva de contenido = lienzo libre (cajas movibles + media + fondo).
+   - En modo editable: se arrastran/seleccionan elementos (props selId/onSelect/onChangeEl).
+   - En presentación: solo muestra y reproduce animaciones.
+   Plantillas viejas (titulo/texto/imagen) se migran al vuelo con migrarContenido(). */
+function ContenidoSlide({ slide, editable, selId, onSelect, onChangeEl, replay, pasoActual }) {
+  const migrado = migrarContenido(slide);
   return (
-    <div className="slide-pad" style={{ flexDirection: 'row', gap: 90, alignItems: 'stretch' }}>
-      <div style={{ flex: '1.15 1 0', display: 'flex', flexDirection: 'column', justifyContent: 'center', minWidth: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 22 }}>
-          <div style={{ width: 56, height: 14, background: accent }}></div>
-          <div className="s-kicker" style={{ color: 'var(--slide-kicker)' }}>{materia}</div>
-        </div>
-        {editable ? (
-          <textarea className="slide-input s-title" rows="2" value={slide.titulo} onChange={set('titulo')} placeholder="Título de la plantilla" spellCheck="false"></textarea>
-        ) : (
-          <div className="s-title">{slide.titulo}</div>
-        )}
-        {editable ? (
-          <textarea className="slide-input s-text" rows="5" value={slide.texto} onChange={set('texto')} placeholder="Escribe aquí el contenido…" spellCheck="false"></textarea>
-        ) : (
-          <div className="s-text">{slide.texto}</div>
-        )}
-      </div>
-      <div style={{ flex: '0.85 1 0', display: 'flex', alignItems: 'center' }}>
-        <image-slot id={'img-' + slide.id} shape="rounded" radius="28" placeholder="Arrastra una imagen del tema aquí" style={{ width: '100%', height: 760 }}></image-slot>
-      </div>
-    </div>
+    <LienzoLibre slide={migrado} editable={editable}
+      selId={selId} onSelect={onSelect} onChangeEl={onChangeEl}
+      replay={replay} pasoActual={pasoActual} />
   );
 }
 
