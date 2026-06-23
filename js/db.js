@@ -33,9 +33,49 @@
     { id: 'ahorcado',     nombre: 'Ahorcado',               desc: 'Adivina la palabra letra por letra',    color: '#116CF5', icon: 'ahorcado' },
     { id: 'debate',       nombre: 'Debate: dos posturas',   desc: 'Divide el aula y argumenta',            color: '#11F555', icon: 'debate' },
     { id: 'reto',         nombre: 'Reto relámpago',         desc: 'Desafío sorpresa de 60 segundos',       color: '#F53711', icon: 'rayo' },
+    { id: 'crucigrama',   nombre: 'Crucigrama',             desc: 'Cruza palabras por sus pistas',         color: '#116CF5', icon: 'sopa' },
+    { id: 'organiza',     nombre: 'Organiza la frase',      desc: 'Ordena las palabras del párrafo',       color: '#116CF5', icon: 'ordena' },
+    { id: 'descubre',     nombre: 'Descubre la palabra',    desc: 'Adivínala en seis intentos',            color: '#116CF5', icon: 'letras' },
+    { id: 'stop',         nombre: 'Stop the clock',         desc: 'Categorías del cuadro (una por línea)', color: '#116CF5', icon: 'letras' },
+    { id: 'errores',      nombre: 'Encuentra las diferencias', desc: 'Busca las diferencias en la imagen', color: '#116CF5', icon: 'eye' },
+    { id: 'acertijo',     nombre: 'Acertijo',               desc: 'Resuelve el enigma del docente',        color: '#116CF5', icon: 'pregunta' },
+    { id: 'retaEquipo',   nombre: 'Reta al equipo',         desc: 'Preguntas por turnos: acierta y suma',  color: '#F5C211', icon: 'rayo' },
+    { id: 'pulsador',     nombre: 'Pulsador por turnos',    desc: 'El equipo que pulsa primero responde',  color: '#F5C211', icon: 'trofeo' },
+    { id: 'apuesta',      nombre: 'Apuesta de puntos',      desc: 'Cada equipo apuesta antes de responder', color: '#F5C211', icon: 'dado' },
+    { id: 'recuadros',    nombre: 'Recuadros por equipo',   desc: 'Cada equipo abre su recuadro y memoriza respuestas', color: '#F5C211', icon: 'pares' },
   ];
 
   const toolById = (id) => TOOLS.find((t) => t.id === id) || TOOLS[0];
+
+  /* ====== Modo Equipos ======
+     SOLO_EQUIPOS: actividades diseñadas desde cero para competir por turnos
+     (reparten puntos por sí mismas mediante equiposApi en el presentador).
+     COMPETIBLES: actividades existentes con ganador claro, reutilizables;
+     el docente asigna el ganador a mano al terminar. */
+  const SOLO_EQUIPOS = ['retaEquipo', 'pulsador', 'apuesta', 'recuadros'];
+  const COMPETIBLES = [
+    'ahorcado', 'sopa', 'crucigrama', 'descubre', 'organiza', 'acertijo',
+    'elige', 'vf', 'completa', 'reto', 'ruleta', 'problema',
+  ];
+  const esCompetible = (id) => COMPETIBLES.includes(id) || SOLO_EQUIPOS.includes(id);
+  const esSoloEquipos = (id) => SOLO_EQUIPOS.includes(id);
+
+  // Catálogo del editor de equipos: primero las nativas, luego las reutilizables.
+  function equiposTools() {
+    return [...SOLO_EQUIPOS, ...COMPETIBLES].map((id) => Object.assign({}, toolById(id), { soon: false }));
+  }
+
+  // Paleta y nombres por defecto para equipos nuevos.
+  const EQUIPOS_PALETA = ['#F53711', '#116CF5', '#11F555', '#F5C211', '#9B30FF', '#FF6B9D'];
+  const EQUIPOS_NOMBRES = ['Equipo Rojo', 'Equipo Azul', 'Equipo Verde', 'Equipo Amarillo', 'Equipo Morado', 'Equipo Rosa'];
+
+  // Genera n equipos por defecto (2 a 6) con id, nombre, color y puntos en 0.
+  function equiposPreset(n) {
+    const total = Math.max(2, Math.min(6, n || 3));
+    return Array.from({ length: total }, (_, i) => ({
+      id: uid(), nombre: EQUIPOS_NOMBRES[i], color: EQUIPOS_PALETA[i], puntos: 0,
+    }));
+  }
 
   /* ====== Grupos de Interacciones ======
      Cada grupo agrupa actividades EXISTENTES (por id, con { ref: 'id' }) y,
@@ -61,16 +101,16 @@
       color: '#116CF5',
       icon: 'bulb',
       tools: [
-        { id: 'acertijo',   nombre: 'Acertijo',            desc: 'Resuelve el enigma del docente',     color: '#116CF5', icon: 'pregunta', soon: true },
+        { ref: 'acertijo' },
         { ref: 'ahorcado' },
         { ref: 'reto' },
-        { id: 'organiza',   nombre: 'Organiza la frase',   desc: 'Ordena palabras, párrafos o letras', color: '#116CF5', icon: 'ordena',   soon: true },
-        { id: 'descubre',   nombre: 'Descubre la palabra', desc: 'Adivínala en seis intentos',         color: '#116CF5', icon: 'letras',   soon: true },
-        { id: 'errores',    nombre: 'Busca los errores',   desc: 'Encuentra fallos en la imagen',      color: '#116CF5', icon: 'eye',      soon: true },
-        { id: 'stop',       nombre: 'Stop',                desc: 'Categorías contra el reloj',         color: '#116CF5', icon: 'clock',    soon: true },
+        { ref: 'organiza' },
+        { ref: 'descubre' },
+        { ref: 'errores'},
+        { ref: 'stop' },
         { ref: 'sopa' },
         { id: 'colorea',    nombre: 'Colorea con números', desc: 'Pinta siguiendo la clave numérica',  color: '#116CF5', icon: 'chart',    soon: true },
-        { id: 'crucigrama', nombre: 'Crucigrama',          desc: 'Cruza palabras por sus pistas',      color: '#116CF5', icon: 'sopa',     soon: true },
+        { ref: 'crucigrama' },
         { ref: 'completa' },
         { ref: 'adivina' },
       ],
@@ -102,7 +142,7 @@
 
   function defaultConfig(toolId) {
     const t = toolById(toolId);
-    const base = { titulo: t.nombre, instrucciones: t.desc + '.', duracion: 120, items: [] };
+    const base = { titulo: t.nombre, instrucciones: t.desc + '.', duracion: 120, items: [], puntos: 1 };
     switch (toolId) {
       case 'ruleta':
         base.items = ['¿Qué aprendimos hoy?', 'Da un ejemplo del tema', 'Explica con tus palabras', '¿Dónde lo ves en tu vida diaria?', 'Pregunta sorpresa del docente'];
@@ -253,6 +293,8 @@
 
   window.AIP = {
     uid, TOOLS, GROUPS, groupTools, toolById, defaultConfig, seedPresentations,
+    // modo equipos
+    COMPETIBLES, SOLO_EQUIPOS, esCompetible, esSoloEquipos, equiposTools, equiposPreset,
     // auth
     signUp, signIn, signOut, onAuth, currentUid,
     // datos
