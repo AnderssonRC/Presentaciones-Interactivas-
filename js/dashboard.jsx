@@ -56,7 +56,7 @@ function Dashboard({ profile, presentations, onCreate, onOpen, onPresent, onDele
           <button className="navlink" title="Próximamente">Biblioteca</button>
         </nav>
         <ThemeToggle theme={theme} setTheme={setTheme} />
-        <button className="btn btn-primary" onClick={onCreate} style={{ borderRadius: 999 }}>
+        <button className="btn btn-primary" onClick={() => onCreate("normal")} style={{ borderRadius: 999 }}>
           <Icon name="mas" size={16} /> Crear nueva Presentación
         </button>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 6 }}>
@@ -79,8 +79,9 @@ function Dashboard({ profile, presentations, onCreate, onOpen, onPresent, onDele
             Bienvenido a la plataforma de Presentaciones Didácticas e Interactivas para Docentes
             con solo un televisor o video beam.
           </p>
-          <div style={{ display: 'flex', gap: 12, marginTop: 26 }}>
-            <button className="btn btn-lg btn-white" onClick={onCreate}><Icon name="mas" size={17} /> Crear nueva Presentación</button>
+          <div style={{ display: 'flex', gap: 12, marginTop: 26, flexWrap: 'wrap' }}>
+            <button className="btn btn-lg btn-white" onClick={() => onCreate('normal')}><Icon name="mas" size={17} /> Crear nueva Presentación</button>
+            <button className="btn btn-lg btn-glass" onClick={() => onCreate('equipos')}><Icon name="trofeo" size={17} /> Modo Equipos</button>
             {presentations.length > 0 && (
               <button className="btn btn-lg btn-glass" onClick={() => onPresent(presentations[0].id)}>
                 <Icon name="play" size={16} /> Presentar la más reciente
@@ -133,7 +134,7 @@ function Dashboard({ profile, presentations, onCreate, onOpen, onPresent, onDele
           </div>
         ) : (
           <div className="pres-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(262px, 1fr))', gap: 18 }}>
-            <button className="create-card" onClick={onCreate}>
+            <button className="create-card" onClick={() => onCreate("normal")}>
               <span style={{ width: 52, height: 52, borderRadius: 16, display: 'grid', placeItems: 'center', background: 'var(--surface2)' }}>
                 <Icon name="mas" size={24} />
               </span>
