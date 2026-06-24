@@ -1,0 +1,215 @@
+/* student.jsx — Vista del estudiante en su celular.
+   Se usa desde remote.jsx cuando el rol elegido es 'estudiante'.
+
+   Flujo:
+     1. El estudiante escribe su nombre (y grupo, si aplica) y se une.
+     2. Ve un ESPEJO de lo que está en el televisor (slide/actividad).
+     3. En actividades normales: botón "✋ Participar" (levantar la mano).
+     4. En el Quiz: ve las opciones y responde (el más rápido correcto gana).
+
+   El estado de la sala llega por listenRemoteSession (campo state.mirror
+   y state.ronda). Las acciones del estudiante se escriben en su propio
+   documento de participante (raiseHand / submitAnswer). */
+
+function StudentView({ code }) {
+  const [pid, setPid] = React.useState(null);
+  const [nombre, setNombre] = React.useState('');
+  const [grupo, setGrupo] = React.useState('');
+  const [joining, setJoining] = React.useState(false);
+  const [error, setError] = React.useState('');
+  const [state, setState] = React.useState(null);
+  const [yoLevante, setYoLevante] = React.useState(false);
+  const [miRespuesta, setMiRespuesta] = React.useState(null);
+
+  // Escuchar el estado de la sala (espejo + ronda).
+  React.useEffect(() => {
+    if (!pid || !code || !AIP.listenRemoteSession) return;
+    const unsub = AIP.listenRemoteSession(code, (data) => {
+      if (data === null) { setError('La presentación terminó.'); return; }
+      setState(data.state || {});
+    });
+    return unsub;
+  }, [pid, code]);
+
+  // Cuando empieza una ronda nueva (manos reseteadas), limpiar mi estado local.
+  const fase = state && state.ronda ? state.ronda.fase : 'idle';
+  React.useEffect(() => {
+    if (fase === 'idle') { setYoLevante(false); }
+    if (fase === 'pedir') { setYoLevante(false); }
+  }, [fase]);
+
+  // Cuando cambia la diapositiva, limpiar mi respuesta del quiz anterior.
+  const idx = state ? state.idx : null;
+  React.useEffect(() => { setMiRespuesta(null); }, [idx]);
+
+  async function unirse() {
+    if (!nombre.trim()) { setError('Escribe tu nombre.'); return; }
+    setJoining(true); setError('');
+    try {
+      const id = await AIP.joinSession(code, nombre, grupo);
+      setPid(id);
+    } catch (e) {
+      console.error(e);
+      setError('No me pude unir. Revisa el código o tu internet.');
+    } finally {
+      setJoining(false);
+    }
+  }
+
+  const levantarMano = async () => {
+    setYoLevante(true);
+    if (navigator.vibrate) navigator.vibrate(20);
+    try { await AIP.raiseHand(code, pid); } catch (e) { console.error(e); setYoLevante(false); }
+  };
+
+  const responder = async (i) => {
+    if (miRespuesta !== null) return;
+    setMiRespuesta(i);
+    if (navigator.vibrate) navigator.vibrate(15);
+    try { await AIP.submitAnswer(code, pid, i); } catch (e) { console.error(e); }
+  };
+
+  // ----- Pantalla: unirse -----
+  if (!pid) {
+    return (
+      <div style={svWrap}>
+        <div style={{ textAlign: 'center', maxWidth: 360, width: '100%' }}>
+          <div style={{ fontSize: 40, marginBottom: 6 }}>🎓</div>
+          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 26, margin: '0 0 4px', color: '#F2F5EF' }}>Únete a la clase</h1>
+          <p style={{ color: '#9AA396', margin: '0 0 24px', fontSize: 14 }}>Sala {code}</p>
+          <input value={nombre} onChange={(e) => setNombre(e.target.value.slice(0, 24))}
+            placeholder="Tu nombre" style={svInput} />
+          <input value={grupo} onChange={(e) => setGrupo(e.target.value.slice(0, 24))}
+            placeholder="Tu grupo (opcional)" style={svInput} />
+          {error && <div style={{ color: '#F53711', fontSize: 14, margin: '4px 0 12px' }}>{error}</div>}
+          <button onClick={unirse} disabled={joining || !nombre.trim()}
+            style={{ ...svBtn, background: nombre.trim() ? '#11F555' : '#2A2F29', color: nombre.trim() ? '#06140A' : '#9AA396', marginTop: 6 }}>
+            {joining ? 'Entrando…' : 'Entrar'}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const st = state || {};
+  const mirror = st.mirror || {};
+  const esActividad = mirror.tipo === 'actividad';
+  // El Quiz interactivo (responder desde el celular) llega en el Bloque 2.
+  // Por ahora, todas las actividades usan el modo "espejo + levantar la mano".
+  const esQuiz = false;
+  const elegidoSoyYo = fase === 'sorteo' && st.ronda && st.ronda.elegido === pid;
+
+  // ----- Pantalla: dentro de la sala -----
+  return (
+    <div style={{ ...svWrap, justifyContent: 'flex-start', paddingTop: 20 }}>
+      <div style={{ width: '100%', maxWidth: 440 }}>
+
+        {/* Cabecera */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+          <div>
+            <div style={{ color: '#9AA396', fontSize: 12, fontWeight: 600 }}>{nombre}{grupo ? ' · ' + grupo : ''}</div>
+            <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 16, color: '#F2F5EF' }}>{st.tema || 'Clase'}</div>
+          </div>
+          <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 18, color: '#11F555', background: '#141814', borderRadius: 10, padding: '6px 12px', border: '2px solid #2A2F29' }}>
+            {(st.idx != null ? st.idx + 1 : '–')}/{st.total || '–'}
+          </div>
+        </div>
+
+        {/* Espejo del contenido actual */}
+        <div style={{ background: '#141814', border: '2px solid #2A2F29', borderRadius: 16, padding: 18, marginBottom: 16 }}>
+          {esActividad ? (
+            <div>
+              <div style={{ fontSize: 12, color: mirror.color || '#116CF5', fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase' }}>{mirror.nombre || 'Actividad'}</div>
+              <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 22, color: '#F2F5EF', marginTop: 4 }}>{mirror.titulo}</div>
+              {mirror.instrucciones && <div style={{ fontSize: 14, color: '#B9C2B5', marginTop: 8 }}>{mirror.instrucciones}</div>}
+            </div>
+          ) : (
+            <div>
+              <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 22, color: '#F2F5EF' }}>{mirror.titulo || 'Contenido'}</div>
+              {mirror.texto && <div style={{ fontSize: 15, color: '#B9C2B5', marginTop: 8, lineHeight: 1.4 }}>{mirror.texto}</div>}
+            </div>
+          )}
+        </div>
+
+        {/* ¿Me eligieron para participar? */}
+        {elegidoSoyYo && (
+          <div style={{ background: '#11F555', borderRadius: 16, padding: 20, marginBottom: 16, textAlign: 'center' }}>
+            <div style={{ fontSize: 30 }}>🙌</div>
+            <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 22, color: '#06140A', marginTop: 4 }}>¡Te toca participar!</div>
+          </div>
+        )}
+
+        {/* Quiz: opciones para responder */}
+        {esQuiz && (
+          <QuizOptions tool={mirror.tool} onAnswer={responder} mine={miRespuesta} />
+        )}
+
+        {/* Participación (actividades normales): levantar la mano */}
+        {!esQuiz && (
+          <div>
+            {fase === 'pedir' ? (
+              <button onClick={levantarMano} disabled={yoLevante}
+                style={{ ...svBtn, background: yoLevante ? '#2A2F29' : '#116CF5', color: yoLevante ? '#9AA396' : '#fff', fontSize: 20, padding: '22px 0' }}>
+                {yoLevante ? '✋ Mano levantada' : '✋ ¡Yo participo!'}
+              </button>
+            ) : (
+              <div style={{ textAlign: 'center', color: '#7B857A', fontSize: 14, padding: '20px 0' }}>
+                {fase === 'sorteo' && !elegidoSoyYo ? 'El docente eligió a otra persona esta vez.' : 'Mira la pantalla. Cuando el docente pida participación, aparecerá aquí el botón.'}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* Opciones del quiz (estilo Kahoot: colores + formas). */
+function QuizOptions({ tool, onAnswer, mine }) {
+  // El estudiante no conoce las opciones reales (van en la TV), así que
+  // muestra 4 botones de color/forma A-B-C-D. La TV es el árbitro: sabe
+  // cuál índice es el correcto y quién respondió primero.
+  const OPC = [
+    { c: '#F53711', s: '▲', l: 'A' },
+    { c: '#116CF5', s: '◆', l: 'B' },
+    { c: '#F5C211', s: '●', l: 'C' },
+    { c: '#11F555', s: '■', l: 'D' },
+  ];
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+      {OPC.map((o, i) => (
+        <button key={i} onClick={() => onAnswer(i)} disabled={mine !== null}
+          style={{
+            padding: '28px 0', borderRadius: 16, border: 'none', cursor: mine === null ? 'pointer' : 'default',
+            background: o.c, color: '#fff', fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 34,
+            opacity: mine === null || mine === i ? 1 : 0.35,
+            outline: mine === i ? '4px solid #fff' : 'none',
+          }}>
+          {o.s} <span style={{ fontSize: 22 }}>{o.l}</span>
+        </button>
+      ))}
+      {mine !== null && (
+        <div style={{ gridColumn: '1 / -1', textAlign: 'center', color: '#9AA396', fontSize: 14, marginTop: 4 }}>
+          Respuesta enviada · mira la pantalla
+        </div>
+      )}
+    </div>
+  );
+}
+
+const svWrap = {
+  position: 'fixed', inset: 0, background: '#0B0E0B',
+  display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+  padding: 18, boxSizing: 'border-box', overflowY: 'auto',
+};
+const svInput = {
+  width: '100%', fontSize: 18, padding: '14px 16px', marginBottom: 12,
+  borderRadius: 12, border: '2px solid #2A2F29', background: '#141814',
+  color: '#F2F5EF', boxSizing: 'border-box', fontFamily: 'inherit',
+};
+const svBtn = {
+  width: '100%', padding: '16px 0', fontSize: 18, fontWeight: 800,
+  fontFamily: 'var(--font-display)', borderRadius: 14, border: 'none', cursor: 'pointer',
+};
+
+Object.assign(window, { StudentView, QuizOptions });
