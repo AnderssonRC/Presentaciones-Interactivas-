@@ -61,18 +61,13 @@ function App() {
     AIP.savePresentation(pres).catch((e) => console.error('No se pudo guardar:', e));
   };
 
-  const createPres = (modo) => {
+  const createPres = () => {
     const colors = ['#11F555', '#F53711', '#116CF5'];
-    const esEquipos = modo === 'equipos';
     const nueva = {
-      id: AIP.uid(),
-      tema: esEquipos ? 'Competencia por equipos' : 'Nueva presentación',
-      materia: 'Mi materia',
+      id: AIP.uid(), tema: 'Nueva presentación', materia: 'Mi materia',
       objetivo: 'Escribe aquí el objetivo de aprendizaje.',
       color: colors[presentations.length % colors.length], usos: 0,
-      modo: esEquipos ? 'equipos' : 'normal',
-      equipos: esEquipos ? AIP.equiposPreset(3) : [],
-      slides: [{ id: AIP.uid(), type: 'contenido', titulo: esEquipos ? 'Bienvenidos a la competencia' : 'Mi primera plantilla', texto: 'Haz clic aquí para escribir el contenido.', imagen: { tipo: 'url', valor: '' } }],
+      slides: [{ id: AIP.uid(), type: 'contenido', titulo: 'Mi primera plantilla', texto: 'Haz clic aquí para escribir el contenido.', imagen: { tipo: 'url', valor: '' } }],
     };
     persist(nueva);
     setEditingId(nueva.id);
@@ -141,7 +136,7 @@ function App() {
           onCreate={createPres} onOpen={setEditingId} onPresent={present} onDelete={deletePres} onLogout={logout}
           theme={theme} setTheme={setTheme} />
       )}
-      {presenting && <Presenter pres={presenting} onChange={changePres} onExit={() => setPresentingId(null)} />}
+      {presenting && <Presenter pres={presenting} onExit={() => setPresentingId(null)} />}
       <AppTweaks t={t} setTweak={setTweak} />
     </React.Fragment>
   );
@@ -180,4 +175,23 @@ function AppTweaks({ t, setTweak }) {
   );
 }
 
-ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+/* Si la URL trae ?remote=CÓDIGO, este dispositivo es el control remoto
+   (el celular del docente), no la app principal. */
+function Root() {
+  const remoteCode = new URLSearchParams(location.search).get('remote');
+  React.useEffect(() => {
+    if (remoteCode) {
+      // El control remoto no monta <App>, así que fijamos aquí las
+      // variables de tema que usan los estilos.
+      const root = document.documentElement;
+      root.dataset.theme = 'noche';
+      root.style.setProperty('--font-display', "'Sora', sans-serif");
+      root.style.setProperty('--acento', '#11F555');
+      root.style.setProperty('--acento-text', '#06140A');
+    }
+  }, [remoteCode]);
+  if (remoteCode) return <RemoteControl initialCode={remoteCode} />;
+  return <App />;
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<Root />);
