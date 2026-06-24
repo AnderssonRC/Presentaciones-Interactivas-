@@ -39,43 +39,9 @@
     { id: 'stop',         nombre: 'Stop the clock',         desc: 'Categorías del cuadro (una por línea)', color: '#116CF5', icon: 'letras' },
     { id: 'errores',      nombre: 'Encuentra las diferencias', desc: 'Busca las diferencias en la imagen', color: '#116CF5', icon: 'eye' },
     { id: 'acertijo',     nombre: 'Acertijo',               desc: 'Resuelve el enigma del docente',        color: '#116CF5', icon: 'pregunta' },
-    { id: 'retaEquipo',   nombre: 'Reta al equipo',         desc: 'Preguntas por turnos: acierta y suma',  color: '#F5C211', icon: 'rayo' },
-    { id: 'pulsador',     nombre: 'Pulsador por turnos',    desc: 'El equipo que pulsa primero responde',  color: '#F5C211', icon: 'trofeo' },
-    { id: 'apuesta',      nombre: 'Apuesta de puntos',      desc: 'Cada equipo apuesta antes de responder', color: '#F5C211', icon: 'dado' },
-    { id: 'recuadros',    nombre: 'Recuadros por equipo',   desc: 'Cada equipo abre su recuadro y memoriza respuestas', color: '#F5C211', icon: 'pares' },
   ];
 
   const toolById = (id) => TOOLS.find((t) => t.id === id) || TOOLS[0];
-
-  /* ====== Modo Equipos ======
-     SOLO_EQUIPOS: actividades diseñadas desde cero para competir por turnos
-     (reparten puntos por sí mismas mediante equiposApi en el presentador).
-     COMPETIBLES: actividades existentes con ganador claro, reutilizables;
-     el docente asigna el ganador a mano al terminar. */
-  const SOLO_EQUIPOS = ['retaEquipo', 'pulsador', 'apuesta', 'recuadros'];
-  const COMPETIBLES = [
-    'ahorcado', 'sopa', 'crucigrama', 'descubre', 'organiza', 'acertijo',
-    'elige', 'vf', 'completa', 'reto', 'ruleta', 'problema',
-  ];
-  const esCompetible = (id) => COMPETIBLES.includes(id) || SOLO_EQUIPOS.includes(id);
-  const esSoloEquipos = (id) => SOLO_EQUIPOS.includes(id);
-
-  // Catálogo del editor de equipos: primero las nativas, luego las reutilizables.
-  function equiposTools() {
-    return [...SOLO_EQUIPOS, ...COMPETIBLES].map((id) => Object.assign({}, toolById(id), { soon: false }));
-  }
-
-  // Paleta y nombres por defecto para equipos nuevos.
-  const EQUIPOS_PALETA = ['#F53711', '#116CF5', '#11F555', '#F5C211', '#9B30FF', '#FF6B9D'];
-  const EQUIPOS_NOMBRES = ['Equipo Rojo', 'Equipo Azul', 'Equipo Verde', 'Equipo Amarillo', 'Equipo Morado', 'Equipo Rosa'];
-
-  // Genera n equipos por defecto (2 a 6) con id, nombre, color y puntos en 0.
-  function equiposPreset(n) {
-    const total = Math.max(2, Math.min(6, n || 3));
-    return Array.from({ length: total }, (_, i) => ({
-      id: uid(), nombre: EQUIPOS_NOMBRES[i], color: EQUIPOS_PALETA[i], puntos: 0,
-    }));
-  }
 
   /* ====== Grupos de Interacciones ======
      Cada grupo agrupa actividades EXISTENTES (por id, con { ref: 'id' }) y,
@@ -142,7 +108,7 @@
 
   function defaultConfig(toolId) {
     const t = toolById(toolId);
-    const base = { titulo: t.nombre, instrucciones: t.desc + '.', duracion: 120, items: [], puntos: 1 };
+    const base = { titulo: t.nombre, instrucciones: t.desc + '.', duracion: 120, items: [] };
     switch (toolId) {
       case 'ruleta':
         base.items = ['¿Qué aprendimos hoy?', 'Da un ejemplo del tema', 'Explica con tus palabras', '¿Dónde lo ves en tu vida diaria?', 'Pregunta sorpresa del docente'];
@@ -291,13 +257,183 @@
     await presCol(u).doc(id).delete();
   }
 
+  /* ============================================================
+     Control remoto (el celular como mando de la presentación)
+     ------------------------------------------------------------
+     Modelo en Firestore:
+       remoteSessions/{code}  -> documento ÚNICO por sesión
+
+     El documento es un "estado espejo": la TV (Presenter) escribe
+     el estado de la presentación, y el celular escribe "comandos".
+     Ambos escuchan el mismo documento con onSnapshot y reaccionan.
+
+     Campos del documento:
+       code      : el código corto (también es el id del doc)
+       ownerUid  : uid del docente dueño (para reglas de seguridad)
+       createdAt : marca de tiempo de creación
+       state     : { idx, total, tema, modo, hideScores,
+                     activity: {tool, titulo}, teams:[{name,color,score}] }
+       command   : { type, payload, nonce }  <- lo escribe el celular
+                   La TV procesa el comando y luego lo limpia (nonce).
+     ============================================================ */
+
+  // Genera un código corto legible (4 dígitos). Evita el 0 inicial.
+  function genSessionCode() {
+    return String(Math.floor(1000 + Math.random() * 9000));
+  }
+
+  function remoteCol() {
+    return requireDB().collection('remoteSessions');
+  }
+
+  // La TV crea (o reusa) una sesión. Devuelve { code, ref }.
+  // Reintenta si el código ya está ocupado por otra sesión viva.
+  async function createRemoteSession(initialState) {
+    const u = currentUid();
+    if (!u) throw new Error('No hay sesión activa.');
+    for (let intento = 0; intento < 6; intento++) {
+      const code = genSessionCode();
+      const ref = remoteCol().doc(code);
+      const snap = await ref.get();
+      // Si existe y fue creada hace menos de 6 h, está "viva": probamos otro código.
+      if (snap.exists) {
+        const data = snap.data();
+        const fresca = data.createdAt && (Date.now() - data.createdAt) < 6 * 3600 * 1000;
+        if (fresca && data.ownerUid !== u) continue;
+      }
+      await ref.set({
+        code,
+        ownerUid: u,
+        createdAt: Date.now(),
+        state: initialState || {},
+        command: null,
+      });
+      return { code, ref };
+    }
+    throw new Error('No se pudo crear la sesión de control remoto. Intenta de nuevo.');
+  }
+
+  // La TV actualiza el estado espejo (solo el campo state).
+  async function updateRemoteState(code, state) {
+    if (!code) return;
+    await remoteCol().doc(code).set({ state }, { merge: true });
+  }
+
+  // La TV limpia el comando ya procesado (evita repetirlo).
+  async function clearRemoteCommand(code) {
+    if (!code) return;
+    await remoteCol().doc(code).set({ command: null }, { merge: true });
+  }
+
+  // El celular envía un comando. nonce hace cada comando único e idempotente.
+  async function sendRemoteCommand(code, type, payload) {
+    if (!code) return;
+    const command = { type, payload: payload || null, nonce: uid(), at: Date.now() };
+    await remoteCol().doc(code).set({ command }, { merge: true });
+  }
+
+  // Cualquiera de los dos lados escucha el documento de la sesión.
+  // cb recibe el data completo (o null si la sesión no existe).
+  function listenRemoteSession(code, cb) {
+    if (!code) return () => {};
+    return remoteCol().doc(code).onSnapshot(
+      (snap) => cb(snap.exists ? snap.data() : null),
+      (err) => { console.error('[remote] onSnapshot:', err); cb(null, err); }
+    );
+  }
+
+  // El celular comprueba que la sesión existe antes de "entrar".
+  async function getRemoteSession(code) {
+    if (!code) return null;
+    const snap = await remoteCol().doc(code).get();
+    return snap.exists ? snap.data() : null;
+  }
+
+  // La TV cierra la sesión al salir del modo Presentar.
+  async function closeRemoteSession(code) {
+    if (!code) return;
+    try {
+      // Borra participantes y respuestas antes de borrar la sesión.
+      const parts = await remoteCol().doc(code).collection('participants').get();
+      await Promise.all(parts.docs.map((d) => d.ref.delete()));
+      await remoteCol().doc(code).delete();
+    } catch (e) { /* silencioso */ }
+  }
+
+  /* ============================================================
+     Sala multijugador (estudiantes)
+     ------------------------------------------------------------
+     Subcolección:
+       remoteSessions/{code}/participants/{pid}
+         { pid, nombre, grupo, joinedAt, hand, handAt, answer, answerAt }
+
+     - Cada estudiante es un documento propio (no se pisan al escribir).
+     - 'hand' = pidió la palabra (levantó la mano) para participación.
+     - 'answer' = su respuesta en el Quiz.
+     El estado de la ronda (qué se pregunta, si está abierta) vive en
+     el campo state.live del documento de la sesión, que escribe la TV.
+     ============================================================ */
+
+  function partsCol(code) {
+    return remoteCol().doc(code).collection('participants');
+  }
+
+  // El estudiante se une a la sala. Devuelve su pid (id de participante).
+  async function joinSession(code, nombre, grupo) {
+    if (!code) throw new Error('Falta el código.');
+    const sess = await remoteCol().doc(code).get();
+    if (!sess.exists) throw new Error('No existe esa sala.');
+    const pid = uid();
+    await partsCol(code).doc(pid).set({
+      pid,
+      nombre: (nombre || '').trim() || 'Estudiante',
+      grupo: (grupo || '').trim() || null,
+      joinedAt: Date.now(),
+      hand: false, handAt: null,
+      answer: null, answerAt: null,
+    });
+    return pid;
+  }
+
+  // El estudiante levanta la mano (pide participar).
+  async function raiseHand(code, pid) {
+    if (!code || !pid) return;
+    await partsCol(code).doc(pid).set({ hand: true, handAt: Date.now() }, { merge: true });
+  }
+
+  // El estudiante responde el Quiz (índice de la opción elegida).
+  async function submitAnswer(code, pid, optionIndex) {
+    if (!code || !pid) return;
+    await partsCol(code).doc(pid).set({ answer: optionIndex, answerAt: Date.now() }, { merge: true });
+  }
+
+  // La TV limpia manos/respuestas de todos al empezar una ronda nueva.
+  async function resetRound(code) {
+    if (!code) return;
+    const snap = await partsCol(code).get();
+    await Promise.all(snap.docs.map((d) =>
+      d.ref.set({ hand: false, handAt: null, answer: null, answerAt: null }, { merge: true })));
+  }
+
+  // La TV (y opcionalmente el celular) escucha la lista de participantes.
+  function listenParticipants(code, cb) {
+    if (!code) return () => {};
+    return partsCol(code).onSnapshot(
+      (snap) => cb(snap.docs.map((d) => d.data())),
+      (err) => { console.error('[remote] participants:', err); cb([], err); }
+    );
+  }
+
   window.AIP = {
     uid, TOOLS, GROUPS, groupTools, toolById, defaultConfig, seedPresentations,
-    // modo equipos
-    COMPETIBLES, SOLO_EQUIPOS, esCompetible, esSoloEquipos, equiposTools, equiposPreset,
     // auth
     signUp, signIn, signOut, onAuth, currentUid,
     // datos
     loadPresentations, savePresentation, deletePresentation,
+    // control remoto
+    createRemoteSession, updateRemoteState, clearRemoteCommand,
+    sendRemoteCommand, listenRemoteSession, getRemoteSession, closeRemoteSession,
+    // sala multijugador
+    joinSession, raiseHand, submitAnswer, resetRound, listenParticipants,
   };
 })();
