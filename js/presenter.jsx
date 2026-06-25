@@ -8,6 +8,22 @@
      - El Presenter ESCRIBE el estado (slide actual, equipos, puntajes…)
      - El celular ESCRIBE comandos; el Presenter los ESCUCHA y reacciona. */
 
+/* Hash corto y determinista del PIN del mando.
+   Sirve para que el celular valide el PIN sin que el PIN viaje en claro
+   por el estado espejo (que cualquiera con el código puede leer).
+   No es criptográficamente fuerte, pero evita el acceso casual: ver el
+   código o el estado no revela el PIN. Definido con guardia para no
+   duplicarlo entre presenter.jsx y remote.jsx. */
+if (!window.hashPin) {
+  window.hashPin = function hashPin(pin) {
+    const s = String(pin || '');
+    if (!s) return '';
+    let h = 5381;
+    for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) >>> 0;
+    return 'p' + h.toString(36);
+  };
+}
+
 /* ---------- Marcador global de equipos ---------- */
 function TeamScoreboard({ teams, hidden, accentText }) {
   if (!teams || !teams.length) return null;
@@ -163,9 +179,9 @@ function Presenter({ pres, onExit }) {
   const lastNonce = React.useRef(null);
 
   // --- Estudiantes / participación ---
-  // Permitir estudiantes: por ahora siempre activo si la presentación lo marca,
-  // o si el docente lo activa en vivo. Lo dejamos activo por defecto.
-  const conEstudiantes = pres.estudiantes !== false;
+  // Permitir estudiantes: SOLO si la presentación lo activa explícitamente.
+  // Por defecto está desactivado (no toda clase usa celulares).
+  const conEstudiantes = pres.estudiantes === true;
   const [participants, setParticipants] = React.useState([]);
   // Ronda de participación: 'idle' | 'pedir' (manos abiertas) | 'sorteo' (ya hay elegido)
   const [ronda, setRonda] = React.useState('idle');
@@ -299,10 +315,15 @@ function Presenter({ pres, onExit }) {
       activity: isAct ? { tool: slide.tool, titulo: cfg.titulo || (t && t.nombre) || '' } : null,
       teams: esEquipos ? teams : [],
       mirror,
+      // ¿Los estudiantes pueden participar con el celular en esta presentación?
+      permiteEstudiantes: conEstudiantes,
+      // Seguridad del mando: publicamos SOLO un hash del PIN, nunca el PIN en claro.
+      // Así, ver el código de la sala no revela el PIN del docente.
+      mandoHash: window.hashPin(pres.mandoPin || ''),
       // Estado de la ronda de participación para los estudiantes.
       ronda: { fase: ronda, elegido },
     });
-  }, [remoteCode, idx, slides.length, hideScores, teams, esEquipos, ronda, elegido]);
+  }, [remoteCode, idx, slides.length, hideScores, teams, esEquipos, ronda, elegido, conEstudiantes]);
 
   const slide = slides[Math.min(idx, slides.length - 1)];
   const isAct = slide.type === 'actividad';

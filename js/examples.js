@@ -335,6 +335,88 @@ window.ACT_EJEMPLOS = {
     },
   },
 
+  lluvia: {
+    que: 'Recoge las ideas del grupo en una nube de palabras que crece en vivo. Las respuestas repetidas se hacen más grandes.',
+    comoVe: 'Una nube de palabras de colores; el docente escribe cada idea y aparece al instante, y las repetidas crecen.',
+    formato: 'Normalmente se llena en vivo durante la clase. Si quieres, deja aquí algunas ideas iniciales (una por línea).',
+    ejemplo: {
+      titulo: '¿Qué sabes sobre el reciclaje?',
+      instrucciones: 'Digan ideas sobre el tema: las repetidas crecen.',
+      items: ['Plástico', 'Vidrio', 'Papel', 'Compost', 'Plástico'],
+    },
+  },
+
+  pares: {
+    que: 'El docente arma parejas (concepto, frase o imagen) y el grupo las une en pantalla tocando un elemento y luego su pareja.',
+    comoVe: 'Dos columnas barajadas; al tocar un elemento de la izquierda y su par a la derecha, quedan marcados en verde.',
+    formato: 'Cada línea: izquierda = derecha. Cualquier lado puede ser imagen escribiendo "img:" antes de la URL. Ej: Perro = Mamífero · img:https://... = Planeta',
+    ejemplo: {
+      titulo: 'Une el cuerpo con su función',
+      instrucciones: 'Toca un órgano y luego su función.',
+      items: [
+        'Corazón = Bombea la sangre',
+        'Pulmones = Permiten respirar',
+        'Estómago = Digiere los alimentos',
+        'Cerebro = Controla el cuerpo',
+      ],
+    },
+  },
+
+  encuesta: {
+    que: 'Una votación rápida a mano alzada: el docente suma los votos de cada opción y las barras crecen en vivo.',
+    comoVe: 'Cada opción con su barra de porcentaje y su número de votos; la más votada se resalta.',
+    formato: 'Una opción por línea. Durante la actividad usas +/− para contar los votos del grupo.',
+    ejemplo: {
+      titulo: '¿Qué tema repasamos primero?',
+      instrucciones: 'Levanten la mano por su opción; iré sumando.',
+      items: ['Fracciones', 'Geometría', 'Multiplicación', 'Problemas'],
+    },
+  },
+
+  debate: {
+    que: 'Divide al grupo en dos posturas y da a cada una su propio tiempo para argumentar, con la pregunta del debate visible.',
+    comoVe: 'La pregunta en grande y dos cronómetros independientes, uno por postura.',
+    formato: 'Tres líneas: 1) la pregunta del debate, 2) nombre de la postura A, 3) nombre de la postura B. El tiempo por postura está en "Tiempo (segundos)".',
+    ejemplo: {
+      titulo: 'Debate en clase',
+      instrucciones: 'Cada postura usa su tiempo para defender su posición.',
+      items: ['¿Deberían los celulares usarse en clase?', 'A favor', 'En contra'],
+    },
+  },
+
+  memorama: {
+    que: 'Juego de memoria: cartas boca abajo que se voltean de a dos buscando parejas (texto o imagen).',
+    comoVe: 'Una cuadrícula de cartas con “?”; al tocar dos, si coinciden quedan descubiertas en verde.',
+    formato: 'Cada línea es una pareja: A = B. Cualquier lado puede ser imagen con "img:URL". Ej: Perro = Mamífero · img:https://... = Sol',
+    ejemplo: {
+      titulo: 'Memorama de ciencias',
+      instrucciones: 'Encuentra las parejas volteando dos cartas.',
+      items: [
+        'Sol = Estrella',
+        'Agua = H₂O',
+        'Hoja = Fotosíntesis',
+        'Corazón = Bombea sangre',
+      ],
+    },
+  },
+
+  ordena: {
+    que: 'El grupo arrastra y suelta los pasos hasta dejarlos en el orden correcto; un botón comprueba aciertos y errores.',
+    comoVe: 'Una lista de pasos barajados con números; al comprobar, cada uno se marca verde (bien ubicado) o rojo.',
+    formato: 'Escribe los pasos en el ORDEN CORRECTO, uno por línea. El juego los baraja solo al presentar.',
+    ejemplo: {
+      titulo: 'Pasos para lavarse las manos',
+      instrucciones: 'Arrastra los pasos al orden correcto y comprueba.',
+      items: [
+        'Abrir la llave y mojarse las manos',
+        'Aplicar jabón',
+        'Frotar por 20 segundos',
+        'Enjuagar con agua',
+        'Secar con una toalla limpia',
+      ],
+    },
+  },
+
 };
 
 /* Devuelve la guía de una actividad (o null si no existe ejemplo). */

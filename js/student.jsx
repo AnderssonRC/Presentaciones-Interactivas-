@@ -94,9 +94,9 @@ function StudentView({ code }) {
   const st = state || {};
   const mirror = st.mirror || {};
   const esActividad = mirror.tipo === 'actividad';
-  // El Quiz interactivo (responder desde el celular) llega en el Bloque 2.
-  // Por ahora, todas las actividades usan el modo "espejo + levantar la mano".
-  const esQuiz = false;
+  // Quiz activo: el Presenter lo señala en st.quiz con fase 'abierta'/'cerrada'.
+  const quiz = st.quiz || { fase: 'idle' };
+  const quizActivo = quiz.fase === 'abierta' || quiz.fase === 'cerrada';
   const elegidoSoyYo = fase === 'sorteo' && st.ronda && st.ronda.elegido === pid;
 
   // ----- Pantalla: dentro de la sala -----
@@ -131,22 +131,20 @@ function StudentView({ code }) {
           )}
         </div>
 
-        {/* ¿Me eligieron para participar? */}
-        {elegidoSoyYo && (
-          <div style={{ background: '#11F555', borderRadius: 16, padding: 20, marginBottom: 16, textAlign: 'center' }}>
-            <div style={{ fontSize: 30 }}>🙌</div>
-            <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 22, color: '#06140A', marginTop: 4 }}>¡Te toca participar!</div>
-          </div>
-        )}
+        {/* Quiz activo: responder con opciones (texto + color) */}
+        {quizActivo ? (
+          <QuizOptions quiz={quiz} onAnswer={responder} mine={miRespuesta} pid={pid} />
+        ) : (
+          <>
+            {/* ¿Me eligieron para participar? */}
+            {elegidoSoyYo && (
+              <div style={{ background: '#11F555', borderRadius: 16, padding: 20, marginBottom: 16, textAlign: 'center' }}>
+                <div style={{ fontSize: 30 }}>🙌</div>
+                <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 22, color: '#06140A', marginTop: 4 }}>¡Te toca participar!</div>
+              </div>
+            )}
 
-        {/* Quiz: opciones para responder */}
-        {esQuiz && (
-          <QuizOptions tool={mirror.tool} onAnswer={responder} mine={miRespuesta} />
-        )}
-
-        {/* Participación (actividades normales): levantar la mano */}
-        {!esQuiz && (
-          <div>
+            {/* Participación (actividades normales): levantar la mano */}
             {fase === 'pedir' ? (
               <button onClick={levantarMano} disabled={yoLevante}
                 style={{ ...svBtn, background: yoLevante ? '#2A2F29' : '#116CF5', color: yoLevante ? '#9AA396' : '#fff', fontSize: 20, padding: '22px 0' }}>
@@ -154,43 +152,68 @@ function StudentView({ code }) {
               </button>
             ) : (
               <div style={{ textAlign: 'center', color: '#7B857A', fontSize: 14, padding: '20px 0' }}>
-                {fase === 'sorteo' && !elegidoSoyYo ? 'El docente eligió a otra persona esta vez.' : 'Mira la pantalla. Cuando el docente pida participación, aparecerá aquí el botón.'}
+                {fase === 'sorteo' && !elegidoSoyYo ? 'El docente eligió a otra persona esta vez.' : 'Mira la pantalla. Cuando el docente pida participación o lance una pregunta, aparecerá aquí.'}
               </div>
             )}
-          </div>
+          </>
         )}
       </div>
     </div>
   );
 }
 
-/* Opciones del quiz (estilo Kahoot: colores + formas). */
-function QuizOptions({ tool, onAnswer, mine }) {
-  // El estudiante no conoce las opciones reales (van en la TV), así que
-  // muestra 4 botones de color/forma A-B-C-D. La TV es el árbitro: sabe
-  // cuál índice es el correcto y quién respondió primero.
+/* Opciones del quiz con texto + color (estilo Kahoot con etiqueta). */
+function QuizOptions({ quiz, onAnswer, mine, pid }) {
   const OPC = [
-    { c: '#F53711', s: '▲', l: 'A' },
-    { c: '#116CF5', s: '◆', l: 'B' },
-    { c: '#F5C211', s: '●', l: 'C' },
-    { c: '#11F555', s: '■', l: 'D' },
+    { c: '#F53711', s: '▲' }, { c: '#116CF5', s: '◆' },
+    { c: '#F5C211', s: '●' }, { c: '#11F555', s: '■' },
   ];
+  const cerrada = quiz.fase === 'cerrada';
+  const opciones = quiz.opciones || [];
+  const acerte = cerrada && mine != null && mine === quiz.correctIdx;
+  const ganeYo = cerrada && quiz.ganador && quiz.ganador === pid;
+
+  if (cerrada) {
+    return (
+      <div style={{ textAlign: 'center', padding: '10px 0' }}>
+        {ganeYo ? (
+          <div style={{ background: '#11F555', borderRadius: 16, padding: 22 }}>
+            <div style={{ fontSize: 34 }}>🏆</div>
+            <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 22, color: '#06140A' }}>¡Fuiste el más rápido!</div>
+          </div>
+        ) : acerte ? (
+          <div style={{ color: '#11F555', fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 22 }}>✓ ¡Correcto!</div>
+        ) : mine != null ? (
+          <div style={{ color: '#F53711', fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 22 }}>✗ No era esa</div>
+        ) : (
+          <div style={{ color: '#9AA396', fontSize: 16 }}>No respondiste a tiempo</div>
+        )}
+        <div style={{ color: '#9AA396', fontSize: 14, marginTop: 10 }}>Mira la pantalla para la siguiente</div>
+      </div>
+    );
+  }
+
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-      {OPC.map((o, i) => (
-        <button key={i} onClick={() => onAnswer(i)} disabled={mine !== null}
-          style={{
-            padding: '28px 0', borderRadius: 16, border: 'none', cursor: mine === null ? 'pointer' : 'default',
-            background: o.c, color: '#fff', fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 34,
-            opacity: mine === null || mine === i ? 1 : 0.35,
-            outline: mine === i ? '4px solid #fff' : 'none',
-          }}>
-          {o.s} <span style={{ fontSize: 22 }}>{o.l}</span>
-        </button>
-      ))}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {opciones.map((o, i) => {
+        const col = OPC[i % 4];
+        return (
+          <button key={i} onClick={() => onAnswer(i)} disabled={mine !== null}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 14, padding: '18px 16px',
+              borderRadius: 14, border: 'none', cursor: mine === null ? 'pointer' : 'default',
+              background: col.c, color: '#fff', textAlign: 'left',
+              opacity: mine === null || mine === i ? 1 : 0.4,
+              outline: mine === i ? '3px solid #fff' : 'none',
+            }}>
+            <span style={{ fontSize: 26, fontFamily: 'var(--font-display)', fontWeight: 800 }}>{col.s}</span>
+            <span style={{ fontSize: 17, fontWeight: 700, flex: 1 }}>{o.texto}</span>
+          </button>
+        );
+      })}
       {mine !== null && (
-        <div style={{ gridColumn: '1 / -1', textAlign: 'center', color: '#9AA396', fontSize: 14, marginTop: 4 }}>
-          Respuesta enviada · mira la pantalla
+        <div style={{ textAlign: 'center', color: '#9AA396', fontSize: 14, marginTop: 4 }}>
+          Respuesta enviada · espera el resultado
         </div>
       )}
     </div>

@@ -9,6 +9,19 @@
    No requiere que el celular tenga sesión iniciada: solo necesita el código.
    (Las reglas de Firestore permiten leer/escribir la sesión por su código). */
 
+/* Mismo hash del PIN que usa el presenter (definido con guardia para no
+   duplicarlo si ambos archivos se cargan). Permite validar el PIN del mando
+   sin que el PIN viaje en claro por el estado espejo. */
+if (!window.hashPin) {
+  window.hashPin = function hashPin(pin) {
+    const s = String(pin || '');
+    if (!s) return '';
+    let h = 5381;
+    for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) >>> 0;
+    return 'p' + h.toString(36);
+  };
+}
+
 function RemoteControl({ initialCode }) {
   const [code, setCode] = React.useState(initialCode || '');
   const [input, setInput] = React.useState('');
@@ -18,6 +31,8 @@ function RemoteControl({ initialCode }) {
   const [error, setError] = React.useState('');
   const [connecting, setConnecting] = React.useState(false);
   const [flash, setFlash] = React.useState('');
+  const [pinInput, setPinInput] = React.useState(''); // PIN que escribe quien dice ser docente
+  const [pinError, setPinError] = React.useState('');
 
   // Intento de conexión automático si vino el código en la URL.
   React.useEffect(() => {
@@ -63,22 +78,81 @@ function RemoteControl({ initialCode }) {
   };
   const buzz = (msg) => { setFlash(msg); setTimeout(() => setFlash(''), 700); if (navigator.vibrate) navigator.vibrate(15); };
 
+  // Datos de seguridad/permicos que publica el presenter en el estado espejo.
+  const permiteEstudiantes = state ? state.permiteEstudiantes === true : false;
+  const mandoHash = state ? (state.mandoHash || '') : '';
+
+  // Intentar entrar como docente: si hay PIN configurado, validarlo.
+  const entrarComoDocente = () => {
+    if (mandoHash) {
+      if (window.hashPin(pinInput) !== mandoHash) {
+        setPinError('PIN incorrecto.');
+        if (navigator.vibrate) navigator.vibrate([30, 40, 30]);
+        return;
+      }
+    }
+    setPinError(''); setPinInput('');
+    setRol('docente');
+  };
+
   // ----- Una vez conectado, si aún no se eligió rol: selector -----
   if (connected && !rol) {
+    // Esperar el primer estado espejo para conocer permisos y PIN antes de
+    // ofrecer los roles (evita mostrar el acceso docente sin pedir PIN).
+    if (state === null) {
+      return (
+        <div style={rcWrap}>
+          <div style={{ textAlign: 'center', color: '#9AA396' }}>
+            <div style={{ fontSize: 34, marginBottom: 10 }}>📡</div>
+            <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700 }}>Conectando con la sala…</div>
+          </div>
+        </div>
+      );
+    }
     return (
       <div style={rcWrap}>
         <div style={{ textAlign: 'center', maxWidth: 360, width: '100%' }}>
           <div style={{ fontSize: 40, marginBottom: 6 }}>👋</div>
           <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 26, margin: '0 0 6px', color: '#F2F5EF' }}>Sala {code}</h1>
           <p style={{ color: '#9AA396', margin: '0 0 28px', fontSize: 15 }}>¿Cómo vas a entrar?</p>
-          <button onClick={() => setRol('estudiante')}
-            style={{ width: '100%', padding: '20px 0', marginBottom: 14, fontSize: 18, fontWeight: 800, fontFamily: 'var(--font-display)', borderRadius: 14, border: 'none', background: '#11F555', color: '#06140A', cursor: 'pointer' }}>
-            🎓 Soy estudiante
-          </button>
-          <button onClick={() => setRol('docente')}
-            style={{ width: '100%', padding: '20px 0', fontSize: 18, fontWeight: 800, fontFamily: 'var(--font-display)', borderRadius: 14, border: '2px solid #2A2F29', background: 'transparent', color: '#F2F5EF', cursor: 'pointer' }}>
-            🧑‍🏫 Soy el docente (mando)
-          </button>
+
+          {permiteEstudiantes && (
+            <button onClick={() => setRol('estudiante')}
+              style={{ width: '100%', padding: '20px 0', marginBottom: 14, fontSize: 18, fontWeight: 800, fontFamily: 'var(--font-display)', borderRadius: 14, border: 'none', background: '#11F555', color: '#06140A', cursor: 'pointer' }}>
+              🎓 Soy estudiante
+            </button>
+          )}
+
+          {/* Acceso docente: si hay PIN, se pide antes de entrar al mando. */}
+          {mandoHash ? (
+            <div style={{ textAlign: 'left' }}>
+              <div style={{ color: '#9AA396', fontSize: 13, fontWeight: 700, marginBottom: 8, textAlign: 'center' }}>
+                🔒 Acceso del docente
+              </div>
+              <input
+                value={pinInput} type="password" inputMode="numeric"
+                onChange={(e) => { setPinInput(e.target.value.replace(/\D/g, '').slice(0, 6)); setPinError(''); }}
+                onKeyDown={(e) => { if (e.key === 'Enter') entrarComoDocente(); }}
+                placeholder="PIN del mando"
+                style={{ width: '100%', textAlign: 'center', fontSize: 30, letterSpacing: '.3em', fontFamily: 'var(--font-display)', fontWeight: 800, padding: '14px 0', borderRadius: 14, border: '2px solid #2A2F29', background: '#141814', color: '#F2F5EF', boxSizing: 'border-box', marginBottom: 10 }} />
+              {pinError && <div style={{ color: '#F53711', fontSize: 14, marginBottom: 10, textAlign: 'center' }}>{pinError}</div>}
+              <button onClick={entrarComoDocente} disabled={!pinInput}
+                style={{ width: '100%', padding: '18px 0', fontSize: 18, fontWeight: 800, fontFamily: 'var(--font-display)', borderRadius: 14, border: 'none', background: pinInput ? '#116CF5' : '#2A2F29', color: pinInput ? '#fff' : '#9AA396', cursor: pinInput ? 'pointer' : 'default' }}>
+                🧑‍🏫 Entrar como docente
+              </button>
+            </div>
+          ) : (
+            <button onClick={() => setRol('docente')}
+              style={{ width: '100%', padding: '20px 0', fontSize: 18, fontWeight: 800, fontFamily: 'var(--font-display)', borderRadius: 14, border: '2px solid #2A2F29', background: 'transparent', color: '#F2F5EF', cursor: 'pointer' }}>
+              🧑‍🏫 Soy el docente (mando)
+            </button>
+          )}
+
+          {!permiteEstudiantes && (
+            <p style={{ color: '#7B857A', fontSize: 12.5, marginTop: 18 }}>
+              La participación de estudiantes está desactivada en esta presentación.
+            </p>
+          )}
         </div>
       </div>
     );

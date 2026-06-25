@@ -147,6 +147,31 @@
         base.duracion = 300;
         base.instrucciones = 'Tiempo para completar la actividad.';
         break;
+      case 'lluvia':
+        base.items = [];
+        base.instrucciones = 'Escribe las ideas del grupo: las repetidas crecen.';
+        break;
+      case 'pares':
+        base.items = ['Sol = Estrella', 'Luna = Satélite', 'Tierra = Planeta'];
+        base.instrucciones = 'Une cada elemento con su pareja: toca uno y luego su par.';
+        break;
+      case 'encuesta':
+        base.items = ['Opción A', 'Opción B', 'Opción C'];
+        base.instrucciones = 'Votación a mano alzada: suma los votos de cada opción.';
+        break;
+      case 'debate':
+        base.items = ['¿Escribe aquí la pregunta del debate?', 'A favor', 'En contra'];
+        base.instrucciones = 'Cada postura tiene su propio tiempo para argumentar.';
+        base.duracion = 120;
+        break;
+      case 'memorama':
+        base.items = ['Sol = Estrella', 'Agua = H₂O', 'Perro = Mamífero', 'Rosa = Flor'];
+        base.instrucciones = 'Voltea dos cartas: si forman pareja, se quedan descubiertas.';
+        break;
+      case 'ordena':
+        base.items = ['Primer paso', 'Segundo paso', 'Tercer paso', 'Cuarto paso'];
+        base.instrucciones = 'Arrastra los pasos hasta dejarlos en el orden correcto.';
+        break;
       default:
         base.duracion = 180;
     }

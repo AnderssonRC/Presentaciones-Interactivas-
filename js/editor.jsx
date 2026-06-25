@@ -5,8 +5,13 @@ function Editor({ pres, onChange, onBack, onPresent, theme, setTheme }) {
   const [sel, setSel] = React.useState(0);
   const [openGroup, setOpenGroup] = React.useState('evaluadoras');
   const [teamsOpen, setTeamsOpen] = React.useState(false);
+  const [aulaOpen, setAulaOpen] = React.useState(false);
+  const [selEl, setSelEl] = React.useState(null); // id del elemento seleccionado en el lienzo
   const slides = pres.slides;
   const current = slides[Math.min(sel, slides.length - 1)];
+
+  // Al cambiar de diapositiva, soltar la selección de elemento.
+  React.useEffect(() => { setSelEl(null); }, [sel]);
 
   const update = (patch) => onChange({ ...pres, ...patch });
 
@@ -71,6 +76,45 @@ function Editor({ pres, onChange, onBack, onPresent, theme, setTheme }) {
     updateSlide(curIdx, { ...current, config: { ...current.config, items: e.target.value.split('\n') } });
   };
 
+  /* ---------- Lienzo libre (diapositivas de contenido) ---------- */
+  // Garantiza que la diapositiva actual tenga el modelo de elementos.
+  // Migra al vuelo las plantillas viejas (titulo/texto/imagen) y persiste.
+  const asegurarMigrada = () => {
+    if (Array.isArray(current.elementos)) return current;
+    const migrada = migrarContenido(current);
+    updateSlide(curIdx, migrada);
+    return migrada;
+  };
+  // Cambia un elemento por id (lo usa el lienzo al arrastrar/redimensionar/editar
+  // y también el panel de propiedades).
+  const cambiarElemento = (id, next) => {
+    const base = asegurarMigrada();
+    const elementos = (base.elementos || []).map((el) => (el.id === id ? next : el));
+    updateSlide(curIdx, { ...base, elementos });
+  };
+  // Añade un elemento nuevo (texto/imagen/video) y lo deja seleccionado.
+  const agregarElemento = (tipo) => {
+    const base = asegurarMigrada();
+    const nuevo = nuevoElemento(tipo);
+    nuevo.orden = (base.elementos || []).length; // se revela al final por defecto
+    updateSlide(curIdx, { ...base, elementos: [...(base.elementos || []), nuevo] });
+    setSelEl(nuevo.id);
+  };
+  // Borra el elemento seleccionado.
+  const borrarElemento = (id) => {
+    const base = asegurarMigrada();
+    updateSlide(curIdx, { ...base, elementos: (base.elementos || []).filter((el) => el.id !== id) });
+    setSelEl(null);
+  };
+  // Cambia el fondo de la diapositiva.
+  const setFondo = (fondo) => {
+    const base = asegurarMigrada();
+    updateSlide(curIdx, { ...base, fondo });
+  };
+
+  const migrada = current.type === 'contenido' ? migrarContenido(current) : current;
+  const elementoSel = (migrada.elementos || []).find((el) => el.id === selEl) || null;
+
   return (
     <div className="editor-shell" data-screen-label="Editor de plantillas">
       {/* barra superior */}
@@ -124,6 +168,58 @@ function Editor({ pres, onChange, onBack, onPresent, theme, setTheme }) {
             </div>
           )}
         </div>
+
+        {/* Panel de Aula: participación con celular + PIN del mando */}
+        <div style={{ position: 'relative' }}>
+          {(() => {
+            const conEstudiantes = pres.estudiantes === true;
+            const mandoPin = pres.mandoPin || '';
+            return (
+              <React.Fragment>
+                <button className="btn" onClick={() => setAulaOpen((o) => !o)}
+                  style={{ background: conEstudiantes ? 'var(--acento)' : 'transparent', color: conEstudiantes ? 'var(--acento-text)' : 'inherit', border: '1px solid var(--acento)' }}
+                  title="Configurar participación y mando">
+                  📱 Aula{mandoPin ? ' 🔒' : ''}
+                </button>
+                {aulaOpen && (
+                  <div style={{
+                    position: 'absolute', top: '110%', right: 0, zIndex: 60, width: 320,
+                    background: 'var(--surface, #141814)', border: '1px solid var(--border, #2A2F29)',
+                    borderRadius: 14, padding: 14, boxShadow: '0 20px 50px -20px rgba(0,0,0,.6)',
+                  }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', marginBottom: 8 }}>
+                      <input type="checkbox" checked={conEstudiantes}
+                        onChange={(e) => update({ estudiantes: e.target.checked })} />
+                      <span style={{ fontWeight: 700 }}>Permitir participación con celular</span>
+                    </label>
+                    <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 14 }}>
+                      Habilita que los estudiantes se unan desde su teléfono y levanten la mano.
+                      Si está apagado, el televisor no mostrará la opción de pedir participación.
+                    </div>
+
+                    <div style={{ borderTop: '1px solid var(--line)', paddingTop: 12 }}>
+                      <div style={{ fontWeight: 700, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+                        🔒 PIN del mando (docente)
+                      </div>
+                      <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 8 }}>
+                        Solo tú lo conoces. Al entrar como “docente” desde el celular se pedirá este PIN,
+                        así nadie que escanee el código puede tomar el control. Los estudiantes no lo necesitan.
+                      </div>
+                      <input type="text" inputMode="numeric" value={mandoPin}
+                        onChange={(e) => update({ mandoPin: e.target.value.replace(/\D/g, '').slice(0, 6) })}
+                        placeholder="Ej: 2468 (opcional, 4–6 dígitos)"
+                        style={{ width: '100%', padding: '9px 12px', borderRadius: 10, border: '1px solid var(--line)', background: 'var(--surface2)', color: 'var(--ink)', fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 16, letterSpacing: '.12em' }} />
+                      {mandoPin && (
+                        <button className="btn btn-sm" style={{ marginTop: 8 }}
+                          onClick={() => update({ mandoPin: '' })}>Quitar PIN</button>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </React.Fragment>
+            );
+          })()}
+        </div>
         <button className="btn btn-primary" onClick={onPresent}><Icon name="play" size={15} /> Presentar</button>
       </div>
 
@@ -159,16 +255,27 @@ function Editor({ pres, onChange, onBack, onPresent, theme, setTheme }) {
 
         {/* ---- columna 2: lienzo grande (~65%) ---- */}
         <div className="editor-canvas-col">
+          {current.type === 'contenido' && (
+            <LienzoToolbar
+              elemento={elementoSel}
+              onAgregar={agregarElemento}
+              onCambiar={(next) => elementoSel && cambiarElemento(elementoSel.id, next)}
+              onBorrar={() => elementoSel && borrarElemento(elementoSel.id)}
+              fondo={migrada.fondo || { tipo: 'color', valor: '' }}
+              onFondo={setFondo}
+              totalElementos={(migrada.elementos || []).length} />
+          )}
+
           <ScaledSlide>
             {current.type === 'contenido' ? (
-              <ContenidoSlide slide={current} materia={pres.materia || 'Tema'} accent={pres.color} editable
-                onChange={(s) => updateSlide(curIdx, s)} />
+              <ContenidoSlide slide={migrada} materia={pres.materia || 'Tema'} accent={pres.color} editable
+                selId={selEl} onSelect={setSelEl} onChangeEl={cambiarElemento} />
             ) : (
               <ActividadSlidePreview slide={current} />
             )}
           </ScaledSlide>
 
-          {current.type === 'actividad' ? (
+          {current.type === 'actividad' && (
             <div className="config-card">
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <div className="tool-ico" style={{ background: tool.color }}><Icon name={tool.icon} size={20} /></div>
@@ -177,6 +284,8 @@ function Editor({ pres, onChange, onBack, onPresent, theme, setTheme }) {
                   <div style={{ fontSize: 13, color: 'var(--muted)' }}>{tool.desc}</div>
                 </div>
               </div>
+
+              <EjemploCard tool={tool} current={current} curIdx={curIdx} updateSlide={updateSlide} />
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
                 <div className="field">
                   <label>Título en pantalla</label>
@@ -204,10 +313,6 @@ function Editor({ pres, onChange, onBack, onPresent, theme, setTheme }) {
                   <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 5 }}>{itemsHint(current.tool)}</div>
                 </div>
               )}
-            </div>
-          ) : (
-            <div style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 13.5 }}>
-              Haz clic sobre el título o el texto de la plantilla para editarlos · Arrastra una imagen al recuadro
             </div>
           )}
         </div>
@@ -310,6 +415,12 @@ function itemsLabel(toolId) {
     descubre: 'Palabras a adivinar (una por línea)',
     stop: 'Categorías del cuadro (una por línea)',
     acertijo: 'Acertijos (uno por línea)',
+    lluvia: 'Ideas iniciales (opcional, una por línea)',
+    pares: 'Parejas (una por línea: izquierda = derecha)',
+    encuesta: 'Opciones de la encuesta (una por línea)',
+    debate: 'Línea 1: pregunta · Línea 2: postura A · Línea 3: postura B',
+    memorama: 'Parejas (una por línea: A = B)',
+    ordena: 'Pasos EN ORDEN CORRECTO (uno por línea)',
   }[toolId] || 'Elementos de la actividad (uno por línea)';
 }
 function itemsHint(toolId) {
@@ -325,10 +436,298 @@ function itemsHint(toolId) {
     descubre: 'Formato: PALABRA=pista. Para fijar los intentos, escribe el número en el campo "Tiempo (segundos)".',
     stop: 'Una categoría por línea. Ej: Nombre, País, Animal, Color, Comida.',
     acertijo: 'Formato: enunciado | respuesta | URL (la URL es opcional). Ej: Vuela de noche y duerme de día | murciélago | https://...',
+    lluvia: 'En vivo escribes las ideas en pantalla. Aquí puedes dejar algunas iniciales (una por línea); las repetidas crecen.',
+    pares: 'Formato: izquierda = derecha. Cada lado puede ser imagen con "img:URL". Ej: Perro = Mamífero  ·  img:https://... = Planeta',
+    encuesta: 'Una opción por línea. En Presentar sumas votos con +/− y las barras crecen.',
+    debate: 'Tres líneas: la pregunta, el nombre de la postura A y el de la postura B. El tiempo por postura se fija en "Tiempo (segundos)".',
+    memorama: 'Formato: A = B (una pareja por línea). Cada lado puede ser imagen con "img:URL". Ej: Perro = Mamífero  ·  img:https://... = Sol',
+    ordena: 'Escribe los pasos en el orden CORRECTO (uno por línea). En Presentar se mostrarán barajados para que el grupo los acomode.',
   }[toolId] || 'Opcional según la actividad. Un elemento por línea.';
 }
 
 Object.assign(window, { Editor });
+
+/* ============================================================
+   Barra de herramientas del lienzo libre (diapositivas de contenido)
+   Franja horizontal FIJA encima del lienzo (estilo Canva/Figma):
+   cada categoría es un botón que abre su menú desplegable justo debajo.
+   Solo un menú abierto a la vez. No es una columna apilada.
+   ============================================================ */
+function LienzoToolbar({ elemento, onAgregar, onCambiar, onBorrar, fondo, onFondo, totalElementos }) {
+  const [menu, setMenu] = React.useState(null); // id del menú abierto
+  const barraRef = React.useRef(null);
+  const toggle = (id) => setMenu((m) => (m === id ? null : id));
+
+  // Cerrar el menú al hacer clic fuera de la barra.
+  React.useEffect(() => {
+    if (!menu) return;
+    const fuera = (e) => { if (barraRef.current && !barraRef.current.contains(e.target)) setMenu(null); };
+    document.addEventListener('mousedown', fuera);
+    return () => document.removeEventListener('mousedown', fuera);
+  }, [menu]);
+
+  // Al cambiar de elemento seleccionado, cerramos cualquier menú abierto.
+  React.useEffect(() => { setMenu(null); }, [elemento && elemento.id]);
+
+  const set = (patch) => elemento && onCambiar({ ...elemento, ...patch });
+  const esTexto = elemento && elemento.tipo === 'texto';
+  const hay = !!elemento;
+
+  return (
+    <div className="lienzo-bar" ref={barraRef}>
+      <div className="lz-row">
+        {/* --- Añadir (siempre disponible) --- */}
+        <LzMenu id="add" label="＋ Añadir" abierto={menu === 'add'} onToggle={toggle}>
+          <div className="lz-pop-title">Añadir al lienzo</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <button className="lz-item" onClick={() => { onAgregar('texto'); setMenu(null); }}>＋ Texto</button>
+            <button className="lz-item" onClick={() => { onAgregar('imagen'); setMenu(null); }}>🖼 Imagen</button>
+            <button className="lz-item" onClick={() => { onAgregar('video'); setMenu(null); }}>🎬 Video</button>
+          </div>
+          <div className="lz-hint">Arrastra para mover · tirador de la esquina para agrandar.</div>
+        </LzMenu>
+
+        {/* --- Fondo (siempre disponible) --- */}
+        <LzMenu id="fondo" label="🎨 Fondo" abierto={menu === 'fondo'} onToggle={toggle}>
+          <FondoMenu fondo={fondo} onFondo={onFondo} />
+        </LzMenu>
+
+        <span className="lz-div" />
+
+        {/* --- Categorías del elemento seleccionado --- */}
+        {esTexto && (
+          <React.Fragment>
+            <LzMenu id="fuente" label="Fuente" abierto={menu === 'fuente'} onToggle={toggle}>
+              <div className="lz-pop-title">Fuente</div>
+              <select value={elemento.font} onChange={(e) => set({ font: e.target.value })} style={selStyle}>
+                {FONTS.map((f) => <option key={f.id} value={f.id}>{f.nombre}</option>)}
+              </select>
+            </LzMenu>
+
+            <LzMenu id="tam" label="Tamaño" abierto={menu === 'tam'} onToggle={toggle}>
+              <div className="lz-pop-title">Tamaño</div>
+              <select value={elemento.size} onChange={(e) => set({ size: Number(e.target.value) })} style={selStyle}>
+                {TAMANOS.map((s) => <option key={s} value={s}>{s} px</option>)}
+              </select>
+            </LzMenu>
+
+            <LzMenu id="color" label="Color" abierto={menu === 'color'} onToggle={toggle}>
+              <div className="lz-pop-title">Color del texto</div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', maxWidth: 220 }}>
+                {COLORES_TEXTO.map((c) => (
+                  <button key={c} onClick={() => set({ color: c })} title={c}
+                    style={{ width: 28, height: 28, borderRadius: 8, background: c, cursor: 'pointer',
+                      border: elemento.color === c ? '3px solid var(--azul, #116CF5)' : '1px solid var(--line)' }} />
+                ))}
+                <input type="color" value={elemento.color || '#0B0F0C'} onChange={(e) => set({ color: e.target.value })}
+                  title="Color personalizado"
+                  style={{ width: 28, height: 28, border: '1px solid var(--line)', borderRadius: 8, background: 'none', padding: 0, cursor: 'pointer' }} />
+              </div>
+            </LzMenu>
+
+            <LzMenu id="peso" label="Peso" abierto={menu === 'peso'} onToggle={toggle}>
+              <div className="lz-pop-title">Grosor</div>
+              <select value={elemento.peso} onChange={(e) => set({ peso: Number(e.target.value) })} style={selStyle}>
+                <option value={400}>Normal</option>
+                <option value={500}>Medio</option>
+                <option value={600}>Semi-negrita</option>
+                <option value={700}>Negrita</option>
+                <option value={800}>Extra-negrita</option>
+              </select>
+            </LzMenu>
+
+            <LzMenu id="align" label="Alinear" abierto={menu === 'align'} onToggle={toggle}>
+              <div className="lz-pop-title">Alineación</div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                {[['left', '⬅'], ['center', '⬌'], ['right', '➡']].map(([v, lbl]) => (
+                  <button key={v} onClick={() => set({ align: v })}
+                    className={'btn btn-sm' + (elemento.align === v ? ' btn-primary' : '')} style={{ flex: 1, fontSize: 16 }}>{lbl}</button>
+                ))}
+              </div>
+            </LzMenu>
+
+            <span className="lz-div" />
+          </React.Fragment>
+        )}
+
+        {/* Contenido / URL del medio (imagen y video) */}
+        {hay && !esTexto && (
+          <LzMenu id="src" label={elemento.tipo === 'video' ? 'URL del video' : 'URL de la imagen'} abierto={menu === 'src'} onToggle={toggle}>
+            <div className="lz-pop-title">{elemento.tipo === 'video' ? 'Video (YouTube/Vimeo)' : 'Imagen'}</div>
+            <input type="text" value={elemento.valor || ''} onChange={(e) => set({ valor: e.target.value })}
+              placeholder="https://…" style={{ width: 260 }} />
+          </LzMenu>
+        )}
+
+        {/* Animación (cualquier elemento; "Cambio de color" solo en texto) */}
+        {hay && (
+          <LzMenu id="anim" label="Animación" abierto={menu === 'anim'} onToggle={toggle}>
+            <div className="lz-pop-title">Animación</div>
+            <select value={elemento.anim || 'none'} onChange={(e) => set({ anim: e.target.value })} style={selStyle}>
+              {ANIMS.filter((a) => esTexto || a.id !== 'colorShift').map((a) => (
+                <option key={a.id} value={a.id}>{a.nombre}</option>
+              ))}
+            </select>
+            <div className="lz-hint">
+              Las continuas (latido, vibrar, cambio de color) se repiten siempre.
+              {elemento.anim === 'colorShift' && ' El color del texto cambia solo.'}
+            </div>
+          </LzMenu>
+        )}
+
+        {/* Orden de revelado */}
+        {hay && (
+          <LzMenu id="orden" label="Orden" abierto={menu === 'orden'} onToggle={toggle}>
+            <div className="lz-pop-title">Orden de revelado</div>
+            <input type="number" min="0" step="1" value={elemento.orden || 0}
+              onChange={(e) => set({ orden: Math.max(0, Number(e.target.value) || 0) })} style={{ width: 120 }} />
+            <div className="lz-hint">En Presentar aparecen de menor a mayor. Igual número = juntos.</div>
+          </LzMenu>
+        )}
+
+        {/* Posición y tamaño exactos */}
+        {hay && (
+          <LzMenu id="pos" label="Posición" abierto={menu === 'pos'} onToggle={toggle}>
+            <div className="lz-pop-title">Posición y tamaño</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, width: 220 }}>
+              <label className="lz-mini">X<input type="number" value={elemento.x} onChange={(e) => set({ x: Number(e.target.value) })} /></label>
+              <label className="lz-mini">Y<input type="number" value={elemento.y} onChange={(e) => set({ y: Number(e.target.value) })} /></label>
+              <label className="lz-mini">Ancho<input type="number" value={elemento.w} onChange={(e) => set({ w: Math.max(80, Number(e.target.value)) })} /></label>
+              <label className="lz-mini">Alto<input type="number" value={elemento.h} onChange={(e) => set({ h: Math.max(60, Number(e.target.value)) })} /></label>
+            </div>
+          </LzMenu>
+        )}
+
+        {/* Empuja el borrar/estado a la derecha */}
+        <span style={{ flex: 1 }} />
+
+        {hay ? (
+          <button className="lz-del" onClick={onBorrar} title="Eliminar elemento seleccionado">🗑 Borrar</button>
+        ) : (
+          <span className="lz-status">
+            {totalElementos === 0 ? 'Añade un elemento para empezar.' : 'Haz clic en un elemento para editarlo.'}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* Botón de categoría + su menú desplegable (popover anclado debajo). */
+function LzMenu({ id, label, abierto, onToggle, children }) {
+  return (
+    <div className="lz-menu" style={{ position: 'relative' }}>
+      <button className={'lz-btn' + (abierto ? ' open' : '')} onClick={() => onToggle(id)} aria-expanded={abierto}>
+        {label}<span className="lz-caret">▾</span>
+      </button>
+      {abierto && <div className="lz-pop" onMouseDown={(e) => e.stopPropagation()}>{children}</div>}
+    </div>
+  );
+}
+
+/* Contenido del menú "Fondo". */
+function FondoMenu({ fondo, onFondo }) {
+  const tipo = fondo.tipo || 'color';
+  return (
+    <div style={{ width: 240 }}>
+      <div className="lz-pop-title">Fondo de la diapositiva</div>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+        <button className={'btn btn-sm' + (tipo === 'color' ? ' btn-primary' : '')}
+          onClick={() => onFondo({ tipo: 'color', valor: fondo.valor || '' })}>Color</button>
+        <button className={'btn btn-sm' + (tipo === 'url' ? ' btn-primary' : '')}
+          onClick={() => onFondo({ tipo: 'url', valor: tipo === 'url' ? fondo.valor : '' })}>Imagen</button>
+        {fondo.valor && <button className="btn btn-sm" onClick={() => onFondo({ tipo, valor: '' })}>Quitar</button>}
+      </div>
+      {tipo === 'color' ? (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <input type="color" value={fondo.valor || '#ffffff'} onChange={(e) => onFondo({ tipo: 'color', valor: e.target.value })}
+            style={{ width: 38, height: 34, border: 'none', background: 'none', padding: 0, cursor: 'pointer' }} />
+          <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>Color del lienzo</span>
+        </div>
+      ) : (
+        <input type="text" value={fondo.valor || ''} placeholder="https://… (URL de imagen)"
+          onChange={(e) => onFondo({ tipo: 'url', valor: e.target.value })} style={{ width: '100%' }} />
+      )}
+    </div>
+  );
+}
+
+const selStyle = {
+  width: '100%', minWidth: 180, padding: '9px 12px', borderRadius: 10, border: '1px solid var(--line)',
+  background: 'var(--surface2)', color: 'var(--ink)', fontFamily: 'var(--font-body)', fontSize: 14,
+};
+
+Object.assign(window, { LienzoToolbar, LzMenu, FondoMenu });
+
+/* Tarjeta "Cómo funciona + Ejemplo": lee window.ACT_EJEMPLOS (examples.js).
+   Muestra qué hace la actividad, qué ve el grupo y el formato. Permite
+   precargar un ejemplo real con un clic, sin pisar lo que el docente ya escribió
+   salvo que confirme. */
+function EjemploCard({ tool, current, curIdx, updateSlide }) {
+  const guia = (window.actEjemplo && window.actEjemplo(tool.id)) || null;
+  const [abierto, setAbierto] = React.useState(false);
+  if (!guia) return null;
+
+  const usarEjemplo = () => {
+    const ej = guia.ejemplo || {};
+    const hayContenido =
+      (current.config.items && current.config.items.length &&
+        current.config.items.some((x) => (x || '').trim())) ||
+      (current.config.titulo && current.config.titulo.trim());
+    if (hayContenido && !window.confirm('Esto reemplazará lo que ya escribiste con el ejemplo. ¿Continuar?')) return;
+    updateSlide(curIdx, {
+      ...current,
+      config: { ...current.config, ...ej, items: ej.items ? ej.items.slice() : current.config.items },
+    });
+  };
+
+  return (
+    <div style={{ background: 'var(--surface2)', border: '1px solid var(--line)', borderRadius: 12, padding: '12px 14px', margin: '4px 0 2px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+          <Icon name="rayo" size={16} />
+          <strong style={{ fontSize: 13.5 }}>Cómo funciona</strong>
+        </div>
+        <button onClick={() => setAbierto((v) => !v)}
+          style={{ background: 'transparent', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: 12.5, fontWeight: 700 }}>
+          {abierto ? 'Ocultar' : 'Ver ejemplo'}
+        </button>
+      </div>
+      <p style={{ margin: '6px 0 0', fontSize: 13, lineHeight: 1.4 }}>{guia.que}</p>
+      {guia.comoVe && (
+        <p style={{ margin: '4px 0 0', fontSize: 12.5, color: 'var(--muted)', lineHeight: 1.4 }}>
+          <strong>En pantalla:</strong> {guia.comoVe}
+        </p>
+      )}
+
+      {abierto && (
+        <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px dashed var(--line)' }}>
+          {guia.formato && (
+            <p style={{ margin: '0 0 8px', fontSize: 12.5, lineHeight: 1.4 }}>
+              <strong>Formato:</strong> {guia.formato}
+            </p>
+          )}
+          {guia.ejemplo && (
+            <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>
+              <div style={{ fontWeight: 700, color: 'var(--ink)', marginBottom: 4 }}>
+                Ejemplo: {guia.ejemplo.titulo || tool.nombre}
+              </div>
+              {(guia.ejemplo.items || []).slice(0, 4).map((it, i) => (
+                <div key={i} style={{ fontFamily: 'var(--font-mono, monospace)', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{it}</div>
+              ))}
+            </div>
+          )}
+          {guia.ejemplo && (
+            <button onClick={usarEjemplo}
+              style={{ marginTop: 10, background: tool.color, color: '#fff', border: 'none', borderRadius: 9, padding: '8px 14px', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+              Usar este ejemplo
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 /* Editor especial para Encuentra las diferencias:
    modo + URLs + marcar puntos con clic sobre la imagen. */
 function DiferenciasEditor({ current, curIdx, updateSlide }) {

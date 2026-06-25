@@ -1633,12 +1633,589 @@ function AcertijoRun({ config, tool }) {
     </div>
   );
 }
+/* ---------- Lluvia de ideas: nube de palabras en vivo ----------
+   El docente escribe respuestas del grupo (input + Enter). Cada palabra
+   repetida crece (tamaño según frecuencia). Modo en vivo: agregar, borrar,
+   reiniciar. config.items (opcional) precarga palabras iniciales. */
+function LluviaRun({ config, tool, remoteSignal }) {
+  // Normaliza para contar repeticiones sin distinguir mayúsculas/acentos finales.
+  const norm = (s) => s.trim().toLowerCase();
+  const inicial = () => {
+    const m = {};
+    (config.items || []).forEach((linea) => {
+      (linea || '').split(',').forEach((p) => {
+        const k = norm(p);
+        if (k) m[k] = (m[k] || 0) + 1;
+      });
+    });
+    // Guardamos el texto "bonito" (primera forma vista) junto al conteo.
+    const orden = [];
+    (config.items || []).forEach((linea) => {
+      (linea || '').split(',').forEach((p) => {
+        const k = norm(p);
+        if (k && !orden.find((o) => o.key === k)) orden.push({ key: k, texto: p.trim() });
+      });
+    });
+    return orden.map((o) => ({ key: o.key, texto: o.texto, n: m[o.key] }));
+  };
+
+  const [palabras, setPalabras] = React.useState(inicial);
+  const [texto, setTexto] = React.useState('');
+  const inputRef = React.useRef(null);
+
+  React.useEffect(() => { setPalabras(inicial()); }, [config.items]);
+
+  const agregar = (raw) => {
+    const t = (raw == null ? texto : raw);
+    const k = norm(t);
+    if (!k) return;
+    setPalabras((prev) => {
+      const i = prev.findIndex((p) => p.key === k);
+      if (i >= 0) {
+        const next = prev.slice();
+        next[i] = { ...next[i], n: next[i].n + 1 };
+        return next;
+      }
+      return [...prev, { key: k, texto: t.trim(), n: 1 }];
+    });
+    setTexto('');
+    if (inputRef.current) inputRef.current.focus();
+  };
+  const quitar = (key) => setPalabras((prev) => prev.filter((p) => p.key !== key));
+  const reiniciar = () => setPalabras([]);
+
+  // Control remoto: la acción principal enfoca el campo (para escribir desde la TV).
+  useRemoteAction(remoteSignal, { primary: () => inputRef.current && inputRef.current.focus() });
+
+  // Tamaño de fuente según frecuencia (mín 40, crece con cada repetición).
+  const maxN = palabras.reduce((m, p) => Math.max(m, p.n), 1);
+  const fontFor = (n) => 40 + Math.round((n / maxN) * 96); // 40–136 px
+  const colorFor = (i) => ACT_PALETTE[i % ACT_PALETTE.length];
+
+  return (
+    <div className="act-stage">
+      <ActHeader tool={tool} titulo={config.titulo} instrucciones={config.instrucciones} compact />
+
+      {/* Nube de palabras */}
+      <div style={{
+        marginTop: 30, width: 1500, minHeight: 460, display: 'flex', flexWrap: 'wrap',
+        alignItems: 'center', justifyContent: 'center', gap: '14px 30px',
+        padding: '30px 40px', borderRadius: 28, background: '#11160F', border: '3px solid #2A2F29',
+        alignContent: 'center',
+      }}>
+        {palabras.length === 0 ? (
+          <div style={{ color: '#5C6359', fontSize: 38, fontFamily: 'var(--font-display)' }}>
+            Escribe las ideas del grupo abajo y aparecerán aquí…
+          </div>
+        ) : palabras.map((p, i) => (
+          <span key={p.key} className="fade-up" title={p.n > 1 ? (p.n + ' veces') : ''}
+            onClick={() => quitar(p.key)}
+            style={{
+              cursor: 'pointer', fontFamily: 'var(--font-display)', fontWeight: 800,
+              fontSize: fontFor(p.n), lineHeight: 1, color: colorFor(i),
+              display: 'inline-flex', alignItems: 'center', gap: 10,
+            }}>
+            {p.texto}
+            {p.n > 1 && (
+              <span style={{
+                fontSize: Math.max(20, fontFor(p.n) * 0.34), background: '#000', color: colorFor(i),
+                borderRadius: 999, padding: '2px 12px', fontWeight: 800,
+              }}>{p.n}</span>
+            )}
+          </span>
+        ))}
+      </div>
+
+      {/* Entrada en vivo */}
+      <div style={{ display: 'flex', gap: 14, marginTop: 26, width: 1100 }}>
+        <input
+          ref={inputRef} value={texto}
+          onChange={(e) => setTexto(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') agregar(); }}
+          placeholder="Escribe una idea y pulsa Enter…"
+          style={{
+            flex: 1, fontSize: 34, padding: '18px 24px', borderRadius: 16,
+            border: '3px solid #2A2F29', background: '#0B0E0B', color: '#F2F5EF',
+            fontFamily: 'var(--font-display)', fontWeight: 600,
+          }} />
+        <button className="act-bigbtn" onClick={() => agregar()}
+          style={{ background: tool.color, color: '#06140A', fontSize: 30, padding: '0 40px', margin: 0 }}>
+          Añadir
+        </button>
+        {palabras.length > 0 && (
+          <button className="act-bigbtn" onClick={reiniciar}
+            style={{ background: 'transparent', color: '#9AA396', border: '3px solid #2A2F29', fontSize: 26, padding: '0 28px', margin: 0 }}>
+            Reiniciar
+          </button>
+        )}
+      </div>
+      <div style={{ color: '#7B857A', fontSize: 22, marginTop: 12 }}>
+        Toca una palabra para quitarla · las repetidas crecen.
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Une los pares ----------
+   El docente define parejas en el editor (una por línea: izquierda = derecha).
+   Cada lado puede ser texto o imagen (prefijo "img:" + URL).
+   En Presentar: se barajan ambas columnas; se resuelve por clic
+   (clic en un ítem de la izquierda y luego en su pareja a la derecha). */
+function parseLado(s) {
+  const t = (s || '').trim();
+  if (/^img:/i.test(t)) return { tipo: 'imagen', valor: t.replace(/^img:/i, '').trim() };
+  return { tipo: 'texto', valor: t };
+}
+function parsePares(items) {
+  return (items || [])
+    .map((l) => (l || '').trim())
+    .filter(Boolean)
+    .map((l, i) => {
+      const [izq, der] = l.split('=');
+      return { id: i, izq: parseLado(izq), der: parseLado(der || '') };
+    })
+    .filter((p) => p.izq.valor && p.der.valor);
+}
+// Baraja con índice estable (mismo orden mientras no cambie la actividad).
+function barajar(arr, seed) {
+  const a = arr.slice();
+  let s = seed || 1;
+  const rnd = () => { s = (s * 9301 + 49297) % 233280; return s / 233280; };
+  for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+  return a;
+}
+
+function LadoCelda({ lado }) {
+  if (lado.tipo === 'imagen') {
+    return <img src={lado.valor} alt="" style={{ maxWidth: '100%', maxHeight: 120, objectFit: 'contain', borderRadius: 12, display: 'block', margin: '0 auto' }} />;
+  }
+  return <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 34, lineHeight: 1.15 }}>{lado.valor}</span>;
+}
+
+function ParesRun({ config, tool, remoteSignal }) {
+  const pares = React.useMemo(() => parsePares(config.items), [config.items]);
+  const seed = React.useMemo(() => (config.items || []).join('|').length + pares.length * 7, [config.items]);
+
+  // Columnas barajadas de forma independiente.
+  const colIzq = React.useMemo(() => barajar(pares.map((p) => p.id), seed + 1), [pares, seed]);
+  const colDer = React.useMemo(() => barajar(pares.map((p) => p.id), seed + 2), [pares, seed]);
+  const byId = React.useMemo(() => Object.fromEntries(pares.map((p) => [p.id, p])), [pares]);
+
+  const [selIzq, setSelIzq] = React.useState(null);     // id elegido en la izquierda
+  const [resueltos, setResueltos] = React.useState([]); // ids ya emparejados
+  const [errorPar, setErrorPar] = React.useState(null); // id que parpadea en rojo
+
+  const reset = () => { setSelIzq(null); setResueltos([]); setErrorPar(null); };
+  React.useEffect(() => { reset(); }, [config.items]);
+
+  const elegirIzq = (id) => { if (resueltos.includes(id)) return; setSelIzq(id); setErrorPar(null); };
+  const elegirDer = (id) => {
+    if (resueltos.includes(id)) return;
+    if (selIzq == null) return;
+    if (selIzq === id) {
+      setResueltos((r) => [...r, id]); setSelIzq(null);
+    } else {
+      setErrorPar(id);
+      setTimeout(() => setErrorPar(null), 600);
+      setSelIzq(null);
+    }
+  };
+
+  // Control remoto: acción principal = reiniciar el ejercicio.
+  useRemoteAction(remoteSignal, { primary: reset, next: reset });
+
+  if (!pares.length) return <FichaRun config={config} tool={tool} />;
+  const completo = resueltos.length === pares.length;
+
+  const celdaBase = {
+    width: 560, minHeight: 96, display: 'flex', alignItems: 'center', justifyContent: 'center',
+    padding: '16px 22px', borderRadius: 18, border: '3px solid #2A2F29', background: '#141814',
+    color: '#F2F5EF', cursor: 'pointer', boxSizing: 'border-box', transition: 'all .15s',
+  };
+  const estiloIzq = (id) => {
+    if (resueltos.includes(id)) return { ...celdaBase, borderColor: '#11F555', background: 'rgba(17,245,85,.12)', cursor: 'default' };
+    if (selIzq === id) return { ...celdaBase, borderColor: '#116CF5', background: 'rgba(17,108,245,.16)' };
+    return celdaBase;
+  };
+  const estiloDer = (id) => {
+    if (resueltos.includes(id)) return { ...celdaBase, borderColor: '#11F555', background: 'rgba(17,245,85,.12)', cursor: 'default' };
+    if (errorPar === id) return { ...celdaBase, borderColor: '#F53711', background: 'rgba(245,55,17,.16)' };
+    return celdaBase;
+  };
+
+  return (
+    <div className="act-stage">
+      <ActHeader tool={tool} titulo={config.titulo} instrucciones={config.instrucciones} compact />
+
+      <div style={{ display: 'flex', gap: 80, marginTop: 30, alignItems: 'flex-start', justifyContent: 'center' }}>
+        {/* Columna izquierda */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {colIzq.map((id) => (
+            <div key={'i' + id} style={estiloIzq(id)} onClick={() => elegirIzq(id)}>
+              <LadoCelda lado={byId[id].izq} />
+            </div>
+          ))}
+        </div>
+        {/* Columna derecha */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {colDer.map((id) => (
+            <div key={'d' + id} style={estiloDer(id)} onClick={() => elegirDer(id)}>
+              <LadoCelda lado={byId[id].der} />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ marginTop: 26, display: 'flex', alignItems: 'center', gap: 20 }}>
+        <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 28, color: completo ? '#11F555' : '#9AA396' }}>
+          {completo ? '¡Todos los pares unidos! 🎉' : (resueltos.length + ' / ' + pares.length + ' unidos')}
+        </div>
+        <button className="act-bigbtn" onClick={reset}
+          style={{ background: 'transparent', color: '#9AA396', border: '3px solid #2A2F29', fontSize: 24, padding: '10px 28px', margin: 0 }}>
+          Reiniciar
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Encuesta rápida: votación en vivo ----------
+   El docente define las opciones (una por línea). En Presentar cada opción
+   tiene botones +/− para sumar votos; las barras crecen por porcentaje y se
+   ve el total. Sin generación automática: el conteo lo lleva el docente. */
+function EncuestaRun({ config, tool, remoteSignal }) {
+  const opciones = (config.items || []).filter((x) => x.trim());
+  const [votos, setVotos] = React.useState(opciones.map(() => 0));
+  React.useEffect(() => { setVotos(opciones.map(() => 0)); }, [config.items]);
+
+  if (!opciones.length) return <FichaRun config={config} tool={tool} />;
+
+  const total = votos.reduce((a, b) => a + b, 0);
+  const bump = (i, d) => setVotos((v) => v.map((x, j) => (j === i ? Math.max(0, x + d) : x)));
+  const reset = () => setVotos(opciones.map(() => 0));
+  const maxV = Math.max(1, ...votos);
+
+  // Control remoto: acción principal reinicia el conteo.
+  useRemoteAction(remoteSignal, { primary: reset, next: reset });
+
+  return (
+    <div className="act-stage">
+      <ActHeader tool={tool} titulo={config.titulo} instrucciones={config.instrucciones} compact />
+
+      <div style={{ width: 1400, marginTop: 30, display: 'flex', flexDirection: 'column', gap: 18 }}>
+        {opciones.map((op, i) => {
+          const v = votos[i];
+          const pct = total ? Math.round((v / total) * 100) : 0;
+          const color = ACT_PALETTE[i % ACT_PALETTE.length];
+          const lider = v === maxV && v > 0;
+          return (
+            <div key={i} style={{
+              display: 'flex', alignItems: 'center', gap: 22,
+              background: '#141814', border: '3px solid ' + (lider ? color : '#2A2F29'),
+              borderRadius: 20, padding: '16px 22px',
+            }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
+                  <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 34, color: '#F2F5EF', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{op}</span>
+                  <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 30, color }}>{pct}%</span>
+                </div>
+                <div style={{ height: 26, borderRadius: 13, background: '#0B0E0B', overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: pct + '%', background: color, borderRadius: 13, transition: 'width .4s cubic-bezier(.2,.8,.2,1)' }} />
+                </div>
+              </div>
+              <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 46, minWidth: 70, textAlign: 'center', color }}>{v}</div>
+              <button onClick={() => bump(i, -1)} style={encBtn('#1C201B', '#9AA396')}>−</button>
+              <button onClick={() => bump(i, 1)} style={encBtn(color, '#06140A')}>+</button>
+            </div>
+          );
+        })}
+      </div>
+
+      <div style={{ marginTop: 24, display: 'flex', alignItems: 'center', gap: 24 }}>
+        <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 30, color: '#9AA396' }}>
+          Total de votos: <span style={{ color: '#F2F5EF' }}>{total}</span>
+        </div>
+        <button className="act-bigbtn" onClick={reset}
+          style={{ background: 'transparent', color: '#9AA396', border: '3px solid #2A2F29', fontSize: 24, padding: '10px 28px', margin: 0 }}>
+          Reiniciar
+        </button>
+      </div>
+    </div>
+  );
+}
+const encBtn = (bg, fg) => ({
+  width: 64, height: 64, fontSize: 40, fontWeight: 800, flexShrink: 0,
+  borderRadius: 14, border: 'none', background: bg, color: fg, cursor: 'pointer',
+  fontFamily: 'var(--font-display)',
+});
+
+/* ---------- Debate: dos posturas ----------
+   La pregunta del debate arriba; dos paneles (A y B), cada uno con su propio
+   cronómetro independiente (iniciar/pausar/reiniciar).
+   config.items: línea 1 = pregunta; línea 2 = nombre postura A; línea 3 = nombre B.
+   config.duracion = segundos por postura. */
+function CronoPostura({ nombre, color, duracion }) {
+  const [secs, running, ctl] = useCountdown(duracion || 120);
+  const low = secs <= 10 && secs > 0;
+  return (
+    <div style={{
+      flex: 1, background: '#141814', border: '3px solid ' + color, borderRadius: 24,
+      padding: '28px 26px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16,
+    }}>
+      <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 40, color }}>{nombre}</div>
+      <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 120, lineHeight: 1, color: secs === 0 ? '#F53711' : low ? '#F53711' : '#F2F5EF' }}>
+        {secs === 0 ? '¡Tiempo!' : fmtTime(secs)}
+      </div>
+      <div style={{ display: 'flex', gap: 12 }}>
+        {!running
+          ? <button onClick={ctl.start} style={dbgBtn(color, '#06140A')}>{secs === (duracion || 120) ? 'Iniciar' : 'Seguir'}</button>
+          : <button onClick={ctl.pause} style={dbgBtn('#2A2F29', '#fff')}>Pausar</button>}
+        <button onClick={ctl.reset} style={dbgBtn('transparent', '#9AA396', true)}>Reiniciar</button>
+      </div>
+    </div>
+  );
+}
+const dbgBtn = (bg, fg, borde) => ({
+  fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 24, padding: '12px 26px',
+  borderRadius: 14, border: borde ? '3px solid #2A2F29' : 'none', background: bg, color: fg, cursor: 'pointer',
+});
+function DebateRun({ config, tool }) {
+  const lineas = (config.items || []).filter((x) => x.trim());
+  const pregunta = lineas[0] || config.titulo;
+  const nombreA = lineas[1] || 'A favor';
+  const nombreB = lineas[2] || 'En contra';
+  return (
+    <div className="act-stage">
+      <div className="act-kicker" style={{ color: tool.color, display: 'flex', alignItems: 'center', gap: 16, justifyContent: 'center' }}>
+        <Icon name={tool.icon} size={32} /> {tool.nombre}
+      </div>
+      <div style={{
+        marginTop: 18, maxWidth: 1500, padding: '26px 50px', borderRadius: 22,
+        background: '#161A15', border: '3px solid #2A2F29',
+        fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 56, lineHeight: 1.2, textAlign: 'center',
+      }}>{pregunta}</div>
+
+      <div style={{ display: 'flex', gap: 40, marginTop: 36, width: 1500 }}>
+        <CronoPostura nombre={nombreA} color="#116CF5" duracion={config.duracion} />
+        <CronoPostura nombre={nombreB} color="#F53711" duracion={config.duracion} />
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Memorama: parejas con texto o imagen ----------
+   El docente define parejas (una por línea: A = B). Cada lado puede ser texto
+   o imagen (prefijo "img:"). En Presentar las cartas se barajan boca abajo;
+   se voltean de a dos por clic; si forman pareja quedan reveladas. */
+function MemoramaRun({ config, tool, remoteSignal }) {
+  const pares = React.useMemo(() => parsePares(config.items), [config.items]);
+  // Cada par genera dos cartas que comparten parId.
+  const cartasBase = React.useMemo(() => {
+    const arr = [];
+    pares.forEach((p) => {
+      arr.push({ cid: 'a' + p.id, parId: p.id, lado: p.izq });
+      arr.push({ cid: 'b' + p.id, parId: p.id, lado: p.der });
+    });
+    const seed = (config.items || []).join('|').length + pares.length * 13;
+    return barajar(arr, seed);
+  }, [pares, config.items]);
+
+  const [volteadas, setVolteadas] = React.useState([]); // cids visibles este turno (máx 2)
+  const [encontradas, setEncontradas] = React.useState([]); // parId resueltos
+  const [movs, setMovs] = React.useState(0);
+  const [bloqueo, setBloqueo] = React.useState(false);
+
+  const reset = () => { setVolteadas([]); setEncontradas([]); setMovs(0); setBloqueo(false); };
+  React.useEffect(() => { reset(); }, [config.items]);
+
+  const voltear = (carta) => {
+    if (bloqueo) return;
+    if (encontradas.includes(carta.parId)) return;
+    if (volteadas.find((c) => c.cid === carta.cid)) return;
+    const next = [...volteadas, carta];
+    setVolteadas(next);
+    if (next.length === 2) {
+      setMovs((m) => m + 1);
+      if (next[0].parId === next[1].parId) {
+        setEncontradas((e) => [...e, next[0].parId]);
+        setVolteadas([]);
+      } else {
+        setBloqueo(true);
+        setTimeout(() => { setVolteadas([]); setBloqueo(false); }, 1100);
+      }
+    }
+  };
+  useRemoteAction(remoteSignal, { primary: reset, next: reset });
+
+  if (!pares.length) return <FichaRun config={config} tool={tool} />;
+
+  const total = cartasBase.length;
+  const completo = encontradas.length === pares.length;
+  // Distribución en columnas según cantidad (4–6 columnas).
+  const cols = total <= 8 ? 4 : total <= 12 ? 4 : total <= 18 ? 6 : 6;
+
+  const esVisible = (c) => volteadas.find((v) => v.cid === c.cid) || encontradas.includes(c.parId);
+
+  return (
+    <div className="act-stage">
+      <ActHeader tool={tool} titulo={config.titulo} instrucciones={config.instrucciones} compact />
+
+      <div style={{
+        marginTop: 26, display: 'grid', gap: 18,
+        gridTemplateColumns: 'repeat(' + cols + ', 230px)', justifyContent: 'center',
+      }}>
+        {cartasBase.map((c) => {
+          const visible = esVisible(c);
+          const resuelta = encontradas.includes(c.parId);
+          return (
+            <div key={c.cid} onClick={() => voltear(c)}
+              style={{
+                height: 150, borderRadius: 18, cursor: visible ? 'default' : 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 12,
+                background: visible ? (resuelta ? 'rgba(17,245,85,.12)' : '#1B2018') : '#116CF5',
+                border: '3px solid ' + (resuelta ? '#11F555' : visible ? '#2A2F29' : '#0B0E0B'),
+                transition: 'all .2s', overflow: 'hidden', textAlign: 'center',
+              }}>
+              {visible ? (
+                <LadoCelda lado={c.lado} />
+              ) : (
+                <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 60, color: 'rgba(255,255,255,.85)' }}>?</span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <div style={{ marginTop: 24, display: 'flex', alignItems: 'center', gap: 24 }}>
+        <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 30, color: completo ? '#11F555' : '#9AA396' }}>
+          {completo ? ('¡Completado en ' + movs + ' intentos! 🎉') : ('Parejas: ' + encontradas.length + ' / ' + pares.length + '  ·  Intentos: ' + movs)}
+        </div>
+        <button className="act-bigbtn" onClick={reset}
+          style={{ background: 'transparent', color: '#9AA396', border: '3px solid #2A2F29', fontSize: 24, padding: '10px 28px', margin: 0 }}>
+          Reiniciar
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Ordena los pasos ----------
+   El docente escribe los pasos EN ORDEN CORRECTO (uno por línea).
+   En Presentar se muestran barajados; el grupo los arrastra y suelta para
+   reordenar y pulsa "Comprobar": cada paso se marca verde (posición correcta)
+   o rojo (incorrecta). config.items = pasos en su orden correcto. */
+function OrdenaRun({ config, tool, remoteSignal }) {
+  // Cada paso lleva su índice correcto (orden en que lo escribió el docente).
+  const pasosCorrectos = React.useMemo(
+    () => (config.items || []).map((t, i) => ({ id: i, texto: (t || '').trim() })).filter((p) => p.texto),
+    [config.items]
+  );
+  const seed = React.useMemo(() => (config.items || []).join('|').length + pasosCorrectos.length * 11, [config.items]);
+
+  // Orden inicial barajado (estable mientras no cambie la actividad).
+  const inicial = React.useMemo(() => barajar(pasosCorrectos, seed), [pasosCorrectos, seed]);
+  const [orden, setOrden] = React.useState(inicial);
+  const [comprobado, setComprobado] = React.useState(false);
+  const arrastreRef = React.useRef(null);
+
+  const reset = () => { setOrden(barajar(pasosCorrectos, seed + Math.floor(Math.random() * 999))); setComprobado(false); };
+  React.useEffect(() => { setOrden(inicial); setComprobado(false); }, [inicial]);
+
+  if (!pasosCorrectos.length) return <FichaRun config={config} tool={tool} />;
+
+  // Reordenar al soltar: mueve el paso arrastrado a la posición del destino.
+  const soltarEn = (destinoId) => {
+    const origenId = arrastreRef.current;
+    arrastreRef.current = null;
+    if (origenId == null || origenId === destinoId) return;
+    setOrden((prev) => {
+      const arr = prev.slice();
+      const from = arr.findIndex((p) => p.id === origenId);
+      const to = arr.findIndex((p) => p.id === destinoId);
+      if (from < 0 || to < 0) return prev;
+      const [m] = arr.splice(from, 1);
+      arr.splice(to, 0, m);
+      return arr;
+    });
+    setComprobado(false);
+  };
+
+  const aciertos = orden.filter((p, i) => p.id === i).length;
+  const completo = comprobado && aciertos === orden.length;
+
+  useRemoteAction(remoteSignal, { primary: () => setComprobado(true), next: reset });
+
+  const colorPaso = (p, i) => {
+    if (!comprobado) return { border: '3px solid #2A2F29', background: '#141814' };
+    return p.id === i
+      ? { border: '3px solid #11F555', background: 'rgba(17,245,85,.12)' }
+      : { border: '3px solid #F53711', background: 'rgba(245,55,17,.12)' };
+  };
+
+  return (
+    <div className="act-stage">
+      <ActHeader tool={tool} titulo={config.titulo} instrucciones={config.instrucciones} compact />
+
+      <div style={{ width: 1300, marginTop: 28, display: 'flex', flexDirection: 'column', gap: 14 }}>
+        {orden.map((p, i) => (
+          <div key={p.id} draggable={!comprobado}
+            onDragStart={() => { arrastreRef.current = p.id; }}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={() => soltarEn(p.id)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 22, padding: '20px 26px',
+              borderRadius: 18, cursor: comprobado ? 'default' : 'grab',
+              ...colorPaso(p, i), transition: 'all .15s',
+            }}>
+            <div style={{
+              width: 58, height: 58, flexShrink: 0, borderRadius: 14,
+              background: tool.color, color: '#06140A', display: 'grid', placeItems: 'center',
+              fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 32,
+            }}>{i + 1}</div>
+            <div style={{ flex: 1, fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 36, color: '#F2F5EF' }}>{p.texto}</div>
+            {comprobado && (
+              <div style={{ fontSize: 34, fontWeight: 800, color: p.id === i ? '#11F555' : '#F53711' }}>
+                {p.id === i ? '✓' : '✗'}
+              </div>
+            )}
+            {!comprobado && <div style={{ fontSize: 30, color: '#5C6359' }}>⠿</div>}
+          </div>
+        ))}
+      </div>
+
+      <div style={{ marginTop: 26, display: 'flex', alignItems: 'center', gap: 18 }}>
+        {!comprobado ? (
+          <button className="act-bigbtn" onClick={() => setComprobado(true)}
+            style={{ background: tool.color, color: '#06140A', fontSize: 28, padding: '12px 40px', margin: 0 }}>
+            Comprobar
+          </button>
+        ) : (
+          <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 32, color: completo ? '#11F555' : '#9AA396' }}>
+            {completo ? '¡Orden correcto! 🎉' : (aciertos + ' / ' + orden.length + ' en su lugar')}
+          </div>
+        )}
+        <button className="act-bigbtn" onClick={reset}
+          style={{ background: 'transparent', color: '#9AA396', border: '3px solid #2A2F29', fontSize: 24, padding: '10px 28px', margin: 0 }}>
+          {comprobado ? 'Intentar de nuevo' : 'Barajar'}
+        </button>
+      </div>
+      {!comprobado && (
+        <div style={{ color: '#7B857A', fontSize: 22, marginTop: 10 }}>
+          Arrastra los pasos para ponerlos en orden y pulsa Comprobar.
+        </div>
+      )}
+    </div>
+  );
+}
+
 window.ActivityRuntimes = {
   ruleta: RuletaRun, completa: CompletaRun, elige: EligeRun, vf: VFRun,
   selector: SelectorRun, dado: DadoRun, marcador: MarcadorRun,
   problema: ProblemaRun, crea: FichaRun, temporizador: TemporizadorRun,
   ahorcado: AhorcadoRun, sopa: SopaRun, crucigrama: CrucigramaRun, reto: RetoRun, organiza: OrganizaRun, descubre: DescubreRun, default: FichaRun, 
   stop: StopRun, errores: DiferenciasRun, acertijo: AcertijoRun, 
-  
+  lluvia: LluviaRun, pares: ParesRun,
+  encuesta: EncuestaRun, debate: DebateRun, memorama: MemoramaRun,
+  ordena: OrdenaRun,
 };
 Object.assign(window, { FichaRun });
