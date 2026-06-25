@@ -116,20 +116,24 @@ function StudentView({ code }) {
         </div>
 
         {/* Espejo del contenido actual */}
-        <div style={{ background: '#141814', border: '2px solid #2A2F29', borderRadius: 16, padding: 18, marginBottom: 16 }}>
-          {esActividad ? (
-            <div>
-              <div style={{ fontSize: 12, color: mirror.color || '#116CF5', fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase' }}>{mirror.nombre || 'Actividad'}</div>
-              <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 22, color: '#F2F5EF', marginTop: 4 }}>{mirror.titulo}</div>
-              {mirror.instrucciones && <div style={{ fontSize: 14, color: '#B9C2B5', marginTop: 8 }}>{mirror.instrucciones}</div>}
-            </div>
-          ) : (
-            <div>
-              <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 22, color: '#F2F5EF' }}>{mirror.titulo || 'Contenido'}</div>
-              {mirror.texto && <div style={{ fontSize: 15, color: '#B9C2B5', marginTop: 8, lineHeight: 1.4 }}>{mirror.texto}</div>}
-            </div>
-          )}
-        </div>
+        {esActividad ? (
+          <div style={{ background: '#141814', border: '2px solid #2A2F29', borderRadius: 16, padding: 18, marginBottom: 16 }}>
+            <div style={{ fontSize: 12, color: mirror.color || '#116CF5', fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase' }}>{mirror.nombre || 'Actividad'}</div>
+            <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 22, color: '#F2F5EF', marginTop: 4 }}>{mirror.titulo}</div>
+            {mirror.instrucciones && <div style={{ fontSize: 14, color: '#B9C2B5', marginTop: 8 }}>{mirror.instrucciones}</div>}
+            <div style={{ fontSize: 12.5, color: '#7B857A', marginTop: 10 }}>Mira el televisor: la actividad se ve allí.</div>
+          </div>
+        ) : mirror.slide && typeof ContenidoSlide === 'function' ? (
+          // Réplica fiel de la diapositiva (lienzo libre) escalada al ancho del celular.
+          <div style={{ marginBottom: 16 }}>
+            <EspejoSlide slide={mirror.slide} />
+          </div>
+        ) : (
+          <div style={{ background: '#141814', border: '2px solid #2A2F29', borderRadius: 16, padding: 18, marginBottom: 16 }}>
+            <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 22, color: '#F2F5EF' }}>{mirror.titulo || 'Contenido'}</div>
+            {mirror.texto && <div style={{ fontSize: 15, color: '#B9C2B5', marginTop: 8, lineHeight: 1.4 }}>{mirror.texto}</div>}
+          </div>
+        )}
 
         {/* Quiz activo: responder con opciones (texto + color) */}
         {quizActivo ? (
@@ -235,4 +239,34 @@ const svBtn = {
   fontFamily: 'var(--font-display)', borderRadius: 14, border: 'none', cursor: 'pointer',
 };
 
-Object.assign(window, { StudentView, QuizOptions });
+/* Réplica fiel de una diapositiva de contenido, escalada al ancho del
+   contenedor (mantiene la relación 1920×1080 de la TV). Solo lectura. */
+function EspejoSlide({ slide }) {
+  const boxRef = React.useRef(null);
+  const [scale, setScale] = React.useState(0.18);
+  React.useEffect(() => {
+    const el = boxRef.current;
+    if (!el) return;
+    const update = () => setScale(el.clientWidth / 1920);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  return (
+    <div ref={boxRef} style={{
+      width: '100%', height: 1080 * scale, position: 'relative',
+      borderRadius: 14, overflow: 'hidden', border: '2px solid #2A2F29', background: '#fff',
+    }}>
+      <div className="slide" style={{
+        position: 'absolute', top: 0, left: 0, width: 1920, height: 1080,
+        transform: 'scale(' + scale + ')', transformOrigin: 'top left',
+        background: '#fff', color: '#0B0F0C',
+      }}>
+        <ContenidoSlide slide={slide} />
+      </div>
+    </div>
+  );
+}
+
+Object.assign(window, { StudentView, QuizOptions, EspejoSlide });
