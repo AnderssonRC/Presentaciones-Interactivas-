@@ -9,7 +9,15 @@
 
    El estado de la sala llega por listenRemoteSession (campo state.mirror
    y state.ronda). Las acciones del estudiante se escriben en su propio
-   documento de participante (raiseHand / submitAnswer). */
+   documento de participante (raiseHand / submitAnswer).
+
+   CAMBIOS:
+     - El espejo de una ACTIVIDAD ahora también se ve: si el mirror trae su
+       slide, se refleja con EspejoSlide (igual que una diapositiva, solo
+       lectura). El estudiante ve la actividad completa como en el TV; sigue
+       resolviéndose en el televisor.
+     - La pantalla de unirse (nombre/grupo) se ajusta a la pantalla del
+       celular (ancho completo, tipografía e inputs más grandes). */
 
 function StudentView({ code }) {
   const [pid, setPid] = React.useState(null);
@@ -69,21 +77,23 @@ function StudentView({ code }) {
     try { await AIP.submitAnswer(code, pid, i); } catch (e) { console.error(e); }
   };
 
-  // ----- Pantalla: unirse -----
+  // ----- Pantalla: unirse (ajustada al celular) -----
   if (!pid) {
     return (
-      <div style={svWrap}>
-        <div style={{ textAlign: 'center', maxWidth: 360, width: '100%' }}>
-          <div style={{ fontSize: 40, marginBottom: 6 }}>🎓</div>
-          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 26, margin: '0 0 4px', color: '#F2F5EF' }}>Únete a la clase</h1>
-          <p style={{ color: '#9AA396', margin: '0 0 24px', fontSize: 14 }}>Sala {code}</p>
+      <div style={svJoinWrap}>
+        <div style={{ width: '100%', maxWidth: 480, margin: '0 auto', textAlign: 'center' }}>
+          <div style={{ fontSize: 52, marginBottom: 8 }}>🎓</div>
+          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 30, lineHeight: 1.1, margin: '0 0 6px', color: '#F2F5EF' }}>Únete a la clase</h1>
+          <p style={{ color: '#9AA396', margin: '0 0 28px', fontSize: 16 }}>Sala {code}</p>
           <input value={nombre} onChange={(e) => setNombre(e.target.value.slice(0, 24))}
-            placeholder="Tu nombre" style={svInput} />
+            onKeyDown={(e) => { if (e.key === 'Enter' && nombre.trim()) unirse(); }}
+            placeholder="Tu nombre" style={svInputBig} />
           <input value={grupo} onChange={(e) => setGrupo(e.target.value.slice(0, 24))}
-            placeholder="Tu grupo (opcional)" style={svInput} />
-          {error && <div style={{ color: '#F53711', fontSize: 14, margin: '4px 0 12px' }}>{error}</div>}
+            onKeyDown={(e) => { if (e.key === 'Enter' && nombre.trim()) unirse(); }}
+            placeholder="Tu grupo (opcional)" style={svInputBig} />
+          {error && <div style={{ color: '#F53711', fontSize: 15, margin: '6px 0 14px' }}>{error}</div>}
           <button onClick={unirse} disabled={joining || !nombre.trim()}
-            style={{ ...svBtn, background: nombre.trim() ? '#11F555' : '#2A2F29', color: nombre.trim() ? '#06140A' : '#9AA396', marginTop: 6 }}>
+            style={{ ...svBtnBig, background: nombre.trim() ? '#11F555' : '#2A2F29', color: nombre.trim() ? '#06140A' : '#9AA396', marginTop: 8 }}>
             {joining ? 'Entrando…' : 'Entrar'}
           </button>
         </div>
@@ -98,6 +108,9 @@ function StudentView({ code }) {
   const quiz = st.quiz || { fase: 'idle' };
   const quizActivo = quiz.fase === 'abierta' || quiz.fase === 'cerrada';
   const elegidoSoyYo = fase === 'sorteo' && st.ronda && st.ronda.elegido === pid;
+
+  // ¿La actividad trae su slide para reflejarla fielmente como en el TV?
+  const actividadConSlide = esActividad && mirror.slide && typeof ContenidoSlide === 'function';
 
   // ----- Pantalla: dentro de la sala -----
   return (
@@ -116,7 +129,17 @@ function StudentView({ code }) {
         </div>
 
         {/* Espejo del contenido actual */}
-        {esActividad ? (
+        {actividadConSlide ? (
+          // La actividad se refleja tal cual está en el TV (solo lectura),
+          // con una etiqueta arriba que indica de qué actividad se trata.
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ fontSize: 12, color: mirror.color || '#116CF5', fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', marginBottom: 8 }}>
+              {mirror.nombre || 'Actividad'}
+            </div>
+            <EspejoSlide slide={mirror.slide} />
+          </div>
+        ) : esActividad ? (
+          // Actividad sin slide reflejable: tarjeta con título e instrucciones.
           <div style={{ background: '#141814', border: '2px solid #2A2F29', borderRadius: 16, padding: 18, marginBottom: 16 }}>
             <div style={{ fontSize: 12, color: mirror.color || '#116CF5', fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase' }}>{mirror.nombre || 'Actividad'}</div>
             <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 22, color: '#F2F5EF', marginTop: 4 }}>{mirror.titulo}</div>
@@ -229,14 +252,31 @@ const svWrap = {
   display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
   padding: 18, boxSizing: 'border-box', overflowY: 'auto',
 };
+/* Pantalla de unirse: ocupa todo el alto del celular y centra el formulario,
+   con padding amplio para que no se vea "lejano". */
+const svJoinWrap = {
+  position: 'fixed', inset: 0, background: '#0B0E0B',
+  display: 'flex', flexDirection: 'column', justifyContent: 'center',
+  padding: '24px 20px', boxSizing: 'border-box', overflowY: 'auto',
+};
 const svInput = {
   width: '100%', fontSize: 18, padding: '14px 16px', marginBottom: 12,
   borderRadius: 12, border: '2px solid #2A2F29', background: '#141814',
   color: '#F2F5EF', boxSizing: 'border-box', fontFamily: 'inherit',
 };
+/* Inputs y botón más grandes para la pantalla de unirse en celular. */
+const svInputBig = {
+  width: '100%', fontSize: 20, padding: '18px 18px', marginBottom: 14,
+  borderRadius: 14, border: '2px solid #2A2F29', background: '#141814',
+  color: '#F2F5EF', boxSizing: 'border-box', fontFamily: 'inherit',
+};
 const svBtn = {
   width: '100%', padding: '16px 0', fontSize: 18, fontWeight: 800,
   fontFamily: 'var(--font-display)', borderRadius: 14, border: 'none', cursor: 'pointer',
+};
+const svBtnBig = {
+  width: '100%', padding: '20px 0', fontSize: 20, fontWeight: 800,
+  fontFamily: 'var(--font-display)', borderRadius: 16, border: 'none', cursor: 'pointer',
 };
 
 /* Réplica fiel de una diapositiva de contenido, escalada al ancho del
