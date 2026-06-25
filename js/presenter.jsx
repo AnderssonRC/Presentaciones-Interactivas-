@@ -305,7 +305,10 @@ function Presenter({ pres, onExit }) {
     const mirror = isAct
       ? { tipo: 'actividad', tool: slide.tool, nombre: t && t.nombre, color: t && t.color,
           titulo: cfg.titulo || '', instrucciones: cfg.instrucciones || '' }
-      : { tipo: 'contenido', titulo: slide.titulo || '', texto: slide.texto || '' };
+      : { tipo: 'contenido', titulo: slide.titulo || '', texto: slide.texto || '',
+          // Diapositiva completa (lienzo libre) para espejar fielmente en el celular.
+          slide: { id: slide.id, type: 'contenido', titulo: slide.titulo || '', texto: slide.texto || '',
+                   imagen: slide.imagen || null, elementos: slide.elementos || null, fondo: slide.fondo || null } };
     AIP.updateRemoteState(remoteCode, {
       idx,
       total: slides.length,
