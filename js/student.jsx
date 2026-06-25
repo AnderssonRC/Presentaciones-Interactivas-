@@ -12,12 +12,12 @@
    documento de participante (raiseHand / submitAnswer).
 
    CAMBIOS:
-     - El espejo de una ACTIVIDAD ahora también se ve: si el mirror trae su
-       slide, se refleja con EspejoSlide (igual que una diapositiva, solo
-       lectura). El estudiante ve la actividad completa como en el TV; sigue
-       resolviéndose en el televisor.
-     - La pantalla de unirse (nombre/grupo) se ajusta a la pantalla del
-       celular (ancho completo, tipografía e inputs más grandes). */
+     - El espejo de una ACTIVIDAD ahora monta la MISMA actividad que el TV
+       (ActivityRuntimes[tool]) en modo solo-lectura, escalada al celular.
+       El estudiante ve la actividad completa con todas sus opciones; sigue
+       resolviéndose en el televisor (los arrastres del TV no se reflejan).
+     - Si la actividad no trae config, cae al espejo del slide o a la tarjeta.
+     - La pantalla de unirse (nombre/grupo) se ajusta al celular. */
 
 function StudentView({ code }) {
   const [pid, setPid] = React.useState(null);
@@ -109,8 +109,15 @@ function StudentView({ code }) {
   const quizActivo = quiz.fase === 'abierta' || quiz.fase === 'cerrada';
   const elegidoSoyYo = fase === 'sorteo' && st.ronda && st.ronda.elegido === pid;
 
-  // ¿La actividad trae su slide para reflejarla fielmente como en el TV?
-  const actividadConSlide = esActividad && mirror.slide && typeof ContenidoSlide === 'function';
+  // ¿La actividad trae config y existe su Runtime para montarla en el celular?
+  const runtimes = (typeof ActivityRuntimes !== 'undefined') ? ActivityRuntimes : null;
+  const ActRuntime = (esActividad && runtimes)
+    ? (runtimes[mirror.tool] || runtimes.default)
+    : null;
+  const actividadMontable = !!(esActividad && mirror.config && ActRuntime);
+  // Metadatos de la herramienta (color/nombre) si el presenter los expone.
+  const toolMeta = (esActividad && typeof AIP !== 'undefined' && AIP.toolById)
+    ? AIP.toolById(mirror.tool) : null;
 
   // ----- Pantalla: dentro de la sala -----
   return (
@@ -129,17 +136,16 @@ function StudentView({ code }) {
         </div>
 
         {/* Espejo del contenido actual */}
-        {actividadConSlide ? (
-          // La actividad se refleja tal cual está en el TV (solo lectura),
-          // con una etiqueta arriba que indica de qué actividad se trata.
+        {actividadMontable ? (
+          // La MISMA actividad del TV, montada en el celular en solo-lectura.
           <div style={{ marginBottom: 16 }}>
             <div style={{ fontSize: 12, color: mirror.color || '#116CF5', fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', marginBottom: 8 }}>
               {mirror.nombre || 'Actividad'}
             </div>
-            <EspejoSlide slide={mirror.slide} />
+            <EspejoActividad Runtime={ActRuntime} config={mirror.config} tool={toolMeta} />
           </div>
         ) : esActividad ? (
-          // Actividad sin slide reflejable: tarjeta con título e instrucciones.
+          // Actividad sin config reflejable: tarjeta con título e instrucciones.
           <div style={{ background: '#141814', border: '2px solid #2A2F29', borderRadius: 16, padding: 18, marginBottom: 16 }}>
             <div style={{ fontSize: 12, color: mirror.color || '#116CF5', fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase' }}>{mirror.nombre || 'Actividad'}</div>
             <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 22, color: '#F2F5EF', marginTop: 4 }}>{mirror.titulo}</div>
@@ -309,4 +315,39 @@ function EspejoSlide({ slide }) {
   );
 }
 
-Object.assign(window, { StudentView, QuizOptions, EspejoSlide });
+/* Espejo de una ACTIVIDAD: monta el mismo Runtime que el TV, escalado al
+   ancho del celular, en modo solo-lectura (pointerEvents desactivados para
+   que el estudiante no pueda interactuar; la actividad se resuelve en el TV).
+   Mantiene el lienzo 1920×1080 igual que el televisor. */
+function EspejoActividad({ Runtime, config, tool }) {
+  const boxRef = React.useRef(null);
+  const [scale, setScale] = React.useState(0.18);
+  React.useEffect(() => {
+    const el = boxRef.current;
+    if (!el) return;
+    const update = () => setScale(el.clientWidth / 1920);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  if (typeof Runtime !== 'function') return null;
+  return (
+    <div ref={boxRef} style={{
+      width: '100%', height: 1080 * scale, position: 'relative',
+      borderRadius: 14, overflow: 'hidden', border: '2px solid #2A2F29', background: '#0B0E0B',
+    }}>
+      {/* Capa que bloquea toques: solo-lectura en el celular. */}
+      <div style={{ position: 'absolute', inset: 0, zIndex: 5 }} />
+      <div className="slide" style={{
+        position: 'absolute', top: 0, left: 0, width: 1920, height: 1080,
+        transform: 'scale(' + scale + ')', transformOrigin: 'top left',
+        background: '#0B0E0B', color: '#F2F5EF', pointerEvents: 'none',
+      }}>
+        <Runtime config={config} tool={tool} remoteSignal={{ action: null, nonce: null }} />
+      </div>
+    </div>
+  );
+}
+
+Object.assign(window, { StudentView, QuizOptions, EspejoSlide, EspejoActividad });
