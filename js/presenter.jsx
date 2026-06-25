@@ -303,8 +303,11 @@ function Presenter({ pres, onExit }) {
     const cfg = slide.config || {};
     // 'mirror' = lo que el estudiante ve en su celular (versión ligera del slide).
     const mirror = isAct
+      const mirror = isAct
       ? { tipo: 'actividad', tool: slide.tool, nombre: t && t.nombre, color: t && t.color,
-          titulo: cfg.titulo || '', instrucciones: cfg.instrucciones || '' }
+          titulo: cfg.titulo || '', instrucciones: cfg.instrucciones || '',
+          // Config completa para que el celular monte la MISMA actividad (solo lectura).
+          config: slide.config || {} }
       : { tipo: 'contenido', titulo: slide.titulo || '', texto: slide.texto || '',
           // Diapositiva completa (lienzo libre) para espejar fielmente en el celular.
           slide: { id: slide.id, type: 'contenido', titulo: slide.titulo || '', texto: slide.texto || '',
