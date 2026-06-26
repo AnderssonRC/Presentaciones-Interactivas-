@@ -640,6 +640,8 @@ input, textarea, select { font-family: var(--font-body); color: inherit; }
   padding: 8px 10px;
   margin-bottom: 12px;
   box-shadow: var(--shadow, 0 6px 20px -12px rgba(0,0,0,.25));
+  transform: translateZ(0);   /* fuerza una capa de composición estable */
+  will-change: auto;
 }
 .lz-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .lz-div { width: 1px; align-self: stretch; min-height: 24px; background: var(--line); margin: 0 4px; }
