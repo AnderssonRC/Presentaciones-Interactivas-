@@ -236,7 +236,7 @@ input, textarea, select { font-family: var(--font-body); color: inherit; }
 .thumb-action:hover { background: var(--line); color: var(--ink); }
 
 .editor-canvas-col {
-  overflow-y: auto; min-height: 0; padding: 24px 28px; display: flex; flex-direction: column; gap: 18px;
+  overflow-y: scroll; min-height: 0; padding: 24px 28px; display: flex; flex-direction: column; gap: 18px;
   background: var(--bg);
 }
 .editor-tools {
@@ -643,7 +643,7 @@ input, textarea, select { font-family: var(--font-body); color: inherit; }
   transform: translateZ(0);   /* fuerza una capa de composición estable */
   will-change: auto;
 }
-.lz-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.lz-row { display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; overflow-x: auto; }
 .lz-div { width: 1px; align-self: stretch; min-height: 24px; background: var(--line); margin: 0 4px; }
 
 .lz-btn {
