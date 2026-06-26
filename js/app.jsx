@@ -107,7 +107,7 @@ function App() {
     return (
       <React.Fragment>
         <LoginScreen onAuthed={() => { /* onAuth se encarga del resto */ }} />
-        {/* <ResCogitasFooter /> */}
+        <ResCogitasFooter />
         <AppTweaks t={t} setTweak={setTweak} />
       </React.Fragment>
     );
@@ -137,7 +137,7 @@ function App() {
           theme={theme} setTheme={setTheme} />
       )}
       {presenting && <Presenter pres={presenting} onChange={changePres} onExit={() => setPresentingId(null)} />}
-      {/* {!presenting && <ResCogitasFooter />} */}
+      {!presenting && <ResCogitasFooter />}
       <AppTweaks t={t} setTweak={setTweak} />
     </React.Fragment>
   );
