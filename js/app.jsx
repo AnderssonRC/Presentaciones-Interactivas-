@@ -107,11 +107,11 @@ function App() {
     return (
       <React.Fragment>
         <LoginScreen onAuthed={() => { /* onAuth se encarga del resto */ }} />
+        <ResCogitasFooter />
         <AppTweaks t={t} setTweak={setTweak} />
       </React.Fragment>
     );
   }
-
   // Con sesión pero aún cargando datos
   if (loadingData) {
     return (
@@ -137,6 +137,7 @@ function App() {
           theme={theme} setTheme={setTheme} />
       )}
       {presenting && <Presenter pres={presenting} onChange={changePres} onExit={() => setPresentingId(null)} />}
+      {!presenting && <ResCogitasFooter />}
       <AppTweaks t={t} setTweak={setTweak} />
     </React.Fragment>
   );

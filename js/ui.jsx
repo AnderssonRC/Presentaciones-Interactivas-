@@ -129,3 +129,110 @@ function ActividadSlidePreview({ slide }) {
 }
 
 Object.assign(window, { Icon, Logo, ThemeToggle, ScaledSlide, ContenidoSlide, ActividadSlidePreview });
+
+/* ============================================================
+   Crédito "Res Cogitans" — pie de página + tarjeta del manifiesto.
+
+   Pegar este bloque al FINAL de ui.jsx (que ya se carga en index.html).
+   Luego montar <ResCogitasFooter /> en App (app.jsx) y en LoginScreen
+   (login.jsx). Ver instrucciones al final.
+
+   Los logos deben estar en la RAÍZ del repo (junto a index.html):
+     logo-res-cogitas.png   (marca horizontal)
+     logo-a-cogitas.png     (monograma "A")
+   ============================================================ */
+
+function ResCogitasFooter() {
+  const [abierto, setAbierto] = React.useState(false);
+
+  // Bloquear scroll del fondo cuando la tarjeta está abierta.
+  React.useEffect(() => {
+    if (!abierto) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const onEsc = (e) => { if (e.key === 'Escape') setAbierto(false); };
+    window.addEventListener('keydown', onEsc);
+    return () => { document.body.style.overflow = prev; window.removeEventListener('keydown', onEsc); };
+  }, [abierto]);
+
+  return (
+    <React.Fragment>
+      {/* Pie de página fijo */}
+      <footer
+        onClick={() => setAbierto(true)}
+        title="Conoce Res Cogitans"
+        style={{
+          position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 80,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+          padding: '8px 14px', cursor: 'pointer',
+          background: 'rgba(11,14,11,.72)', backdropFilter: 'blur(8px)',
+          borderTop: '1px solid rgba(255,255,255,.08)',
+          color: '#9AA396', fontSize: 12.5, fontWeight: 600,
+          fontFamily: 'var(--font-display)',
+        }}>
+        <span>Creado por <strong style={{ color: '#C7D0C2' }}>Andersson Cortes</strong> y <strong style={{ color: '#C7D0C2' }}>Res Cogitans</strong></span>
+        <span style={{ color: '#11F555', fontWeight: 800 }}>ⓘ</span>
+      </footer>
+
+      {/* Tarjeta del manifiesto */}
+      {abierto && (
+        <div
+          onClick={() => setAbierto(false)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 9998,
+            background: 'rgba(0,0,0,.72)', backdropFilter: 'blur(4px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: 18, overflowY: 'auto',
+          }}>
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: '100%', maxWidth: 620, margin: 'auto',
+              background: '#11160F', border: '1px solid #2A2F29', borderRadius: 22,
+              padding: '28px 26px 26px', position: 'relative',
+              boxShadow: '0 30px 80px -30px rgba(0,0,0,.8)',
+            }}>
+            {/* Cerrar */}
+            <button
+              onClick={() => setAbierto(false)} title="Cerrar"
+              style={{
+                position: 'absolute', top: 14, right: 14,
+                width: 38, height: 38, borderRadius: 999, border: 'none', cursor: 'pointer',
+                background: '#1C201B', color: '#9AA396', fontSize: 18, fontWeight: 800,
+              }}>✕</button>
+
+            {/* Logos */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 22, marginBottom: 18, flexWrap: 'wrap' }}>
+              <img src="logo-a-cogitas.png" alt="Res Cogitans"
+                style={{ height: 120, width: 'auto', filter: 'invert(1)' }} />
+              <img src="logo-res-cogitas.png" alt="Res Cogitans"
+                style={{ width: 'min(340px, 70%)', height: 'auto', filter: 'invert(1)' }} />
+            </div>
+
+            {/* Manifiesto */}
+            <p style={{
+              color: '#C7D0C2', fontSize: 15.5, lineHeight: 1.6, textAlign: 'justify',
+              margin: '0 0 16px', fontFamily: 'var(--font-body, inherit)',
+            }}>
+              Res Cogitans es un proyecto que busca reivindicar el arte creador de los docentes,
+              pues son artesanos en su enseñar. Por esa razón, y sin descanso, se busca crear
+              herramientas digitales, físicas y epistémicas que permitan al docente reivindicarse
+              en su hacer, mostrándose como un sabedor, autorizado a ejercer bajo su razón
+              intelectual y sus años de experiencia, pues nadie más que él sabe lo complejo del
+              Arte de Enseñar….
+            </p>
+
+            <div style={{
+              textAlign: 'right', color: '#9AA396', fontSize: 14, fontStyle: 'italic',
+              fontFamily: 'var(--font-display)', fontWeight: 600,
+            }}>
+              Att: Andersson Cortes
+            </div>
+          </div>
+        </div>
+      )}
+    </React.Fragment>
+  );
+}
+
+Object.assign(window, { ResCogitasFooter });
