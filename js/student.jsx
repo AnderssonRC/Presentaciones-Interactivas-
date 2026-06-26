@@ -331,58 +331,117 @@ function EspejoSlide({ slide }) {
 }
 
 /* Espejo de una ACTIVIDAD: monta el mismo Runtime que el TV, en modo
-   solo-lectura (pointerEvents desactivados; la actividad se resuelve en el TV).
-   Mantiene el lienzo 1920×1080 igual que el televisor, pero lo escala usando
-   el ALTO disponible del celular para que se vea lo más grande posible (no
-   diminuto). Si al agrandarlo queda más ancho que la pantalla, el contenedor
-   permite desplazarlo horizontalmente sin afectar al resto de la página. */
+   solo-lectura (la actividad se resuelve en el TV). Mantiene el lienzo
+   1920×1080 del televisor.
+
+   - En su sitio: se muestra COMPLETO escalado al ancho (nunca se corta).
+   - Al TOCARLO: se abre a pantalla completa GIRADO 90°, de modo que la
+     actividad (horizontal) aprovecha todo el ALTO del celular vertical y se
+     ve grande y legible. Se cierra tocando de nuevo o con el botón ✕. */
 function EspejoActividad({ Runtime, config, tool }) {
   const boxRef = React.useRef(null);
   const [scale, setScale] = React.useState(0.18);
+  const [full, setFull] = React.useState(false);
+
+  // Escala "en su sitio": llena el ancho, siempre completo (sin recortes).
   React.useEffect(() => {
     const el = boxRef.current;
     if (!el) return;
-    const update = () => {
-      const anchoDisp = el.clientWidth || 1;
-      // Alto objetivo: gran parte de la altura visible del celular (deja sitio
-      // a la cabecera y a los controles de participación de abajo).
-      const altoObjetivo = Math.max(260, Math.round((window.innerHeight || 640) * 0.62));
-      const sAncho = anchoDisp / 1920;        // escala que llena el ancho
-      const sAlto = altoObjetivo / 1080;      // escala que llena el alto objetivo
-      // Usamos la mayor de las dos para que se vea grande; el contenedor
-      // gestiona el desbordamiento horizontal con scroll si hace falta.
-      setScale(Math.max(sAncho, sAlto));
-    };
+    const update = () => setScale((el.clientWidth || 1) / 1920);
     update();
     const ro = new ResizeObserver(update);
     ro.observe(el);
-    window.addEventListener('resize', update);
-    return () => { ro.disconnect(); window.removeEventListener('resize', update); };
+    return () => ro.disconnect();
   }, []);
+
+  // Al abrir pantalla completa, bloquea el scroll del fondo.
+  React.useEffect(() => {
+    if (!full) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, [full]);
+
   if (typeof Runtime !== 'function') return null;
-  const w = 1920 * scale;
-  const h = 1080 * scale;
+  const contenido = <Runtime config={config} tool={tool} remoteSignal={{ action: null, nonce: null }} />;
+
   return (
-    <div ref={boxRef} style={{
-      width: '100%', height: h, position: 'relative',
-      borderRadius: 14, overflowX: 'auto', overflowY: 'hidden',
-      border: '2px solid #2A2F29', background: '#0B0E0B',
-      WebkitOverflowScrolling: 'touch',
-    }}>
-      {/* Lienzo a tamaño escalado; si w > ancho del celular, hay scroll lateral. */}
-      <div style={{ width: w, height: h, position: 'relative' }}>
-        {/* Capa que bloquea toques: solo-lectura en el celular. */}
+    <React.Fragment>
+      {/* Vista en su sitio: completa, tocable para ampliar. */}
+      <div ref={boxRef} onClick={() => setFull(true)}
+        style={{
+          width: '100%', height: 1080 * scale, position: 'relative', cursor: 'pointer',
+          borderRadius: 14, overflow: 'hidden', border: '2px solid #2A2F29', background: '#0B0E0B',
+        }}>
+        {/* Capa que bloquea toques sobre la actividad (solo lectura) pero deja
+            que el toque del contenedor abra la pantalla completa. */}
         <div style={{ position: 'absolute', inset: 0, zIndex: 5 }} />
         <div className="slide" style={{
           position: 'absolute', top: 0, left: 0, width: 1920, height: 1080,
           transform: 'scale(' + scale + ')', transformOrigin: 'top left',
           background: '#0B0E0B', color: '#F2F5EF', pointerEvents: 'none',
         }}>
-          <Runtime config={config} tool={tool} remoteSignal={{ action: null, nonce: null }} />
+          {contenido}
+        </div>
+        {/* Pista visual de que se puede ampliar. */}
+        <div style={{
+          position: 'absolute', right: 8, bottom: 8, zIndex: 6,
+          background: 'rgba(0,0,0,.55)', color: '#F2F5EF', fontSize: 12, fontWeight: 700,
+          padding: '4px 10px', borderRadius: 999, pointerEvents: 'none',
+        }}>⤢ Toca para ampliar</div>
+      </div>
+
+      {/* Pantalla completa GIRADA 90°. */}
+      {full && <EspejoFullscreen onClose={() => setFull(false)}>{contenido}</EspejoFullscreen>}
+    </React.Fragment>
+  );
+}
+
+/* Capa de pantalla completa que rota el lienzo 1920×1080 noventa grados y lo
+   escala para llenar el celular vertical: el ancho del lienzo (1920) ocupa el
+   ALTO de la pantalla, y el alto del lienzo (1080) ocupa el ANCHO. Así la
+   actividad horizontal se ve grande y completa, leída de lado. */
+function EspejoFullscreen({ children, onClose }) {
+  const [dims, setDims] = React.useState({ w: 0, h: 0 });
+  React.useEffect(() => {
+    const upd = () => setDims({ w: window.innerWidth || 0, h: window.innerHeight || 0 });
+    upd();
+    window.addEventListener('resize', upd);
+    return () => window.removeEventListener('resize', upd);
+  }, []);
+  // Al rotar 90°, el lienzo (1920 ancho × 1080 alto) encaja contra la pantalla
+  // (h alto × w ancho): el 1920 se compara con la altura, el 1080 con el ancho.
+  const escala = Math.min((dims.h || 1) / 1920, (dims.w || 1) / 1080);
+  return (
+    <div onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 9999, background: '#0B0E0B',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
+      }}>
+      <div style={{
+        width: 1920, height: 1080, position: 'relative',
+        transform: 'rotate(90deg) scale(' + escala + ')', transformOrigin: 'center center',
+        background: '#0B0E0B', color: '#F2F5EF', pointerEvents: 'none', flexShrink: 0,
+      }}>
+        <div className="slide" style={{ width: 1920, height: 1080, background: '#0B0E0B', color: '#F2F5EF' }}>
+          {children}
         </div>
       </div>
+      {/* Botón de cerrar (no rotado, siempre arriba a la derecha). */}
+      <button onClick={(e) => { e.stopPropagation(); onClose(); }}
+        style={{
+          position: 'fixed', top: 14, right: 14, zIndex: 10000,
+          width: 46, height: 46, borderRadius: 999, border: 'none', cursor: 'pointer',
+          background: 'rgba(0,0,0,.6)', color: '#F2F5EF', fontSize: 22, fontWeight: 800,
+        }}>✕</button>
+      {/* Aviso de cómo cerrar. */}
+      <div style={{
+        position: 'fixed', bottom: 16, left: '50%', transform: 'translateX(-50%)', zIndex: 10000,
+        background: 'rgba(0,0,0,.6)', color: '#B9C2B5', fontSize: 13, fontWeight: 600,
+        padding: '6px 14px', borderRadius: 999, whiteSpace: 'nowrap',
+      }}>Toca para cerrar</div>
     </div>
   );
 }
 
-Object.assign(window, { StudentView, QuizOptions, EspejoSlide, EspejoActividad });
+Object.assign(window, { StudentView, QuizOptions, EspejoSlide, EspejoActividad, EspejoFullscreen });
