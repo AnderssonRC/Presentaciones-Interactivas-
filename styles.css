@@ -642,8 +642,13 @@ input, textarea, select { font-family: var(--font-body); color: inherit; }
   box-shadow: var(--shadow, 0 6px 20px -12px rgba(0,0,0,.25));
   transform: translateZ(0);   /* fuerza una capa de composición estable */
   will-change: auto;
+  .lienzo-bar {
+  /* ...lo que ya tienes... */
+  align-content: flex-start;
+  contain: layout;
 }
-.lz-row { display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; overflow-x: auto; }
+}
+.lz-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .lz-div { width: 1px; align-self: stretch; min-height: 24px; background: var(--line); margin: 0 4px; }
 
 .lz-btn {
