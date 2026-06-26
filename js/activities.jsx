@@ -2207,15 +2207,521 @@ function OrdenaRun({ config, tool, remoteSignal }) {
     </div>
   );
 }
+/* ================= ACTIVIDADES SOLO PARA EQUIPOS =================
+   Pegar este bloque al FINAL de activities.jsx, JUSTO ANTES de la línea
+   `window.ActivityRuntimes = { ... }`. Luego reemplazar ese objeto por el
+   que aparece más abajo (incluye las 4 nuevas).
 
+   Todas reciben equiposApi = { equipos, sumar(id,pts), color(id) } desde el
+   presentador. equipos tiene la forma { id, nombre, color, puntos }.
+   Si no hay equiposApi (presentación normal), muestran un aviso. */
+
+function SinEquipos({ texto }) {
+  return (
+    <div className="act-stage" style={{ justifyContent: 'center' }}>
+      <div style={{ fontSize: 40, fontWeight: 800, color: '#F5C211', textAlign: 'center' }}>🏆 {texto}</div>
+      <div style={{ fontSize: 26, color: 'var(--muted)', marginTop: 16 }}>Esta actividad solo funciona en presentaciones de Modo Equipos.</div>
+    </div>
+  );
+}
+
+/* ============================================================
+   REEMPLAZO de RetaEquipoRun en activities.jsx
+
+   En tu activities.jsx, busca la función completa:
+
+       function RetaEquipoRun({ config, tool, equiposApi }) { ... }
+
+   y reemplázala ENTERA por esta versión.
+
+   Novedad: además del turno automático (avanza al fallar / al pasar de reto),
+   ahora hay una fila de botones de equipo arriba de la pregunta para FORZAR
+   manualmente qué equipo responde. El equipo activo se resalta con borde blanco.
+   ============================================================ */
+
+function RetaEquipoRun({ config, tool, equiposApi }) {
+  if (!equiposApi) return <SinEquipos texto="Reta al equipo" />;
+  const equipos = equiposApi.equipos || [];
+  const retos = (config.items || [])
+    .map((l) => { const [p, r] = l.split('=').map((s) => s.trim()); return { pregunta: p || '', respuesta: r || '' }; })
+    .filter((x) => x.pregunta);
+  const puntos = Math.max(1, Number(config.puntos) || 1);
+
+  const [qi, setQi] = React.useState(0);
+  const [turno, setTurno] = React.useState(0);     // índice del equipo al que le toca
+  const [verResp, setVerResp] = React.useState(false);
+  const [resuelto, setResuelto] = React.useState(false);
+
+  if (!retos.length || !equipos.length) return <FichaRun config={config} tool={tool} />;
+  const reto = retos[qi % retos.length];
+  const equipo = equipos[turno % equipos.length];
+
+  // Forzar manualmente qué equipo responde (no cambia si ya se resolvió el reto).
+  const elegirEquipo = (i) => { if (!resuelto) setTurno(i); };
+
+  const acierto = () => {
+    equiposApi.sumar(equipo.id, puntos);
+    setResuelto(true);
+  };
+  const fallo = () => {
+    // pasa el turno al siguiente equipo, misma pregunta
+    setTurno((t) => (t + 1) % equipos.length);
+    setVerResp(false);
+  };
+  const siguiente = () => {
+    setQi((q) => (q + 1) % retos.length);
+    setTurno((t) => (t + 1) % equipos.length); // rota quién empieza
+    setVerResp(false); setResuelto(false);
+  };
+
+  return (
+    <div className="act-stage" style={{ justifyContent: 'flex-start', paddingTop: 20 }}>
+      <ActHeader tool={tool} titulo={config.titulo} compact />
+      <div style={{ fontSize: 22, color: 'var(--muted)', marginTop: 4 }}>
+        Reto {(qi % retos.length) + 1} de {retos.length} · vale {puntos} {puntos === 1 ? 'punto' : 'puntos'}
+      </div>
+
+      {/* Selector manual de equipo: toca uno para forzar el turno. */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, justifyContent: 'center', marginTop: 18 }}>
+        {equipos.map((e, i) => {
+          const activo = (turno % equipos.length) === i;
+          return (
+            <button key={e.id} onClick={() => elegirEquipo(i)} disabled={resuelto}
+              style={{
+                padding: '10px 22px', borderRadius: 14, cursor: resuelto ? 'default' : 'pointer',
+                border: activo ? '4px solid #fff' : '4px solid transparent',
+                background: e.color, color: '#06140A',
+                fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 24,
+                opacity: resuelto && !activo ? 0.5 : 1,
+                transform: activo ? 'scale(1.04)' : 'none', transition: 'all .15s ease',
+              }}>
+              {e.nombre}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Etiqueta del equipo de turno */}
+      <div style={{ marginTop: 16, padding: '14px 32px', borderRadius: 18, background: equipo.color, color: '#06140A',
+        fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 40 }}>
+        Turno: {equipo.nombre}
+      </div>
+
+      {/* Pregunta */}
+      <div style={{ marginTop: 28, fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 58, lineHeight: 1.2, textAlign: 'center', maxWidth: 1400 }}>
+        {reto.pregunta}
+      </div>
+
+      {/* Respuesta revelable */}
+      {reto.respuesta && (
+        verResp ? (
+          <div className="fade-up" style={{ marginTop: 26, fontSize: 40, fontWeight: 700, color: '#11F555' }}>
+            Respuesta: {reto.respuesta}
+          </div>
+        ) : (
+          <button className="act-bigbtn" style={{ background: 'transparent', color: '#9AA396', border: '3px solid #2A2F29', fontSize: 26, padding: '12px 32px', marginTop: 26 }}
+            onClick={() => setVerResp(true)}>👁 Ver respuesta</button>
+        )
+      )}
+
+      {/* Controles */}
+      {!resuelto ? (
+        <div style={{ display: 'flex', gap: 18, marginTop: 36 }}>
+          <button className="act-bigbtn" style={{ background: '#11F555', color: '#06140A', fontSize: 32, padding: '18px 50px' }} onClick={acierto}>
+            ✓ Acertó (+{puntos})
+          </button>
+          <button className="act-bigbtn" style={{ background: '#F53711', color: '#fff', fontSize: 32, padding: '18px 50px' }} onClick={fallo}>
+            ✗ Falló · pasa turno
+          </button>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, marginTop: 32 }}>
+          <div className="fade-up" style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 44, color: '#11F555' }}>
+            🎉 +{puntos} para {equipo.nombre}
+          </div>
+          {retos.length > 1 && (
+            <button className="act-bigbtn" style={{ background: '#F2F5EF', color: '#08120B', fontSize: 30, padding: '16px 44px' }} onClick={siguiente}>
+              Siguiente reto →
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---------- Pulsador por turnos ---------- */
+function PulsadorRun({ config, tool, equiposApi }) {
+  if (!equiposApi) return <SinEquipos texto="Pulsador por turnos" />;
+  const equipos = equiposApi.equipos || [];
+  const preguntas = (config.items || [])
+    .map((l) => { const [p, r] = l.split('=').map((s) => s.trim()); return { pregunta: p || '', respuesta: r || '' }; })
+    .filter((x) => x.pregunta);
+  const puntos = Math.max(1, Number(config.puntos) || 1);
+
+  const [qi, setQi] = React.useState(0);
+  const [pulso, setPulso] = React.useState(null);
+  const [bloqueados, setBloqueados] = React.useState([]);
+  const [verResp, setVerResp] = React.useState(false);
+  const [resuelto, setResuelto] = React.useState(false);
+
+  if (!preguntas.length || !equipos.length) return <FichaRun config={config} tool={tool} />;
+  const q = preguntas[qi % preguntas.length];
+
+  const pulsar = (e) => { if (!bloqueados.includes(e.id) && !resuelto) setPulso(e); };
+  const acierto = () => { if (pulso) { equiposApi.sumar(pulso.id, puntos); setResuelto(true); } };
+  const error = () => {
+    if (!pulso) return;
+    setBloqueados((b) => [...b, pulso.id]);
+    setPulso(null);
+  };
+  const siguiente = () => {
+    setQi((i) => (i + 1) % preguntas.length);
+    setPulso(null); setBloqueados([]); setVerResp(false); setResuelto(false);
+  };
+
+  return (
+    <div className="act-stage" style={{ justifyContent: 'flex-start', paddingTop: 20 }}>
+      <ActHeader tool={tool} titulo={config.titulo} compact />
+      <div style={{ fontSize: 22, color: 'var(--muted)', marginTop: 4 }}>
+        Pregunta {(qi % preguntas.length) + 1} de {preguntas.length} · vale {puntos} {puntos === 1 ? 'punto' : 'puntos'}
+      </div>
+
+      <div style={{ marginTop: 26, fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 56, lineHeight: 1.2, textAlign: 'center', maxWidth: 1400 }}>
+        {q.pregunta}
+      </div>
+
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 18, justifyContent: 'center', marginTop: 36, maxWidth: 1500 }}>
+        {equipos.map((e) => {
+          const fuera = bloqueados.includes(e.id);
+          const activo = pulso && pulso.id === e.id;
+          return (
+            <button key={e.id} onClick={() => pulsar(e)} disabled={fuera || resuelto}
+              style={{ minWidth: 220, padding: '24px 30px', borderRadius: 20, cursor: fuera ? 'not-allowed' : 'pointer',
+                border: activo ? '5px solid #fff' : '5px solid transparent',
+                background: fuera ? '#2A2F29' : e.color, color: fuera ? '#5A6157' : '#06140A',
+                fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 34,
+                opacity: fuera ? 0.5 : 1, transform: activo ? 'scale(1.05)' : 'none', transition: 'all .15s ease' }}>
+              {fuera ? '✗ ' : ''}{e.nombre}
+            </button>
+          );
+        })}
+      </div>
+
+      {q.respuesta && (
+        verResp
+          ? <div className="fade-up" style={{ marginTop: 24, fontSize: 38, fontWeight: 700, color: '#11F555' }}>Respuesta: {q.respuesta}</div>
+          : <button className="act-bigbtn" style={{ background: 'transparent', color: '#9AA396', border: '3px solid #2A2F29', fontSize: 24, padding: '10px 28px', marginTop: 24 }} onClick={() => setVerResp(true)}>👁 Ver respuesta</button>
+      )}
+
+      {pulso && !resuelto && (
+        <div className="fade-up" style={{ display: 'flex', alignItems: 'center', gap: 18, marginTop: 30 }}>
+          <span style={{ fontSize: 30, fontWeight: 700 }}>Pulsó <b style={{ color: pulso.color }}>{pulso.nombre}</b>:</span>
+          <button className="act-bigbtn" style={{ background: '#11F555', color: '#06140A', fontSize: 28, padding: '14px 38px', marginTop: 0 }} onClick={acierto}>✓ Acertó (+{puntos})</button>
+          <button className="act-bigbtn" style={{ background: '#F53711', color: '#fff', fontSize: 28, padding: '14px 38px', marginTop: 0 }} onClick={error}>✗ Falló</button>
+        </div>
+      )}
+      {resuelto && (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, marginTop: 30 }}>
+          <div className="fade-up" style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 42, color: '#11F555' }}>🎉 +{puntos} para {pulso.nombre}</div>
+          {preguntas.length > 1 && <button className="act-bigbtn" style={{ background: '#F2F5EF', color: '#08120B', fontSize: 28, padding: '14px 40px' }} onClick={siguiente}>Siguiente →</button>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---------- Apuesta de puntos ---------- */
+function ApuestaRun({ config, tool, equiposApi }) {
+  if (!equiposApi) return <SinEquipos texto="Apuesta de puntos" />;
+  const equipos = equiposApi.equipos || [];
+  const preguntas = (config.items || [])
+    .map((l) => { const [p, r] = l.split('=').map((s) => s.trim()); return { pregunta: p || '', respuesta: r || '' }; })
+    .filter((x) => x.pregunta);
+
+  const [qi, setQi] = React.useState(0);
+  const [fase, setFase] = React.useState('apostar');
+  const [apuestas, setApuestas] = React.useState({});
+  const [verResp, setVerResp] = React.useState(false);
+
+  if (!preguntas.length || !equipos.length) return <FichaRun config={config} tool={tool} />;
+  const q = preguntas[qi % preguntas.length];
+  const montos = [1, 2, 3, 5];
+
+  const apostar = (eid, m) => setApuestas((a) => ({ ...a, [eid]: m }));
+  const todosApostaron = equipos.every((e) => apuestas[e.id]);
+
+  const resolver = (eid, gano) => {
+    const m = apuestas[eid] || 0;
+    equiposApi.sumar(eid, gano ? m : -m);
+    setApuestas((a) => ({ ...a, [eid]: 0 }));
+  };
+  const siguiente = () => {
+    setQi((i) => (i + 1) % preguntas.length);
+    setFase('apostar'); setApuestas({}); setVerResp(false);
+  };
+
+  return (
+    <div className="act-stage" style={{ justifyContent: 'flex-start', paddingTop: 20 }}>
+      <ActHeader tool={tool} titulo={config.titulo} compact />
+      <div style={{ fontSize: 22, color: 'var(--muted)', marginTop: 4 }}>
+        Pregunta {(qi % preguntas.length) + 1} de {preguntas.length}
+      </div>
+
+      {fase === 'apostar' && (
+        <React.Fragment>
+          <div style={{ marginTop: 18, fontSize: 30, color: 'var(--muted)' }}>Cada equipo elige cuántos puntos apostar:</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 24, width: '100%', maxWidth: 1100 }}>
+            {equipos.map((e) => (
+              <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+                <div style={{ minWidth: 280, fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 32, color: e.color }}>{e.nombre}</div>
+                <span style={{ fontSize: 22, color: 'var(--muted)' }}>({e.puntos || 0} pts)</span>
+                <div style={{ display: 'flex', gap: 10, marginLeft: 'auto' }}>
+                  {montos.map((m) => (
+                    <button key={m} onClick={() => apostar(e.id, m)}
+                      style={{ width: 76, height: 76, borderRadius: 14, cursor: 'pointer',
+                        border: apuestas[e.id] === m ? '4px solid #fff' : 'none',
+                        background: apuestas[e.id] === m ? e.color : '#222722', color: apuestas[e.id] === m ? '#06140A' : '#F2F5EF',
+                        fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 32 }}>{m}</button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+          <button className="act-bigbtn" style={{ background: todosApostaron ? tool.color : '#2A2F29', color: todosApostaron ? '#06140A' : '#9AA396', fontSize: 30, padding: '16px 48px', marginTop: 34 }}
+            onClick={() => todosApostaron && setFase('pregunta')} disabled={!todosApostaron}>
+            Mostrar la pregunta →
+          </button>
+        </React.Fragment>
+      )}
+
+      {fase !== 'apostar' && (
+        <React.Fragment>
+          <div style={{ marginTop: 24, fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 54, lineHeight: 1.2, textAlign: 'center', maxWidth: 1400 }}>
+            {q.pregunta}
+          </div>
+          {q.respuesta && (
+            verResp
+              ? <div className="fade-up" style={{ marginTop: 18, fontSize: 36, fontWeight: 700, color: '#11F555' }}>Respuesta: {q.respuesta}</div>
+              : <button className="act-bigbtn" style={{ background: 'transparent', color: '#9AA396', border: '3px solid #2A2F29', fontSize: 24, padding: '10px 28px', marginTop: 18 }} onClick={() => setVerResp(true)}>👁 Ver respuesta</button>
+          )}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 28, width: '100%', maxWidth: 1100 }}>
+            {equipos.map((e) => {
+              const m = apuestas[e.id];
+              const resueltoEq = m === 0;
+              return (
+                <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                  <div style={{ minWidth: 280, fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 30, color: e.color }}>{e.nombre}</div>
+                  {!resueltoEq ? (
+                    <React.Fragment>
+                      <span style={{ fontSize: 24, color: 'var(--muted)' }}>apostó {m}</span>
+                      <div style={{ display: 'flex', gap: 10, marginLeft: 'auto' }}>
+                        <button className="act-bigbtn" style={{ background: '#11F555', color: '#06140A', fontSize: 24, padding: '10px 28px', marginTop: 0 }} onClick={() => resolver(e.id, true)}>✓ +{m}</button>
+                        <button className="act-bigbtn" style={{ background: '#F53711', color: '#fff', fontSize: 24, padding: '10px 28px', marginTop: 0 }} onClick={() => resolver(e.id, false)}>✗ −{m}</button>
+                      </div>
+                    </React.Fragment>
+                  ) : (
+                    <span className="fade-up" style={{ marginLeft: 'auto', fontSize: 26, fontWeight: 700, color: '#9AA396' }}>resuelto ✓</span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          {preguntas.length > 1 && (
+            <button className="act-bigbtn" style={{ background: '#F2F5EF', color: '#08120B', fontSize: 28, padding: '14px 44px', marginTop: 30 }} onClick={siguiente}>
+              Siguiente pregunta →
+            </button>
+          )}
+        </React.Fragment>
+      )}
+    </div>
+  );
+}
+
+/* ---------- Recuadros por equipo ---------- */
+function RecuadrosRun({ config, tool, equiposApi }) {
+  if (!equiposApi) return <SinEquipos texto="Recuadros por equipo" />;
+  const equipos = (equiposApi.equipos || []).slice(0, 5);
+  const preguntas = (config.items || [])
+    .map((l) => l.split('|').map((s) => s.trim()).filter(Boolean))
+    .filter((p) => p.length >= 3)
+    .map((p) => ({ pregunta: p[0], correcta: p[1], opciones: p.slice(1) }));
+  const puntosPorAcierto = Math.max(1, Number(config.puntos) || 2);
+
+  if (preguntas.length < 1 || !equipos.length) return <FichaRun config={config} tool={tool} />;
+
+  const inicial = {};
+  equipos.forEach((e) => { inicial[e.id] = { fase: 'jugando', qIdx: 0, abierto: false, texto: '', resultado: null }; });
+  const [estado, setEstado] = React.useState(inicial);
+  const set = (id, patch) => setEstado((s) => ({ ...s, [id]: { ...s[id], ...patch } }));
+
+  const hash = (str) => { let s = 2166136261; for (let k = 0; k < str.length; k++) { s ^= str.charCodeAt(k); s = Math.imul(s, 16777619) >>> 0; } return s; };
+  const prng = (seed) => () => { seed = (Math.imul(seed, 1103515245) + 12345) >>> 0; return seed / 4294967296; };
+
+  const ordenDeEquipo = (equipoId) => {
+    const rand = prng(hash(String(equipoId) + '#orden'));
+    const idx = preguntas.map((_, i) => i);
+    for (let i = idx.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); [idx[i], idx[j]] = [idx[j], idx[i]]; }
+    return idx;
+  };
+  const barajarOpciones = (equipoId, qReal) => {
+    const rand = prng(hash(String(equipoId) + '#' + qReal + '#opts'));
+    const ops = preguntas[qReal].opciones.map((o, i) => ({ o, esCorrecta: i === 0 }));
+    for (let i = ops.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); [ops[i], ops[j]] = [ops[j], ops[i]]; }
+    const idxCorrecta = ops.findIndex((x) => x.esCorrecta);
+    return { opciones: ops.map((x) => x.o), letraCorrecta: 'ABCDE'[idxCorrecta] };
+  };
+  const secuenciaCorrecta = (equipoId) => ordenDeEquipo(equipoId).map((qReal) => barajarOpciones(equipoId, qReal).letraCorrecta);
+
+  const abrir = (id) => set(id, { abierto: true });
+  const continuar = (id) => {
+    const st = estado[id];
+    const orden = ordenDeEquipo(id);
+    if (st.qIdx < orden.length - 1) {
+      set(id, { qIdx: st.qIdx + 1, abierto: false });
+    } else {
+      set(id, { fase: 'escribir', abierto: true });
+    }
+  };
+  const comprobar = (id) => {
+    const correctas = secuenciaCorrecta(id);
+    const escritas = (estado[id].texto || '').toUpperCase().replace(/[^A-E]/g, '').split('');
+    let aciertos = 0;
+    correctas.forEach((c, i) => { if (escritas[i] === c) aciertos++; });
+    const sumados = aciertos * puntosPorAcierto;
+    if (sumados > 0) equiposApi.sumar(id, sumados);
+    set(id, { fase: 'resultado', resultado: { aciertos, total: correctas.length, sumados, correctas } });
+  };
+
+  const renderRecuadro = (e) => {
+    const st = estado[e.id];
+    const orden = ordenDeEquipo(e.id);
+    const abierto = st.abierto || st.fase !== 'jugando';
+    const anchoCerrado = 260, anchoAbierto = 560;
+
+    const cabecera = (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+        <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: abierto ? 30 : 28, color: '#06140A' }}>{e.nombre}</span>
+        {st.fase === 'jugando' && <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 18, color: 'rgba(6,20,10,.6)' }}>{Math.min(st.qIdx + 1, orden.length)}/{orden.length}</span>}
+      </div>
+    );
+
+    let cuerpo = null;
+    if (!abierto) {
+      cuerpo = <div style={{ marginTop: 18, fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 24, color: '#06140A' }}>👆 Tocar</div>;
+    } else if (st.fase === 'jugando') {
+      const qReal = orden[st.qIdx];
+      const { opciones } = barajarOpciones(e.id, qReal);
+      cuerpo = (
+        <div className="fade-up" style={{ marginTop: 14 }}>
+          <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 28, lineHeight: 1.2, color: '#06140A' }}>{preguntas[qReal].pregunta}</div>
+          <div style={{ display: 'grid', gap: 10, marginTop: 14 }}>
+            {opciones.map((o, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', borderRadius: 12, background: 'rgba(6,20,10,.14)' }}>
+                <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 26, color: '#06140A' }}>{'ABCDE'[i]}</span>
+                <span style={{ fontSize: 22, fontWeight: 600, color: '#06140A' }}>{o}</span>
+              </div>
+            ))}
+          </div>
+          <button onClick={() => continuar(e.id)}
+            style={{ marginTop: 16, width: '100%', padding: '14px 0', borderRadius: 14, border: 'none', cursor: 'pointer',
+              background: '#06140A', color: e.color, fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 22 }}>
+            {st.qIdx < orden.length - 1 ? 'Continuar →' : 'Terminé, escribir →'}
+          </button>
+        </div>
+      );
+    } else if (st.fase === 'escribir') {
+      cuerpo = (
+        <div className="fade-up" style={{ marginTop: 14 }}>
+          <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 24, color: '#06140A' }}>Escribe tu secuencia</div>
+          <div style={{ fontSize: 16, color: 'rgba(6,20,10,.65)', marginTop: 4 }}>Ejemplo: A, C, B, D</div>
+          <input value={st.texto} onChange={(ev) => set(e.id, { texto: ev.target.value })}
+            placeholder="A, C, B…"
+            style={{ marginTop: 12, width: '100%', boxSizing: 'border-box', fontSize: 34, padding: '14px 18px', borderRadius: 12, textAlign: 'center',
+              letterSpacing: '.2em', textTransform: 'uppercase', border: '3px solid #06140A', background: 'rgba(255,255,255,.5)',
+              color: '#06140A', fontFamily: 'var(--font-display)', fontWeight: 800, outline: 'none' }} />
+          <button onClick={() => comprobar(e.id)} disabled={!(st.texto || '').replace(/[^A-Ea-e]/g, '')}
+            style={{ marginTop: 14, width: '100%', padding: '14px 0', borderRadius: 14, border: 'none', cursor: 'pointer',
+              background: '#06140A', color: e.color, fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 22 }}>
+            Comprobar
+          </button>
+        </div>
+      );
+    } else if (st.fase === 'resultado' && st.resultado) {
+      const r = st.resultado;
+      cuerpo = (
+        <div className="fade-up" style={{ marginTop: 14, textAlign: 'center' }}>
+          <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 52, color: '#06140A' }}>{r.aciertos}/{r.total}</div>
+          <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 26, color: '#06140A', marginTop: 4 }}>
+            {r.sumados > 0 ? '+' + r.sumados + ' puntos 🎉' : 'Sin puntos'}
+          </div>
+          <div style={{ fontSize: 18, color: 'rgba(6,20,10,.7)', marginTop: 10 }}>
+            Correcto: <b style={{ letterSpacing: '.12em' }}>{r.correctas.join(', ')}</b>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div key={e.id}
+        onClick={() => { if (!abierto) abrir(e.id); }}
+        style={{
+          width: abierto ? anchoAbierto : anchoCerrado,
+          minHeight: abierto ? 'auto' : 260,
+          maxWidth: '92vw',
+          borderRadius: 24, padding: abierto ? '22px 24px' : '0',
+          background: e.color, color: '#06140A',
+          display: 'flex', flexDirection: 'column', justifyContent: abierto ? 'flex-start' : 'center',
+          alignItems: abierto ? 'stretch' : 'center',
+          cursor: abierto ? 'default' : 'pointer',
+          boxShadow: '0 14px 34px -14px rgba(0,0,0,.6)',
+          transition: 'width .25s ease',
+        }}>
+        {!abierto ? (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, padding: 24 }}>
+            <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 30, textAlign: 'center' }}>{e.nombre}</span>
+            <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 22 }}>👆 Tocar</span>
+            <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 16, opacity: .7 }}>{Math.min(st.qIdx + 1, orden.length)}/{orden.length}</span>
+          </div>
+        ) : (
+          <React.Fragment>{cabecera}{cuerpo}</React.Fragment>
+        )}
+      </div>
+    );
+  };
+
+  const todosListos = equipos.every((e) => estado[e.id].fase === 'resultado');
+
+  return (
+    <div className="act-stage" style={{ justifyContent: 'flex-start', paddingTop: 16, height: '100%', overflow: 'auto' }}>
+      <ActHeader tool={tool} titulo={config.titulo} instrucciones={config.instrucciones} compact />
+      <div style={{ fontSize: 20, color: 'var(--muted)', marginTop: 4 }}>
+        {preguntas.length} preguntas · {puntosPorAcierto} {puntosPorAcierto === 1 ? 'punto' : 'puntos'} por acierto
+      </div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 22, marginTop: 30, justifyContent: 'center', alignItems: 'flex-start', maxWidth: 1640 }}>
+        {equipos.map(renderRecuadro)}
+      </div>
+      {todosListos && (
+        <div className="fade-up" style={{ marginTop: 30, fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 40, color: '#11F555' }}>
+          🎉 ¡Todos los equipos terminaron!
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ===== Reemplaza tu objeto window.ActivityRuntimes por este (añade las 4) ===== */
 window.ActivityRuntimes = {
   ruleta: RuletaRun, completa: CompletaRun, elige: EligeRun, vf: VFRun,
   selector: SelectorRun, dado: DadoRun, marcador: MarcadorRun,
   problema: ProblemaRun, crea: FichaRun, temporizador: TemporizadorRun,
-  ahorcado: AhorcadoRun, sopa: SopaRun, crucigrama: CrucigramaRun, reto: RetoRun, organiza: OrganizaRun, descubre: DescubreRun, default: FichaRun, 
-  stop: StopRun, errores: DiferenciasRun, acertijo: AcertijoRun, 
+  ahorcado: AhorcadoRun, sopa: SopaRun, crucigrama: CrucigramaRun, reto: RetoRun,
+  organiza: OrganizaRun, descubre: DescubreRun, default: FichaRun,
+  stop: StopRun, errores: DiferenciasRun, acertijo: AcertijoRun,
   lluvia: LluviaRun, pares: ParesRun,
   encuesta: EncuestaRun, debate: DebateRun, memorama: MemoramaRun,
   ordena: OrdenaRun,
+  // --- actividades de equipo (Entrega 2) ---
+  retaEquipo: RetaEquipoRun, pulsador: PulsadorRun, apuesta: ApuestaRun, recuadros: RecuadrosRun,
 };
-Object.assign(window, { FichaRun });
+Object.assign(window, { FichaRun, SinEquipos, RetaEquipoRun, PulsadorRun, ApuestaRun, RecuadrosRun });

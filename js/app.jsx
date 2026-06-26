@@ -136,7 +136,7 @@ function App() {
           onCreate={createPres} onOpen={setEditingId} onPresent={present} onDelete={deletePres} onLogout={logout}
           theme={theme} setTheme={setTheme} />
       )}
-      {presenting && <Presenter pres={presenting} onExit={() => setPresentingId(null)} />}
+      {presenting && <Presenter pres={presenting} onChange={changePres} onExit={() => setPresentingId(null)} />}
       <AppTweaks t={t} setTweak={setTweak} />
     </React.Fragment>
   );

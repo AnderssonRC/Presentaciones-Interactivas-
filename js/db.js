@@ -39,6 +39,10 @@
     { id: 'stop',         nombre: 'Stop the clock',         desc: 'Categorías del cuadro (una por línea)', color: '#116CF5', icon: 'letras' },
     { id: 'errores',      nombre: 'Encuentra las diferencias', desc: 'Busca las diferencias en la imagen', color: '#116CF5', icon: 'eye' },
     { id: 'acertijo',     nombre: 'Acertijo',               desc: 'Resuelve el enigma del docente',        color: '#116CF5', icon: 'pregunta' },
+     { id: 'retaEquipo', nombre: 'Reta al equipo',       desc: 'Preguntas por turnos entre equipos',     color: '#F53711', icon: 'trofeo' },
+    { id: 'pulsador',   nombre: 'Pulsador por turnos',  desc: 'El equipo que pulsa primero responde',   color: '#11F555', icon: 'rayo' },
+    { id: 'apuesta',    nombre: 'Apuesta de puntos',    desc: 'Cada equipo apuesta antes de responder', color: '#116CF5', icon: 'trofeo' },
+    { id: 'recuadros',  nombre: 'Recuadros por equipo', desc: 'Cada equipo resuelve su propio tablero', color: '#F5C211', icon: 'memorama' },
   ];
 
   const toolById = (id) => TOOLS.find((t) => t.id === id) || TOOLS[0];
@@ -79,6 +83,7 @@
         { ref: 'crucigrama' },
         { ref: 'completa' },
         { ref: 'adivina' },
+        
       ],
     },
     {
@@ -92,6 +97,19 @@
         { ref: 'vf' }, { ref: 'pares' }, { ref: 'ordena' }, { ref: 'memorama' },
         { ref: 'encuesta' }, { ref: 'lluvia' }, { ref: 'temporizador' }, { ref: 'selector' },
         { ref: 'dado' }, { ref: 'marcador' }, { ref: 'debate' },
+      ],
+    },
+    {
+      id: 'equipos',
+      nombre: 'Competencia por Equipos',
+      desc: 'Solo en Modo Equipos: reparten puntos al marcador',
+      color: '#F5C211',
+      icon: 'trofeo',
+      tools: [
+        { ref: 'retaEquipo' },
+        { ref: 'pulsador' },
+        { ref: 'apuesta' },
+        { ref: 'recuadros' },
       ],
     },
   ];
@@ -174,6 +192,30 @@
         break;
       default:
         base.duracion = 180;
+        case 'retaEquipo':
+        base.items = ['¿Cuál es la capital de Francia?=París', '¿Cuánto es 7 × 8?=56', 'Nombra un planeta del sistema solar=Marte'];
+        base.instrucciones = 'Por turnos, cada equipo responde. Si acierta gana los puntos; si falla, pasa al siguiente.';
+        base.puntos = 1;
+        break;
+      case 'pulsador':
+        base.items = ['¿En qué año llegó el hombre a la Luna?=1969', '¿Cuál es el río más largo del mundo?=Amazonas'];
+        base.instrucciones = 'El primer equipo que pulse responde. Si falla, queda fuera de esa pregunta.';
+        base.puntos = 1;
+        break;
+      case 'apuesta':
+        base.items = ['¿Cuántos continentes hay?=7', '¿Quién escribió Cien años de soledad?=García Márquez'];
+        base.instrucciones = 'Cada equipo apuesta puntos antes de ver la pregunta. Si acierta gana lo apostado; si falla, lo pierde.';
+        break;
+      case 'recuadros':
+        // Formato por línea: Pregunta | correcta | opción | opción | opción  (la 1ª opción es la correcta)
+        base.items = [
+          '¿Capital de Colombia? | Bogotá | Bogotá | Medellín | Cali',
+          '¿2 + 2? | 4 | 4 | 3 | 5',
+          '¿Color del cielo despejado? | Azul | Azul | Verde | Rojo',
+        ];
+        base.instrucciones = 'Cada equipo abre su tablero, responde sus preguntas y escribe la secuencia de respuestas.';
+        base.puntos = 2;
+        break;
     }
     return base;
   }
