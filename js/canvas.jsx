@@ -180,6 +180,17 @@ function CanvasElemento({ el, editable, selected, onSelect, onChange, replayKey 
     if (editable && selected) {
       contenido = (
         <textarea className="canvas-text" value={el.valor} onChange={editarTexto} spellCheck="false"
+          ref={(node) => {
+            // Enfoca una sola vez al montar, sin que el navegador desplace la
+            // vista (preventScroll), para no provocar reflujo/vibración dentro
+            // del lienzo escalado.
+            if (node && !node.dataset.enfocado) {
+              node.dataset.enfocado = '1';
+              try { node.focus({ preventScroll: true }); } catch (e) { node.focus(); }
+              const fin = (node.value || '').length;
+              try { node.setSelectionRange(fin, fin); } catch (e) {}
+            }
+          }}
           onPointerDown={(e) => e.stopPropagation()}
           style={{ ...estiloTexto, background: 'transparent', border: 'none',
             outline: 'none', resize: 'none' }} />
