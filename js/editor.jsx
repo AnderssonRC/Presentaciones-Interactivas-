@@ -12,6 +12,19 @@ function Editor({ pres, onChange, onBack, onPresent, theme, setTheme }) {
 
   // Al cambiar de diapositiva, soltar la selección de elemento.
   React.useEffect(() => { setSelEl(null); }, [sel]);
+  // Migra UNA sola vez la diapositiva de contenido (de titulo/texto/imagen al
+  // modelo de elementos) y la persiste, para que los ids no se regeneren en
+  // cada render. Sin esto, migrarContenido() crea ids nuevos en cada pintado,
+  // la selección se pierde y el lienzo "vibra" / exige varios clics.
+  React.useEffect(() => {
+    const c = slides[Math.min(sel, slides.length - 1)];
+    if (c && c.type === 'contenido' && !Array.isArray(c.elementos)) {
+      const next = slides.slice();
+      next[Math.min(sel, slides.length - 1)] = migrarContenido(c);
+      update({ slides: next });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sel, current.id]);
 
   const update = (patch) => onChange({ ...pres, ...patch });
 
@@ -112,7 +125,12 @@ function Editor({ pres, onChange, onBack, onPresent, theme, setTheme }) {
     updateSlide(curIdx, { ...base, fondo });
   };
 
-  const migrada = current.type === 'contenido' ? migrarContenido(current) : current;
+  // Ya no migramos en el render (lo hace el useEffect de arriba, una sola vez).
+  // Si por un instante aún no se ha migrado, usamos una versión local sin
+  // persistir, pero NO generamos ids nuevos en cada pintado.
+  const migrada = current.type === 'contenido'
+    ? (Array.isArray(current.elementos) ? current : migrarContenido(current))
+    : current;
   const elementoSel = (migrada.elementos || []).find((el) => el.id === selEl) || null;
 
   return (

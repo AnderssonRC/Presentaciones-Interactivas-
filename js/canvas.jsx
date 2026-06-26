@@ -180,6 +180,15 @@ function CanvasElemento({ el, editable, selected, onSelect, onChange, replayKey 
     if (editable && selected) {
       contenido = (
         <textarea className="canvas-text" value={el.valor} onChange={editarTexto} spellCheck="false"
+          ref={(node) => {
+            // Al seleccionar el elemento de texto, enfoca el área para escribir
+            // de inmediato (un solo clic), colocando el cursor al final.
+            if (node && document.activeElement !== node) {
+              node.focus();
+              const fin = node.value.length;
+              try { node.setSelectionRange(fin, fin); } catch (e) {}
+            }
+          }}
           onPointerDown={(e) => e.stopPropagation()}
           style={{ ...estiloTexto, background: 'transparent', border: 'none',
             outline: 'none', resize: 'none' }} />
