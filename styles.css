@@ -236,7 +236,7 @@ input, textarea, select { font-family: var(--font-body); color: inherit; }
 .thumb-action:hover { background: var(--line); color: var(--ink); }
 
 .editor-canvas-col {
-  overflow-y: scroll; min-height: 0; padding: 24px 28px; display: flex; flex-direction: column; gap: 18px;
+  overflow-y: auto; min-height: 0; padding: 24px 28px; display: flex; flex-direction: column; gap: 18px;
   background: var(--bg);
 }
 .editor-tools {
@@ -640,13 +640,10 @@ input, textarea, select { font-family: var(--font-body); color: inherit; }
   padding: 8px 10px;
   margin-bottom: 12px;
   box-shadow: var(--shadow, 0 6px 20px -12px rgba(0,0,0,.25));
-  transform: translateZ(0);   /* fuerza una capa de composición estable */
-  will-change: auto;
-  .lienzo-bar {
-  /* ...lo que ya tienes... */
   align-content: flex-start;
-  contain: layout;
-}
+  min-height: 56px;
+  position: relative;
+  z-index: 50;
 }
 .lz-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .lz-div { width: 1px; align-self: stretch; min-height: 24px; background: var(--line); margin: 0 4px; }
@@ -664,7 +661,7 @@ input, textarea, select { font-family: var(--font-body); color: inherit; }
 
 .lz-menu { position: relative; }
 .lz-pop {
-  position: absolute; top: calc(100% + 6px); left: 0; z-index: 70;
+  position: absolute; top: calc(100% + 6px); left: 0; z-index: 200;
   background: var(--surface, #fff); border: 1px solid var(--line);
   border-radius: 12px; padding: 12px; min-width: 200px;
   box-shadow: 0 18px 50px -18px rgba(0,0,0,.45);
