@@ -29,6 +29,19 @@ function StudentView({ code }) {
   const [yoLevante, setYoLevante] = React.useState(false);
   const [miRespuesta, setMiRespuesta] = React.useState(null);
 
+  // Alto real del celular (px). innerHeight sí descuenta la barra del navegador,
+  // a diferencia de 100vh. Sirve para que la pantalla de unirse llene la
+  // pantalla sin quedar tapada cuando aparece el teclado.
+  const [vh, setVh] = React.useState(
+    (typeof window !== 'undefined' && window.innerHeight) ? window.innerHeight + 'px' : '100vh'
+  );
+  React.useEffect(() => {
+    const upd = () => setVh((window.innerHeight || 0) + 'px');
+    upd();
+    window.addEventListener('resize', upd);
+    return () => window.removeEventListener('resize', upd);
+  }, []);
+
   // Escuchar el estado de la sala (espejo + ronda).
   React.useEffect(() => {
     if (!pid || !code || !AIP.listenRemoteSession) return;
@@ -80,7 +93,7 @@ function StudentView({ code }) {
   // ----- Pantalla: unirse (ajustada al celular) -----
   if (!pid) {
     return (
-      <div style={svJoinWrap}>
+      <div style={{ ...svJoinWrap, minHeight: vh }}>
         <div style={{ width: '100%', maxWidth: 480, margin: '0 auto', textAlign: 'center' }}>
           <div style={{ fontSize: 52, marginBottom: 8 }}>🎓</div>
           <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 30, lineHeight: 1.1, margin: '0 0 6px', color: '#F2F5EF' }}>Únete a la clase</h1>
@@ -258,12 +271,14 @@ const svWrap = {
   display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
   padding: 18, boxSizing: 'border-box', overflowY: 'auto',
 };
-/* Pantalla de unirse: ocupa todo el alto del celular y centra el formulario,
-   con padding amplio para que no se vea "lejano". */
+/* Pantalla de unirse: ocupa todo el alto del celular y centra el formulario.
+   Usa min-height con la unidad dinámica del móvil (dvh) en lugar de
+   `position: fixed`, para que al aparecer el teclado el formulario no quede
+   tapado y se pueda desplazar con normalidad. Respaldo a vh por compatibilidad. */
 const svJoinWrap = {
-  position: 'fixed', inset: 0, background: '#0B0E0B',
+  minHeight: '100vh', background: '#0B0E0B',
   display: 'flex', flexDirection: 'column', justifyContent: 'center',
-  padding: '24px 20px', boxSizing: 'border-box', overflowY: 'auto',
+  padding: '24px 20px', boxSizing: 'border-box',
 };
 const svInput = {
   width: '100%', fontSize: 18, padding: '14px 16px', marginBottom: 12,
@@ -315,36 +330,56 @@ function EspejoSlide({ slide }) {
   );
 }
 
-/* Espejo de una ACTIVIDAD: monta el mismo Runtime que el TV, escalado al
-   ancho del celular, en modo solo-lectura (pointerEvents desactivados para
-   que el estudiante no pueda interactuar; la actividad se resuelve en el TV).
-   Mantiene el lienzo 1920×1080 igual que el televisor. */
+/* Espejo de una ACTIVIDAD: monta el mismo Runtime que el TV, en modo
+   solo-lectura (pointerEvents desactivados; la actividad se resuelve en el TV).
+   Mantiene el lienzo 1920×1080 igual que el televisor, pero lo escala usando
+   el ALTO disponible del celular para que se vea lo más grande posible (no
+   diminuto). Si al agrandarlo queda más ancho que la pantalla, el contenedor
+   permite desplazarlo horizontalmente sin afectar al resto de la página. */
 function EspejoActividad({ Runtime, config, tool }) {
   const boxRef = React.useRef(null);
   const [scale, setScale] = React.useState(0.18);
   React.useEffect(() => {
     const el = boxRef.current;
     if (!el) return;
-    const update = () => setScale(el.clientWidth / 1920);
+    const update = () => {
+      const anchoDisp = el.clientWidth || 1;
+      // Alto objetivo: gran parte de la altura visible del celular (deja sitio
+      // a la cabecera y a los controles de participación de abajo).
+      const altoObjetivo = Math.max(260, Math.round((window.innerHeight || 640) * 0.62));
+      const sAncho = anchoDisp / 1920;        // escala que llena el ancho
+      const sAlto = altoObjetivo / 1080;      // escala que llena el alto objetivo
+      // Usamos la mayor de las dos para que se vea grande; el contenedor
+      // gestiona el desbordamiento horizontal con scroll si hace falta.
+      setScale(Math.max(sAncho, sAlto));
+    };
     update();
     const ro = new ResizeObserver(update);
     ro.observe(el);
-    return () => ro.disconnect();
+    window.addEventListener('resize', update);
+    return () => { ro.disconnect(); window.removeEventListener('resize', update); };
   }, []);
   if (typeof Runtime !== 'function') return null;
+  const w = 1920 * scale;
+  const h = 1080 * scale;
   return (
     <div ref={boxRef} style={{
-      width: '100%', height: 1080 * scale, position: 'relative',
-      borderRadius: 14, overflow: 'hidden', border: '2px solid #2A2F29', background: '#0B0E0B',
+      width: '100%', height: h, position: 'relative',
+      borderRadius: 14, overflowX: 'auto', overflowY: 'hidden',
+      border: '2px solid #2A2F29', background: '#0B0E0B',
+      WebkitOverflowScrolling: 'touch',
     }}>
-      {/* Capa que bloquea toques: solo-lectura en el celular. */}
-      <div style={{ position: 'absolute', inset: 0, zIndex: 5 }} />
-      <div className="slide" style={{
-        position: 'absolute', top: 0, left: 0, width: 1920, height: 1080,
-        transform: 'scale(' + scale + ')', transformOrigin: 'top left',
-        background: '#0B0E0B', color: '#F2F5EF', pointerEvents: 'none',
-      }}>
-        <Runtime config={config} tool={tool} remoteSignal={{ action: null, nonce: null }} />
+      {/* Lienzo a tamaño escalado; si w > ancho del celular, hay scroll lateral. */}
+      <div style={{ width: w, height: h, position: 'relative' }}>
+        {/* Capa que bloquea toques: solo-lectura en el celular. */}
+        <div style={{ position: 'absolute', inset: 0, zIndex: 5 }} />
+        <div className="slide" style={{
+          position: 'absolute', top: 0, left: 0, width: 1920, height: 1080,
+          transform: 'scale(' + scale + ')', transformOrigin: 'top left',
+          background: '#0B0E0B', color: '#F2F5EF', pointerEvents: 'none',
+        }}>
+          <Runtime config={config} tool={tool} remoteSignal={{ action: null, nonce: null }} />
+        </div>
       </div>
     </div>
   );
