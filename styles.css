@@ -648,7 +648,7 @@ input, textarea, select { font-family: var(--font-body); color: inherit; }
   display: inline-flex; align-items: center; gap: 6px;
   padding: 8px 12px; border-radius: 10px;
   border: 1px solid transparent; background: transparent;
-  color: var(--ink); font-family: var(--font-body); font-weight: 600; font-size: 13.5;
+  color: var(--ink); font-family: var(--font-body); font-weight: 600; font-size: 13.5px;
   cursor: pointer; white-space: nowrap; transition: background .15s, border-color .15s;
 }
 .lz-btn:hover { background: var(--surface2); }
