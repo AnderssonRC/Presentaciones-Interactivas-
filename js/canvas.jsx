@@ -102,9 +102,14 @@ function urlEmbed(url) {
   return url;
 }
 
-/* Render de un único elemento dentro del lienzo (coordenadas 1920x1080). */
-function CanvasElemento({ el, editable, selected, onSelect, onChange, replayKey }) {
+/* Render de un único elemento dentro del lienzo (coordenadas 1920x1080).
+   `previewOn` (modo editable): cuando es true fuerza la animación aunque no
+   haya hover — lo activa el botón "Previsualizar" de la toolbar. */
+function CanvasElemento({ el, editable, selected, onSelect, onChange, replayKey, previewOn }) {
   const dragRef = React.useRef(null);
+  // En el editor las animaciones están apagadas; se ven al pasar el mouse
+  // (hover) o cuando previewOn está activo.
+  const [hover, setHover] = React.useState(false);
 
   const estiloPos = {
     position: 'absolute', left: el.x, top: el.y, width: el.w, height: el.h,
@@ -209,10 +214,21 @@ function CanvasElemento({ el, editable, selected, onSelect, onChange, replayKey 
       : <div className="canvas-ph">Pega la URL de un video (YouTube/Vimeo) ▸</div>;
   }
 
+  // ¿Debe verse la animación ahora mismo?
+  // - Presentación (no editable): siempre, según el catálogo.
+  // - Editor (editable): solo al pasar el mouse (hover) o con "Previsualizar".
+  const animar = editable ? (hover || previewOn) : true;
+  const claseAnim = animar ? animClase(el.anim) : '';
+  // Cambiar esta parte del key re-monta el nodo y reinicia la animación CSS
+  // cada vez que empieza un hover o se activa la previa.
+  const animKey = (replayKey || '') + '-' + (animar ? 'on' : 'off');
+
   return (
-    <div ref={dragRef} key={replayKey}
-      className={'canvas-el ' + (editable ? '' : animClase(el.anim)) + (editable ? ' editable' : '') + (selected ? ' sel' : '')}
+    <div ref={dragRef} key={animKey}
+      className={'canvas-el ' + claseAnim + (editable ? ' editable' : '') + (selected ? ' sel' : '')}
       style={estiloPos}
+      onPointerEnter={editable ? () => setHover(true) : undefined}
+      onPointerLeave={editable ? () => setHover(false) : undefined}
       onPointerDown={iniciarArrastre}
       onClick={(e) => { if (editable) { e.stopPropagation(); onSelect && onSelect(el.id); } }}>
       {contenido}
@@ -228,8 +244,10 @@ function CanvasElemento({ el, editable, selected, onSelect, onChange, replayKey 
 
 /* Lienzo completo: fondo + elementos. `replay` fuerza re-montaje para reanimar.
    `pasoActual` (presentación): solo se ven los elementos con orden <= pasoActual.
-   En modo editable se ven todos. */
-function LienzoLibre({ slide, editable, selId, onSelect, onChangeEl, replay, pasoActual }) {
+   En modo editable se ven todos.
+   `previewOn` (editor): fuerza que TODOS los elementos reproduzcan su animación
+   (lo activa el botón "Previsualizar" de la toolbar). */
+function LienzoLibre({ slide, editable, selId, onSelect, onChangeEl, replay, pasoActual, previewOn }) {
   const fondo = slide.fondo || { tipo: 'color', valor: '' };
   const estiloFondo = fondo.tipo === 'url' && fondo.valor
     ? { backgroundImage: `url("${fondo.valor}")`, backgroundSize: 'cover', backgroundPosition: 'center' }
@@ -247,7 +265,8 @@ function LienzoLibre({ slide, editable, selId, onSelect, onChangeEl, replay, pas
             selected={editable && selId === el.id}
             onSelect={onSelect}
             onChange={(next) => onChangeEl && onChangeEl(el.id, next)}
-            replayKey={(replay || 0) + '-' + el.id} />
+            replayKey={(replay || 0) + '-' + el.id}
+            previewOn={previewOn} />
         );
       })}
     </div>

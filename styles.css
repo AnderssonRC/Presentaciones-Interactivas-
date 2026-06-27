@@ -641,11 +641,18 @@ input, textarea, select { font-family: var(--font-body); color: inherit; }
   margin-bottom: 12px;
   box-shadow: var(--shadow, 0 6px 20px -12px rgba(0,0,0,.25));
   align-content: flex-start;
-  height: 56px;
+  /* Antes height:56px fija — al envolver, la 2ª fila se salía de la caja
+     y el fondo blanco se cortaba. Con min-height la barra crece y el blanco
+     cubre ambas filas. */
+  min-height: 56px;
+  width: 100%;
+  box-sizing: border-box;
   position: relative;
   z-index: 50;
 }
-.lz-row { display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; }
+/* flex-wrap: wrap permite que los menús bajen a una segunda fila cuando no
+   caben en el ancho del lienzo (antes nowrap los empujaba fuera). */
+.lz-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; width: 100%; row-gap: 8px; }
 .lz-div { width: 1px; align-self: stretch; min-height: 24px; background: var(--line); margin: 0 4px; }
 
 .lz-btn {
@@ -686,3 +693,12 @@ input, textarea, select { font-family: var(--font-body); color: inherit; }
 }
 .lz-del:hover { background: color-mix(in oklch, #F53711 10%, transparent); }
 .lz-status { font-size: 12.5px; color: var(--muted); padding-right: 6px; }
+/* ---- Confeti de la pantalla de equipo ganador (presenter.jsx) ---- */
+@keyframes confetiCae {
+  0%   { transform: translateY(0) rotate(0deg); opacity: 0; }
+  10%  { opacity: 1; }
+  100% { transform: translateY(105vh) rotate(var(--giro, 360deg)); opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  @keyframes confetiCae { 0%,100% { transform: none; opacity: 1; } }
+}

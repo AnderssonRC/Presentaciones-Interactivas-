@@ -7,11 +7,27 @@ function Editor({ pres, onChange, onBack, onPresent, theme, setTheme }) {
   const [teamsOpen, setTeamsOpen] = React.useState(false);
   const [aulaOpen, setAulaOpen] = React.useState(false);
   const [selEl, setSelEl] = React.useState(null); // id del elemento seleccionado en el lienzo
+  // Previa de animaciones en el editor: al activarla, todos los elementos
+  // reproducen su animación una vez. `previewTick` re-monta el lienzo para
+  // reiniciar las animaciones cada vez que se pulsa "Previsualizar".
+  const [previewOn, setPreviewOn] = React.useState(false);
+  const [previewTick, setPreviewTick] = React.useState(0);
   const slides = pres.slides;
   const current = slides[Math.min(sel, slides.length - 1)];
 
-  // Al cambiar de diapositiva, soltar la selección de elemento.
-  React.useEffect(() => { setSelEl(null); }, [sel]);
+  // Dispara una previa: enciende el modo y lo apaga solo tras unos segundos
+  // (las animaciones de entrada duran <1s; las continuas se cortan al apagar).
+  const previewRef = React.useRef(null);
+  const previsualizar = () => {
+    setPreviewTick((t) => t + 1);
+    setPreviewOn(true);
+    if (previewRef.current) clearTimeout(previewRef.current);
+    previewRef.current = setTimeout(() => setPreviewOn(false), 2600);
+  };
+  React.useEffect(() => () => { if (previewRef.current) clearTimeout(previewRef.current); }, []);
+
+  // Al cambiar de diapositiva, soltar la selección de elemento y cortar la previa.
+  React.useEffect(() => { setSelEl(null); setPreviewOn(false); }, [sel]);
   // Migra UNA sola vez la diapositiva de contenido (de titulo/texto/imagen al
   // modelo de elementos) y la persiste, para que los ids no se regeneren en
   // cada render. Sin esto, migrarContenido() crea ids nuevos en cada pintado,
@@ -281,13 +297,16 @@ function Editor({ pres, onChange, onBack, onPresent, theme, setTheme }) {
               onBorrar={() => elementoSel && borrarElemento(elementoSel.id)}
               fondo={migrada.fondo || { tipo: 'color', valor: '' }}
               onFondo={setFondo}
-              totalElementos={(migrada.elementos || []).length} />
+              totalElementos={(migrada.elementos || []).length}
+              onPrevisualizar={previsualizar}
+              previewOn={previewOn} />
           )}
 
           <ScaledSlide>
             {current.type === 'contenido' ? (
               <ContenidoSlide slide={migrada} materia={pres.materia || 'Tema'} accent={pres.color} editable
-                selId={selEl} onSelect={setSelEl} onChangeEl={cambiarElemento} />
+                selId={selEl} onSelect={setSelEl} onChangeEl={cambiarElemento}
+                previewOn={previewOn} replay={previewTick} />
             ) : (
               <ActividadSlidePreview slide={current} />
             )}
@@ -471,7 +490,7 @@ Object.assign(window, { Editor });
    cada categoría es un botón que abre su menú desplegable justo debajo.
    Solo un menú abierto a la vez. No es una columna apilada.
    ============================================================ */
-function LienzoToolbar({ elemento, onAgregar, onCambiar, onBorrar, fondo, onFondo, totalElementos }) {
+function LienzoToolbar({ elemento, onAgregar, onCambiar, onBorrar, fondo, onFondo, totalElementos, onPrevisualizar, previewOn }) {
   const [menu, setMenu] = React.useState(null); // id del menú abierto
   const barraRef = React.useRef(null);
   const toggle = (id) => setMenu((m) => (m === id ? null : id));
@@ -492,8 +511,10 @@ function LienzoToolbar({ elemento, onAgregar, onCambiar, onBorrar, fondo, onFond
   const hay = !!elemento;
 
   return (
-    <div className="lienzo-bar" ref={barraRef}>
-      <div className="lz-row">
+    <div className="lienzo-bar" ref={barraRef}
+      style={{ width: '100%', maxWidth: '100%', boxSizing: 'border-box', overflow: 'visible' }}>
+      <div className="lz-row"
+        style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, width: '100%', maxWidth: '100%', minWidth: 0 }}>
         {/* --- Añadir (siempre disponible) --- */}
         <LzMenu id="add" label="＋ Añadir" abierto={menu === 'add'} onToggle={toggle}>
           <div className="lz-pop-title">Añadir al lienzo</div>
@@ -509,6 +530,16 @@ function LienzoToolbar({ elemento, onAgregar, onCambiar, onBorrar, fondo, onFond
         <LzMenu id="fondo" label="🎨 Fondo" abierto={menu === 'fondo'} onToggle={toggle}>
           <FondoMenu fondo={fondo} onFondo={onFondo} />
         </LzMenu>
+
+        {/* --- Previsualizar animaciones (siempre disponible) --- */}
+        {onPrevisualizar && (
+          <button
+            className={'lz-btn' + (previewOn ? ' open' : '')}
+            onClick={() => { setMenu(null); onPrevisualizar(); }}
+            title="Reproducir las animaciones de esta diapositiva en el lienzo">
+            ▶ Previsualizar
+          </button>
+        )}
 
         <span className="lz-div" />
 
@@ -616,8 +647,8 @@ function LienzoToolbar({ elemento, onAgregar, onCambiar, onBorrar, fondo, onFond
           </LzMenu>
         )}
 
-        {/* Empuja el borrar/estado a la derecha */}
-        <span style={{ flex: 1 }} />
+        {/* Empuja el borrar/estado a la derecha (pero permite el salto de fila) */}
+        <span style={{ flex: '1 1 0', minWidth: 0 }} />
 
         {hay ? (
           <button className="lz-del" onClick={onBorrar} title="Eliminar elemento seleccionado">🗑 Borrar</button>
@@ -631,14 +662,43 @@ function LienzoToolbar({ elemento, onAgregar, onCambiar, onBorrar, fondo, onFond
   );
 }
 
-/* Botón de categoría + su menú desplegable (popover anclado debajo). */
+/* Botón de categoría + su menú desplegable (popover anclado debajo).
+   El popover se ancla a la izquierda del botón por defecto, pero si se saldría
+   por el borde derecho del lienzo, se ancla a la derecha. La detección se hace
+   al abrir, midiendo la posición real del botón y del contenedor de la barra. */
 function LzMenu({ id, label, abierto, onToggle, children }) {
+  const refBtn = React.useRef(null);
+  const refPop = React.useRef(null);
+  // 'left' (por defecto) o 'right': de qué lado del botón se alinea el popover.
+  const [lado, setLado] = React.useState('left');
+
+  React.useLayoutEffect(() => {
+    if (!abierto || !refBtn.current || !refPop.current) return;
+    const barra = refBtn.current.closest('.lienzo-bar') || document.body;
+    const limite = barra.getBoundingClientRect();
+    const btn = refBtn.current.getBoundingClientRect();
+    const anchoPop = refPop.current.offsetWidth || 260;
+    // Si alineado a la izquierda del botón se sale por la derecha del límite,
+    // lo alineamos a la derecha del botón.
+    if (btn.left + anchoPop > limite.right - 8) setLado('right');
+    else setLado('left');
+  }, [abierto, children]);
+
+  const estiloPop = {
+    position: 'absolute', top: '110%', zIndex: 70,
+    ...(lado === 'right' ? { right: 0 } : { left: 0 }),
+  };
+
   return (
     <div className="lz-menu" style={{ position: 'relative' }}>
-      <button className={'lz-btn' + (abierto ? ' open' : '')} onClick={() => onToggle(id)} aria-expanded={abierto}>
+      <button ref={refBtn} className={'lz-btn' + (abierto ? ' open' : '')} onClick={() => onToggle(id)} aria-expanded={abierto}>
         {label}<span className="lz-caret">▾</span>
       </button>
-      {abierto && <div className="lz-pop" onMouseDown={(e) => e.stopPropagation()}>{children}</div>}
+      {abierto && (
+        <div ref={refPop} className="lz-pop" style={estiloPop} onMouseDown={(e) => e.stopPropagation()}>
+          {children}
+        </div>
+      )}
     </div>
   );
 }

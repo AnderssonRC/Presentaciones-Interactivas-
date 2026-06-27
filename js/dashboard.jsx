@@ -4,13 +4,41 @@ function inkFor(hex) {
 }
 function inkOn(hex) { return hex === '#11F555' ? '#08120B' : '#FFFFFF'; }
 
+/* Devuelve un texto tipo "hace 3 días" a partir de un timestamp (ms). */
+function tiempoRelativo(ts) {
+  if (!ts) return null;
+  const s = Math.max(0, Math.floor((Date.now() - ts) / 1000));
+  if (s < 60) return 'hace un momento';
+  const m = Math.floor(s / 60);
+  if (m < 60) return 'hace ' + m + (m === 1 ? ' minuto' : ' minutos');
+  const h = Math.floor(m / 60);
+  if (h < 24) return 'hace ' + h + (h === 1 ? ' hora' : ' horas');
+  const d = Math.floor(h / 24);
+  if (d < 7) return 'hace ' + d + (d === 1 ? ' día' : ' días');
+  const sem = Math.floor(d / 7);
+  if (d < 30) return 'hace ' + sem + (sem === 1 ? ' semana' : ' semanas');
+  const meses = Math.floor(d / 30);
+  if (d < 365) return 'hace ' + meses + (meses === 1 ? ' mes' : ' meses');
+  const años = Math.floor(d / 365);
+  return 'hace ' + años + (años === 1 ? ' año' : ' años');
+}
+
 function PresCardMeta({ p }) {
   const acts = p.slides.filter((s) => s.type === 'actividad').length;
+  // Última vez presentada: usa lastPresented; si no existe (presentaciones
+  // antiguas), no muestra fecha en vez de inventar una.
+  const cuando = tiempoRelativo(p.lastPresented);
+  const usos = p.usos || 0;
   return (
-    <div className="pres-meta">
-      <span><strong>{p.slides.length}</strong> plantillas</span>
-      <span><strong>{acts}</strong> actividades</span>
-      <span><strong>{p.usos}</strong> usos</span>
+    <div>
+      <div className="pres-meta">
+        <span><strong>{p.slides.length}</strong> plantillas</span>
+        <span><strong>{acts}</strong> actividades</span>
+        <span><strong>{usos}</strong> {usos === 1 ? 'vez' : 'veces'}</span>
+      </div>
+      <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 4 }}>
+        {cuando ? ('Última vez: ' + cuando) : 'Sin presentar aún'}
+      </div>
     </div>
   );
 }
@@ -32,7 +60,11 @@ function Dashboard({ profile, presentations, onCreate, onOpen, onPresent, onDele
   const [q, setQ] = React.useState('');
   const norm = (s) => (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   const filtered = presentations.filter((p) =>
-    norm(p.tema + ' ' + p.materia + ' ' + p.objetivo).includes(norm(q)));
+    norm(p.tema + ' ' + p.materia + ' ' + p.objetivo).includes(norm(q)))
+    // Orden de historial: las presentadas más recientemente primero;
+    // las que nunca se han presentado quedan al final.
+    .slice()
+    .sort((a, b) => (b.lastPresented || 0) - (a.lastPresented || 0));
 
   const totalPlantillas = presentations.reduce((a, p) => a + p.slides.length, 0);
   const totalActs = presentations.reduce((a, p) => a + p.slides.filter((s) => s.type === 'actividad').length, 0);
@@ -52,8 +84,6 @@ function Dashboard({ profile, presentations, onCreate, onOpen, onPresent, onDele
         <Logo size={24} />
         <nav style={{ display: 'flex', gap: 4, marginLeft: 18, flex: 1 }}>
           <button className="navlink active">Mis presentaciones</button>
-          <button className="navlink" title="Próximamente">Actividades rápidas</button>
-          <button className="navlink" title="Próximamente">Biblioteca</button>
         </nav>
         <ThemeToggle theme={theme} setTheme={setTheme} />
         <button className="btn btn-primary" onClick={() => onCreate("normal")} style={{ borderRadius: 999 }}>

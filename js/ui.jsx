@@ -118,12 +118,12 @@ function ScaledSlide({ children, maxH }) {
    - En modo editable: se arrastran/seleccionan elementos (props selId/onSelect/onChangeEl).
    - En presentación: solo muestra y reproduce animaciones.
    Plantillas viejas (titulo/texto/imagen) se migran al vuelo con migrarContenido(). */
-function ContenidoSlide({ slide, editable, selId, onSelect, onChangeEl, replay, pasoActual }) {
+function ContenidoSlide({ slide, editable, selId, onSelect, onChangeEl, replay, pasoActual, previewOn }) {
   const migrado = migrarContenido(slide);
   return (
     <LienzoLibre slide={migrado} editable={editable}
       selId={selId} onSelect={onSelect} onChangeEl={onChangeEl}
-      replay={replay} pasoActual={pasoActual} />
+      replay={replay} pasoActual={pasoActual} previewOn={previewOn} />
   );
 }
 
@@ -229,19 +229,19 @@ function ResCogitasFooter() {
               color: '#C7D0C2', fontSize: 15.5, lineHeight: 1.6, textAlign: 'justify',
               margin: '0 0 16px', fontFamily: 'var(--font-body, inherit)',
             }}>
-              Res Cogitans es un proyecto que busca reivindicar el arte creador de los docentes,
-              pues son artesanos en su enseñar. Por esa razón, y sin descanso, se busca crear
-              herramientas digitales, físicas y epistémicas que permitan al docente reivindicarse
-              en su hacer, mostrándose como un sabedor, autorizado a ejercer bajo su razón
-              intelectual y sus años de experiencia, pues nadie más que él sabe lo complejo del
-              Arte de Enseñar….
+              Res Cogitans es un proyecto que busca reivindicar el arte creador de los docentes, 
+              pues son Artesanos en su enseñar. Por esa razón, y sin descanso, se busca crear herramientas 
+              digitales, físicas y epistémicas que permitan al docente reivindicarse en su hacer social y político, 
+              mostrándose como un sabedor que une intelecto y materialidad (producción real), además de estar autorizado a ejercer bajo su 
+              razón intelectual y sus años de experiencia, cualquier tipo de transformación y decisión. Esto revindica al docente como experto 
+              de la enseñanza, pues nadie más que él sabe el complejo Arte de Educar. 
             </p>
 
             <div style={{
               textAlign: 'right', color: '#9AA396', fontSize: 14, fontStyle: 'italic',
               fontFamily: 'var(--font-display)', fontWeight: 600,
             }}>
-              Att: Andersson Cortes
+              Att: Andersson Cortes y Res Cogitans
             </div>
           </div>
         </div>

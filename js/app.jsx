@@ -84,7 +84,7 @@ function App() {
 
   const present = (id) => {
     const target = presentations.find((p) => p.id === id);
-    if (target) persist({ ...target, usos: (target.usos || 0) + 1 });
+    if (target) persist({ ...target, usos: (target.usos || 0) + 1, lastPresented: Date.now() });
     setPresentingId(id);
   };
 
@@ -112,6 +112,7 @@ function App() {
       </React.Fragment>
     );
   }
+
   // Con sesión pero aún cargando datos
   if (loadingData) {
     return (
@@ -136,7 +137,9 @@ function App() {
           onCreate={createPres} onOpen={setEditingId} onPresent={present} onDelete={deletePres} onLogout={logout}
           theme={theme} setTheme={setTheme} />
       )}
-      {presenting && <Presenter pres={presenting} onChange={changePres} onExit={() => setPresentingId(null)} />}
+      {presenting && <Presenter pres={presenting} onExit={() => setPresentingId(null)} />}
+      {/* Pie de Res Cogitans: visible en inicio y editor, NO durante Presentar
+         (taparía la pantalla del televisor). */}
       {!presenting && <ResCogitasFooter />}
       <AppTweaks t={t} setTweak={setTweak} />
     </React.Fragment>
