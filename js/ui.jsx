@@ -80,18 +80,33 @@ function ScaledSlide({ children, maxH }) {
   useEffect(() => {
     const el = boxRef.current;
     if (!el) return;
-    const update = () => {
-      let s = el.clientWidth / 1920;
+    // Medimos el ANCHO del contenedor padre (cuyo ancho NO depende de `scale`).
+    // Observar el propio .slide-stagebox creaba un bucle: al fijar su height
+    // desde `scale`, su geometría cambiaba, el ResizeObserver volvía a disparar
+    // y el redondeo sub-pixel de Chrome hacía oscilar `scale` (la "vibración").
+    const medible = el.parentElement || el;
+    let rafId = 0;
+    let ultimo = -1;
+    const aplicar = () => {
+      rafId = 0;
+      let s = medible.clientWidth / 1920;
       if (maxH) s = Math.min(s, maxH / 1080);
+      // Ignora cambios sub-pixel: evita re-renders por ruido de redondeo.
+      if (Math.abs(s - ultimo) < 0.0005) return;
+      ultimo = s;
       setScale(s);
     };
-    update();
+    const update = () => {
+      // Coalesce a un solo cálculo por frame.
+      if (!rafId) rafId = requestAnimationFrame(aplicar);
+    };
+    aplicar();
     const ro = new ResizeObserver(update);
-    ro.observe(el);
-    return () => ro.disconnect();
+    ro.observe(medible);
+    return () => { if (rafId) cancelAnimationFrame(rafId); ro.disconnect(); };
   }, [maxH]);
   return (
-    <div className="slide-stagebox" ref={boxRef} style={{ height: 1080 * scale }}>
+    <div className="slide-stagebox" ref={boxRef} style={{ height: Math.round(1080 * scale) }}>
       <div className="slide" style={{ transform: `scale(${scale})`, borderRadius: 12 / scale > 60 ? 0 : 12, boxShadow: 'var(--shadow)' }}>
         {children}
       </div>
