@@ -1,454 +1,340 @@
-/* student.jsx — Vista del estudiante en su celular.
-   Se usa desde remote.jsx cuando el rol elegido es 'estudiante'.
+/* remote.jsx — El celular como control remoto de la presentación.
+   Se renderiza cuando la URL trae ?remote=CÓDIGO (ver app.jsx).
 
    Flujo:
-     1. El estudiante escribe su nombre (y grupo, si aplica) y se une.
-     2. Ve un ESPEJO de lo que está en el televisor (slide/actividad).
-     3. En actividades normales: botón "✋ Participar" (levantar la mano).
-     4. En el Quiz: ve las opciones y responde (el más rápido correcto gana).
+     1. Si la URL ya trae el código, intenta entrar directo.
+     2. Si no, pide el código de 4 dígitos que aparece en el televisor.
+     3. Una vez dentro, escucha el estado espejo y envía comandos.
 
-   El estado de la sala llega por listenRemoteSession (campo state.mirror
-   y state.ronda). Las acciones del estudiante se escriben en su propio
-   documento de participante (raiseHand / submitAnswer).
+   No requiere que el celular tenga sesión iniciada: solo necesita el código.
+   (Las reglas de Firestore permiten leer/escribir la sesión por su código). */
 
-   CAMBIOS:
-     - El espejo de una ACTIVIDAD ahora monta la MISMA actividad que el TV
-       (ActivityRuntimes[tool]) en modo solo-lectura, escalada al celular.
-       El estudiante ve la actividad completa con todas sus opciones; sigue
-       resolviéndose en el televisor (los arrastres del TV no se reflejan).
-     - Si la actividad no trae config, cae al espejo del slide o a la tarjeta.
-     - La pantalla de unirse (nombre/grupo) se ajusta al celular. */
+/* Mismo hash del PIN que usa el presenter (definido con guardia para no
+   duplicarlo si ambos archivos se cargan). Permite validar el PIN del mando
+   sin que el PIN viaje en claro por el estado espejo. */
+if (!window.hashPin) {
+  window.hashPin = function hashPin(pin) {
+    const s = String(pin || '');
+    if (!s) return '';
+    let h = 5381;
+    for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) >>> 0;
+    return 'p' + h.toString(36);
+  };
+}
 
-function StudentView({ code }) {
-  const [pid, setPid] = React.useState(null);
-  const [nombre, setNombre] = React.useState('');
-  const [grupo, setGrupo] = React.useState('');
-  const [joining, setJoining] = React.useState(false);
-  const [error, setError] = React.useState('');
+function RemoteControl({ initialCode }) {
+  const [code, setCode] = React.useState(initialCode || '');
+  const [input, setInput] = React.useState('');
+  const [connected, setConnected] = React.useState(false);
+  const [rol, setRol] = React.useState(null); // null | 'docente' | 'estudiante'
   const [state, setState] = React.useState(null);
-  const [yoLevante, setYoLevante] = React.useState(false);
-  const [miRespuesta, setMiRespuesta] = React.useState(null);
+  const [error, setError] = React.useState('');
+  const [connecting, setConnecting] = React.useState(false);
+  const [flash, setFlash] = React.useState('');
+  const [pinInput, setPinInput] = React.useState(''); // PIN que escribe quien dice ser docente
+  const [pinError, setPinError] = React.useState('');
 
-  // Alto real del celular (px). innerHeight sí descuenta la barra del navegador,
-  // a diferencia de 100vh. Sirve para que la pantalla de unirse llene la
-  // pantalla sin quedar tapada cuando aparece el teclado.
-  const [vh, setVh] = React.useState(
-    (typeof window !== 'undefined' && window.innerHeight) ? window.innerHeight + 'px' : '100vh'
-  );
+  // Intento de conexión automático si vino el código en la URL.
   React.useEffect(() => {
-    const upd = () => setVh((window.innerHeight || 0) + 'px');
-    upd();
-    window.addEventListener('resize', upd);
-    return () => window.removeEventListener('resize', upd);
+    if (initialCode) tryConnect(initialCode);
+    // eslint-disable-next-line
   }, []);
 
-  // Escuchar el estado de la sala (espejo + ronda).
+  // Escuchar el estado espejo una vez conectados.
   React.useEffect(() => {
-    if (!pid || !code || !AIP.listenRemoteSession) return;
+    if (!connected || !code || !AIP.listenRemoteSession) return;
     const unsub = AIP.listenRemoteSession(code, (data) => {
       if (data === null) {
-        // Sin esto, el mensaje de error nunca se ve: solo se pinta en la
-        // pantalla de unirse (!pid), pero el estudiante ya estaba dentro.
-        setError('La presentación terminó.');
-        setState(null);
-        setPid(null);
+        // La sesión se cerró (el docente salió de Presentar).
+        setConnected(false);
+        setError('La presentación terminó o el código ya no es válido.');
         return;
       }
       setState(data.state || {});
     });
     return unsub;
-  }, [pid, code]);
+  }, [connected, code]);
 
-  // Cuando empieza una ronda nueva (manos reseteadas), limpiar mi estado local.
-  const fase = state && state.ronda ? state.ronda.fase : 'idle';
-  React.useEffect(() => {
-    if (fase === 'idle') { setYoLevante(false); }
-    if (fase === 'pedir') { setYoLevante(false); }
-  }, [fase]);
-
-  // Cuando cambia la diapositiva, limpiar mi respuesta del quiz anterior.
-  const idx = state ? state.idx : null;
-  React.useEffect(() => { setMiRespuesta(null); }, [idx]);
-
-  async function unirse() {
-    if (!nombre.trim()) { setError('Escribe tu nombre.'); return; }
-    setJoining(true); setError('');
+  async function tryConnect(c) {
+    const clean = String(c || '').trim();
+    if (!/^\d{4}$/.test(clean)) { setError('El código son 4 dígitos.'); return; }
+    setConnecting(true); setError('');
     try {
-      const id = await AIP.joinSession(code, nombre, grupo);
-      setPid(id);
+      const sess = await AIP.getRemoteSession(clean);
+      if (!sess) { setError('No encontré esa presentación. Revisa el código.'); setConnecting(false); return; }
+      setCode(clean);
+      setConnected(true);
     } catch (e) {
       console.error(e);
-      setError('No me pude unir. Revisa el código o tu internet.');
+      setError('No me pude conectar. ¿Tienes internet?');
     } finally {
-      setJoining(false);
+      setConnecting(false);
     }
   }
 
-  const levantarMano = async () => {
-    setYoLevante(true);
-    if (navigator.vibrate) navigator.vibrate(20);
-    try { await AIP.raiseHand(code, pid); } catch (e) { console.error(e); setYoLevante(false); }
+  const send = (type, payload) => {
+    if (!code) return;
+    AIP.sendRemoteCommand(code, type, payload).catch((e) => console.error('[remote] envío:', e));
+  };
+  const buzz = (msg) => { setFlash(msg); setTimeout(() => setFlash(''), 700); if (navigator.vibrate) navigator.vibrate(15); };
+
+  // Datos de seguridad/permicos que publica el presenter en el estado espejo.
+  const permiteEstudiantes = state ? state.permiteEstudiantes === true : false;
+  const mandoHash = state ? (state.mandoHash || '') : '';
+
+  // Intentar entrar como docente: si hay PIN configurado, validarlo.
+  const entrarComoDocente = () => {
+    if (mandoHash) {
+      if (window.hashPin(pinInput) !== mandoHash) {
+        setPinError('PIN incorrecto.');
+        if (navigator.vibrate) navigator.vibrate([30, 40, 30]);
+        return;
+      }
+    }
+    setPinError(''); setPinInput('');
+    setRol('docente');
   };
 
-  const responder = async (i) => {
-    if (miRespuesta !== null) return;
-    setMiRespuesta(i);
-    if (navigator.vibrate) navigator.vibrate(15);
-    try { await AIP.submitAnswer(code, pid, i); } catch (e) { console.error(e); }
-  };
-
-  // ----- Pantalla: unirse (ajustada al celular) -----
-  if (!pid) {
+  // ----- Una vez conectado, si aún no se eligió rol: selector -----
+  if (connected && !rol) {
+    // Esperar el primer estado espejo para conocer permisos y PIN antes de
+    // ofrecer los roles (evita mostrar el acceso docente sin pedir PIN).
+    if (state === null) {
+      return (
+        <div style={rcWrap}>
+          <div style={{ textAlign: 'center', color: '#9AA396' }}>
+            <div style={{ fontSize: 34, marginBottom: 10 }}>📡</div>
+            <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700 }}>Conectando con la sala…</div>
+          </div>
+        </div>
+      );
+    }
     return (
-      <div style={{ ...svJoinWrap, minHeight: vh }}>
-        <div style={{ width: '100%', maxWidth: 480, margin: '0 auto', textAlign: 'center' }}>
-          <div style={{ fontSize: 52, marginBottom: 8 }}>🎓</div>
-          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 30, lineHeight: 1.1, margin: '0 0 6px', color: '#F2F5EF' }}>Únete a la clase</h1>
-          <p style={{ color: '#9AA396', margin: '0 0 28px', fontSize: 16 }}>Sala {code}</p>
-          <input value={nombre} onChange={(e) => setNombre(e.target.value.slice(0, 24))}
-            onKeyDown={(e) => { if (e.key === 'Enter' && nombre.trim()) unirse(); }}
-            placeholder="Tu nombre" style={svInputBig} />
-          <input value={grupo} onChange={(e) => setGrupo(e.target.value.slice(0, 24))}
-            onKeyDown={(e) => { if (e.key === 'Enter' && nombre.trim()) unirse(); }}
-            placeholder="Tu grupo (opcional)" style={svInputBig} />
-          {error && <div style={{ color: '#F53711', fontSize: 15, margin: '6px 0 14px' }}>{error}</div>}
-          <button onClick={unirse} disabled={joining || !nombre.trim()}
-            style={{ ...svBtnBig, background: nombre.trim() ? '#11F555' : '#2A2F29', color: nombre.trim() ? '#06140A' : '#9AA396', marginTop: 8 }}>
-            {joining ? 'Entrando…' : 'Entrar'}
+      <div style={rcWrap}>
+        <div style={{ textAlign: 'center', maxWidth: 360, width: '100%' }}>
+          <div style={{ fontSize: 40, marginBottom: 6 }}>👋</div>
+          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 26, margin: '0 0 6px', color: '#F2F5EF' }}>Sala {code}</h1>
+          <p style={{ color: '#9AA396', margin: '0 0 28px', fontSize: 15 }}>¿Cómo vas a entrar?</p>
+
+          {permiteEstudiantes && (
+            <button onClick={() => setRol('estudiante')}
+              style={{ width: '100%', padding: '20px 0', marginBottom: 14, fontSize: 18, fontWeight: 800, fontFamily: 'var(--font-display)', borderRadius: 14, border: 'none', background: '#11F555', color: '#06140A', cursor: 'pointer' }}>
+              🎓 Soy estudiante
+            </button>
+          )}
+
+          {/* Acceso docente: si hay PIN, se pide antes de entrar al mando. */}
+          {mandoHash ? (
+            <div style={{ textAlign: 'left' }}>
+              <div style={{ color: '#9AA396', fontSize: 13, fontWeight: 700, marginBottom: 8, textAlign: 'center' }}>
+                🔒 Acceso del docente
+              </div>
+              <input
+                value={pinInput} type="password" inputMode="numeric"
+                onChange={(e) => { setPinInput(e.target.value.replace(/\D/g, '').slice(0, 6)); setPinError(''); }}
+                onKeyDown={(e) => { if (e.key === 'Enter') entrarComoDocente(); }}
+                placeholder="PIN del mando"
+                style={{ width: '100%', textAlign: 'center', fontSize: 30, letterSpacing: '.3em', fontFamily: 'var(--font-display)', fontWeight: 800, padding: '14px 0', borderRadius: 14, border: '2px solid #2A2F29', background: '#141814', color: '#F2F5EF', boxSizing: 'border-box', marginBottom: 10 }} />
+              {pinError && <div style={{ color: '#F53711', fontSize: 14, marginBottom: 10, textAlign: 'center' }}>{pinError}</div>}
+              <button onClick={entrarComoDocente} disabled={!pinInput}
+                style={{ width: '100%', padding: '18px 0', fontSize: 18, fontWeight: 800, fontFamily: 'var(--font-display)', borderRadius: 14, border: 'none', background: pinInput ? '#116CF5' : '#2A2F29', color: pinInput ? '#fff' : '#9AA396', cursor: pinInput ? 'pointer' : 'default' }}>
+                🧑‍🏫 Entrar como docente
+              </button>
+            </div>
+          ) : (
+            <button onClick={() => setRol('docente')}
+              style={{ width: '100%', padding: '20px 0', fontSize: 18, fontWeight: 800, fontFamily: 'var(--font-display)', borderRadius: 14, border: '2px solid #2A2F29', background: 'transparent', color: '#F2F5EF', cursor: 'pointer' }}>
+              🧑‍🏫 Soy el docente (mando)
+            </button>
+          )}
+
+          {!permiteEstudiantes && (
+            <p style={{ color: '#7B857A', fontSize: 12.5, marginTop: 18 }}>
+              La participación de estudiantes está desactivada en esta presentación.
+            </p>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ----- Modo estudiante: vista propia -----
+  if (connected && rol === 'estudiante') {
+    return <StudentView code={code} />;
+  }
+
+  // ----- Pantalla de conexión -----
+  if (!connected) {
+    return (
+      <div style={rcWrap}>
+        <div style={{ textAlign: 'center', maxWidth: 360, width: '100%' }}>
+          <div style={{ fontSize: 46, marginBottom: 8 }}>📱</div>
+          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 28, margin: '0 0 6px', color: '#F2F5EF' }}>Entrar a la sala</h1>
+          <p style={{ color: '#9AA396', margin: '0 0 28px', fontSize: 15 }}>Escribe el código que aparece en el televisor.</p>
+          <input
+            value={input}
+            onChange={(e) => setInput(e.target.value.replace(/\D/g, '').slice(0, 4))}
+            inputMode="numeric" pattern="\d*" placeholder="0000"
+            style={{
+              width: '100%', textAlign: 'center', fontSize: 48, letterSpacing: '.3em',
+              fontFamily: 'var(--font-display)', fontWeight: 800, padding: '16px 0',
+              borderRadius: 16, border: '2px solid #2A2F29', background: '#141814',
+              color: '#F2F5EF', boxSizing: 'border-box', marginBottom: 16,
+            }}
+          />
+          {error && <div style={{ color: '#F53711', fontSize: 14, marginBottom: 14 }}>{error}</div>}
+          <button
+            onClick={() => tryConnect(input)} disabled={connecting || input.length !== 4}
+            style={{
+              width: '100%', padding: '16px 0', fontSize: 18, fontWeight: 800,
+              fontFamily: 'var(--font-display)', borderRadius: 14, border: 'none',
+              background: input.length === 4 ? '#11F555' : '#2A2F29',
+              color: input.length === 4 ? '#06140A' : '#9AA396',
+              cursor: input.length === 4 ? 'pointer' : 'default',
+            }}>
+            {connecting ? 'Conectando…' : 'Conectar'}
           </button>
         </div>
       </div>
     );
   }
 
+  // ----- Panel de control (conectado) -----
   const st = state || {};
-  const mirror = st.mirror || {};
-  const esActividad = mirror.tipo === 'actividad';
-  // Quiz activo: el Presenter lo señala en st.quiz con fase 'abierta'/'cerrada'.
-  const quiz = st.quiz || { fase: 'idle' };
-  const quizActivo = quiz.fase === 'abierta' || quiz.fase === 'cerrada';
-  const elegidoSoyYo = fase === 'sorteo' && st.ronda && st.ronda.elegido === pid;
+  const teams = st.teams || [];
+  const esEquipos = st.modo === 'equipos';
+  const enActividad = !!st.activity;
 
-  // ¿La actividad trae config y existe su Runtime para montarla en el celular?
-  const runtimes = (typeof ActivityRuntimes !== 'undefined') ? ActivityRuntimes : null;
-  const ActRuntime = (esActividad && runtimes)
-    ? (runtimes[mirror.tool] || runtimes.default)
-    : null;
-  const actividadMontable = !!(esActividad && mirror.config && ActRuntime);
-  // Metadatos de la herramienta (color/nombre) si el presenter los expone.
-  const toolMeta = (esActividad && typeof AIP !== 'undefined' && AIP.toolById)
-    ? AIP.toolById(mirror.tool) : null;
-
-  // ----- Pantalla: dentro de la sala -----
   return (
-    <div style={{ ...svWrap, justifyContent: 'flex-start', paddingTop: 20 }}>
+    <div style={{ ...rcWrap, justifyContent: 'flex-start', paddingTop: 18 }}>
       <div style={{ width: '100%', maxWidth: 440 }}>
 
-        {/* Cabecera */}
+        {/* Cabecera con estado */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
           <div>
-            <div style={{ color: '#9AA396', fontSize: 12, fontWeight: 600 }}>{nombre}{grupo ? ' · ' + grupo : ''}</div>
-            <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 16, color: '#F2F5EF' }}>{st.tema || 'Clase'}</div>
-          </div>
-          <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 18, color: '#11F555', background: '#141814', borderRadius: 10, padding: '6px 12px', border: '2px solid #2A2F29' }}>
-            {(st.idx != null ? st.idx + 1 : '–')}/{st.total || '–'}
-          </div>
-        </div>
-
-        {/* Espejo del contenido actual */}
-        {actividadMontable ? (
-          // La MISMA actividad del TV, montada en el celular en solo-lectura.
-          <div style={{ marginBottom: 16 }}>
-            <div style={{ fontSize: 12, color: mirror.color || '#116CF5', fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', marginBottom: 8 }}>
-              {mirror.nombre || 'Actividad'}
+            <div style={{ color: '#9AA396', fontSize: 12, fontWeight: 600, letterSpacing: '.06em' }}>CONECTADO · {code}</div>
+            <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 18, color: '#F2F5EF' }}>
+              {st.tema || 'Presentación'}
             </div>
-            <EspejoActividad Runtime={ActRuntime} config={mirror.config} tool={toolMeta} />
           </div>
-        ) : esActividad ? (
-          // Actividad sin config reflejable: tarjeta con título e instrucciones.
-          <div style={{ background: '#141814', border: '2px solid #2A2F29', borderRadius: 16, padding: 18, marginBottom: 16 }}>
-            <div style={{ fontSize: 12, color: mirror.color || '#116CF5', fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase' }}>{mirror.nombre || 'Actividad'}</div>
-            <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 22, color: '#F2F5EF', marginTop: 4 }}>{mirror.titulo}</div>
-            {mirror.instrucciones && <div style={{ fontSize: 14, color: '#B9C2B5', marginTop: 8 }}>{mirror.instrucciones}</div>}
-            <div style={{ fontSize: 12.5, color: '#7B857A', marginTop: 10 }}>Mira el televisor: la actividad se ve allí.</div>
-          </div>
-        ) : mirror.slide && typeof ContenidoSlide === 'function' ? (
-          // Réplica fiel de la diapositiva (lienzo libre) escalada al ancho del celular.
-          <div style={{ marginBottom: 16 }}>
-            <EspejoSlide slide={mirror.slide} />
-          </div>
-        ) : (
-          <div style={{ background: '#141814', border: '2px solid #2A2F29', borderRadius: 16, padding: 18, marginBottom: 16 }}>
-            <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 22, color: '#F2F5EF' }}>{mirror.titulo || 'Contenido'}</div>
-            {mirror.texto && <div style={{ fontSize: 15, color: '#B9C2B5', marginTop: 8, lineHeight: 1.4 }}>{mirror.texto}</div>}
-          </div>
-        )}
-
-        {/* Quiz activo: responder con opciones (texto + color) */}
-        {quizActivo ? (
-          <QuizOptions quiz={quiz} onAnswer={responder} mine={miRespuesta} pid={pid} />
-        ) : (
-          <>
-            {/* ¿Me eligieron para participar? */}
-            {elegidoSoyYo && (
-              <div style={{ background: '#11F555', borderRadius: 16, padding: 20, marginBottom: 16, textAlign: 'center' }}>
-                <div style={{ fontSize: 30 }}>🙌</div>
-                <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 22, color: '#06140A', marginTop: 4 }}>¡Te toca participar!</div>
-              </div>
-            )}
-
-            {/* Participación (actividades normales): levantar la mano */}
-            {fase === 'pedir' ? (
-              <button onClick={levantarMano} disabled={yoLevante}
-                style={{ ...svBtn, background: yoLevante ? '#2A2F29' : '#116CF5', color: yoLevante ? '#9AA396' : '#fff', fontSize: 20, padding: '22px 0' }}>
-                {yoLevante ? '✋ Mano levantada' : '✋ ¡Yo participo!'}
-              </button>
-            ) : (
-              <div style={{ textAlign: 'center', color: '#7B857A', fontSize: 14, padding: '20px 0' }}>
-                {fase === 'sorteo' && !elegidoSoyYo ? 'El docente eligió a otra persona esta vez.' : 'Mira la pantalla. Cuando el docente pida participación o lance una pregunta, aparecerá aquí.'}
-              </div>
-            )}
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
-
-/* Opciones del quiz con texto + color (estilo Kahoot con etiqueta). */
-function QuizOptions({ quiz, onAnswer, mine, pid }) {
-  const OPC = [
-    { c: '#F53711', s: '▲' }, { c: '#116CF5', s: '◆' },
-    { c: '#F5C211', s: '●' }, { c: '#11F555', s: '■' },
-  ];
-  const cerrada = quiz.fase === 'cerrada';
-  const opciones = quiz.opciones || [];
-  const acerte = cerrada && mine != null && mine === quiz.correctIdx;
-  const ganeYo = cerrada && quiz.ganador && quiz.ganador === pid;
-
-  if (cerrada) {
-    return (
-      <div style={{ textAlign: 'center', padding: '10px 0' }}>
-        {ganeYo ? (
-          <div style={{ background: '#11F555', borderRadius: 16, padding: 22 }}>
-            <div style={{ fontSize: 34 }}>🏆</div>
-            <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 22, color: '#06140A' }}>¡Fuiste el más rápido!</div>
-          </div>
-        ) : acerte ? (
-          <div style={{ color: '#11F555', fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 22 }}>✓ ¡Correcto!</div>
-        ) : mine != null ? (
-          <div style={{ color: '#F53711', fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 22 }}>✗ No era esa</div>
-        ) : (
-          <div style={{ color: '#9AA396', fontSize: 16 }}>No respondiste a tiempo</div>
-        )}
-        <div style={{ color: '#9AA396', fontSize: 14, marginTop: 10 }}>Mira la pantalla para la siguiente</div>
-      </div>
-    );
-  }
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      {opciones.map((o, i) => {
-        const col = OPC[i % 4];
-        return (
-          <button key={i} onClick={() => onAnswer(i)} disabled={mine !== null}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 14, padding: '18px 16px',
-              borderRadius: 14, border: 'none', cursor: mine === null ? 'pointer' : 'default',
-              background: col.c, color: '#fff', textAlign: 'left',
-              opacity: mine === null || mine === i ? 1 : 0.4,
-              outline: mine === i ? '3px solid #fff' : 'none',
-            }}>
-            <span style={{ fontSize: 26, fontFamily: 'var(--font-display)', fontWeight: 800 }}>{col.s}</span>
-            <span style={{ fontSize: 17, fontWeight: 700, flex: 1 }}>{o.texto}</span>
-          </button>
-        );
-      })}
-      {mine !== null && (
-        <div style={{ textAlign: 'center', color: '#9AA396', fontSize: 14, marginTop: 4 }}>
-          Respuesta enviada · espera el resultado
+          <div style={{
+            fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 22, color: '#11F555',
+            background: '#141814', borderRadius: 10, padding: '6px 12px', border: '2px solid #2A2F29',
+          }}>{(st.idx != null ? st.idx + 1 : '–')}/{st.total || '–'}</div>
         </div>
+
+        {/* Indicador de actividad / diapositiva actual */}
+        <div style={{
+          background: enActividad ? 'rgba(17,108,245,.12)' : '#141814',
+          border: '2px solid ' + (enActividad ? '#116CF5' : '#2A2F29'),
+          borderRadius: 14, padding: 14, marginBottom: 16, color: '#F2F5EF',
+        }}>
+          <div style={{ fontSize: 12, color: '#9AA396', fontWeight: 600 }}>
+            {enActividad ? 'ACTIVIDAD EN PANTALLA' : 'DIAPOSITIVA'}
+          </div>
+          <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 17 }}>
+            {enActividad ? (st.activity.titulo || 'Actividad') : 'Contenido'}
+          </div>
+        </div>
+
+        {/* Navegación */}
+        <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
+          <button onClick={() => { send('prev'); buzz('◀'); }} style={navBtn('#2A2F29', '#F2F5EF')}>◀ Atrás</button>
+          <button onClick={() => { send('next'); buzz('▶'); }} style={navBtn('#11F555', '#06140A')}>Avanzar ▶</button>
+        </div>
+
+        {/* Controles de la actividad activa */}
+        {enActividad && (
+          <div style={{ marginBottom: 16 }}>
+            <div style={rcLabel}>Actividad</div>
+            <div style={{ display: 'flex', gap: 12 }}>
+              <button onClick={() => { send('activity', { action: 'primary' }); buzz('●'); }}
+                style={navBtn('#116CF5', '#fff')}>Acción principal</button>
+              <button onClick={() => { send('activity', { action: 'next' }); buzz('→'); }}
+                style={navBtn('#2A2F29', '#F2F5EF')}>Siguiente paso</button>
+            </div>
+            <div style={{ color: '#9AA396', fontSize: 12, marginTop: 8 }}>
+              Ej.: girar la ruleta, revelar respuesta, lanzar el dado.
+            </div>
+          </div>
+        )}
+
+        {/* Puntaje por equipos */}
+        {esEquipos && (
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={rcLabel}>Puntaje</div>
+              <button onClick={() => { send('toggleScores'); buzz(st.hideScores ? '👁' : '🙈'); }}
+                style={{
+                  background: 'transparent', border: '1px solid #2A2F29', color: '#9AA396',
+                  borderRadius: 10, padding: '6px 12px', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                }}>
+                {st.hideScores ? '👁 Mostrar en TV' : '🙈 Ocultar en TV'}
+              </button>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 10 }}>
+              {teams.map((t, i) => (
+                <div key={i} style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  background: '#141814', borderRadius: 14, padding: '10px 12px',
+                  border: '2px solid ' + (t.color || '#2A2F29'),
+                }}>
+                  <div style={{ width: 12, height: 36, borderRadius: 4, background: t.color || '#11F555', flexShrink: 0 }} />
+                  <div style={{ flex: 1, minWidth: 0, color: '#F2F5EF', fontWeight: 700, fontFamily: 'var(--font-display)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {t.name || ('Equipo ' + (i + 1))}
+                  </div>
+                  <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 26, color: t.color || '#11F555', minWidth: 36, textAlign: 'center' }}>
+                    {t.score || 0}
+                  </div>
+                  <button onClick={() => { send('score', { team: i, delta: -1 }); buzz('−'); }}
+                    style={ptBtn('#1C201B', '#9AA396')}>−</button>
+                  <button onClick={() => { send('score', { team: i, delta: 1 }); buzz('+'); }}
+                    style={ptBtn(t.color || '#11F555', '#06140A')}>+</button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Salir */}
+        <button onClick={() => { if (window.confirm('¿Terminar la presentación en el televisor?')) send('exit'); }}
+          style={{
+            width: '100%', padding: '12px 0', marginTop: 8, fontSize: 15, fontWeight: 700,
+            fontFamily: 'var(--font-display)', borderRadius: 12, border: '1px solid #2A2F29',
+            background: 'transparent', color: '#9AA396', cursor: 'pointer',
+          }}>
+          ✕ Terminar presentación
+        </button>
+      </div>
+
+      {/* Confirmación visual del último comando */}
+      {flash && (
+        <div style={{
+          position: 'fixed', bottom: 28, left: '50%', transform: 'translateX(-50%)',
+          background: 'rgba(17,245,85,.92)', color: '#06140A', fontWeight: 800,
+          fontFamily: 'var(--font-display)', fontSize: 28, borderRadius: 16,
+          width: 64, height: 64, display: 'grid', placeItems: 'center', zIndex: 50,
+        }}>{flash}</div>
       )}
     </div>
   );
 }
 
-const svWrap = {
+const rcWrap = {
   position: 'fixed', inset: 0, background: '#0B0E0B',
-  display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-  padding: 18, boxSizing: 'border-box', overflowY: 'auto',
+  display: 'flex', flexDirection: 'column', alignItems: 'center',
+  justifyContent: 'center', padding: 18, boxSizing: 'border-box',
+  overflowY: 'auto',
 };
-/* Pantalla de unirse: ocupa todo el alto del celular y centra el formulario.
-   Usa min-height con la unidad dinámica del móvil (dvh) en lugar de
-   `position: fixed`, para que al aparecer el teclado el formulario no quede
-   tapado y se pueda desplazar con normalidad. Respaldo a vh por compatibilidad. */
-const svJoinWrap = {
-  minHeight: '100vh', background: '#0B0E0B',
-  display: 'flex', flexDirection: 'column', justifyContent: 'center',
-  padding: '24px 20px', boxSizing: 'border-box',
-};
-const svInput = {
-  width: '100%', fontSize: 18, padding: '14px 16px', marginBottom: 12,
-  borderRadius: 12, border: '2px solid #2A2F29', background: '#141814',
-  color: '#F2F5EF', boxSizing: 'border-box', fontFamily: 'inherit',
-};
-/* Inputs y botón más grandes para la pantalla de unirse en celular. */
-const svInputBig = {
-  width: '100%', fontSize: 20, padding: '18px 18px', marginBottom: 14,
-  borderRadius: 14, border: '2px solid #2A2F29', background: '#141814',
-  color: '#F2F5EF', boxSizing: 'border-box', fontFamily: 'inherit',
-};
-const svBtn = {
-  width: '100%', padding: '16px 0', fontSize: 18, fontWeight: 800,
-  fontFamily: 'var(--font-display)', borderRadius: 14, border: 'none', cursor: 'pointer',
-};
-const svBtnBig = {
-  width: '100%', padding: '20px 0', fontSize: 20, fontWeight: 800,
-  fontFamily: 'var(--font-display)', borderRadius: 16, border: 'none', cursor: 'pointer',
-};
+const rcLabel = { color: '#9AA396', fontSize: 12, fontWeight: 700, letterSpacing: '.08em', marginBottom: 4 };
+const navBtn = (bg, fg) => ({
+  flex: 1, padding: '18px 0', fontSize: 17, fontWeight: 800,
+  fontFamily: 'var(--font-display)', borderRadius: 14, border: 'none',
+  background: bg, color: fg, cursor: 'pointer',
+});
+const ptBtn = (bg, fg) => ({
+  width: 44, height: 44, fontSize: 26, fontWeight: 800, flexShrink: 0,
+  borderRadius: 10, border: 'none', background: bg, color: fg, cursor: 'pointer',
+});
 
-/* Réplica fiel de una diapositiva de contenido, escalada al ancho del
-   contenedor (mantiene la relación 1920×1080 de la TV). Solo lectura. */
-function EspejoSlide({ slide }) {
-  const boxRef = React.useRef(null);
-  const [scale, setScale] = React.useState(0.18);
-  React.useEffect(() => {
-    const el = boxRef.current;
-    if (!el) return;
-    const update = () => setScale(el.clientWidth / 1920);
-    update();
-    const ro = new ResizeObserver(update);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-  return (
-    <div ref={boxRef} style={{
-      width: '100%', height: 1080 * scale, position: 'relative',
-      borderRadius: 14, overflow: 'hidden', border: '2px solid #2A2F29', background: '#fff',
-    }}>
-      <div className="slide" style={{
-        position: 'absolute', top: 0, left: 0, width: 1920, height: 1080,
-        transform: 'scale(' + scale + ')', transformOrigin: 'top left',
-        background: '#fff', color: '#0B0F0C',
-      }}>
-        <ContenidoSlide slide={slide} />
-      </div>
-    </div>
-  );
-}
-
-/* Espejo de una ACTIVIDAD: monta el mismo Runtime que el TV, en modo
-   solo-lectura (la actividad se resuelve en el TV). Mantiene el lienzo
-   1920×1080 del televisor.
-
-   - En su sitio: se muestra COMPLETO escalado al ancho (nunca se corta).
-   - Al TOCARLO: se abre a pantalla completa GIRADO 90°, de modo que la
-     actividad (horizontal) aprovecha todo el ALTO del celular vertical y se
-     ve grande y legible. Se cierra tocando de nuevo o con el botón ✕. */
-function EspejoActividad({ Runtime, config, tool }) {
-  const boxRef = React.useRef(null);
-  const [scale, setScale] = React.useState(0.18);
-  const [full, setFull] = React.useState(false);
-
-  // Escala "en su sitio": llena el ancho, siempre completo (sin recortes).
-  React.useEffect(() => {
-    const el = boxRef.current;
-    if (!el) return;
-    const update = () => setScale((el.clientWidth || 1) / 1920);
-    update();
-    const ro = new ResizeObserver(update);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-
-  // Al abrir pantalla completa, bloquea el scroll del fondo.
-  React.useEffect(() => {
-    if (!full) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => { document.body.style.overflow = prev; };
-  }, [full]);
-
-  if (typeof Runtime !== 'function') return null;
-  const contenido = <Runtime config={config} tool={tool} remoteSignal={{ action: null, nonce: null }} />;
-
-  return (
-    <React.Fragment>
-      {/* Vista en su sitio: completa, tocable para ampliar. */}
-      <div ref={boxRef} onClick={() => setFull(true)}
-        style={{
-          width: '100%', height: 1080 * scale, position: 'relative', cursor: 'pointer',
-          borderRadius: 14, overflow: 'hidden', border: '2px solid #2A2F29', background: '#0B0E0B',
-        }}>
-        {/* Capa que bloquea toques sobre la actividad (solo lectura) pero deja
-            que el toque del contenedor abra la pantalla completa. */}
-        <div style={{ position: 'absolute', inset: 0, zIndex: 5 }} />
-        <div className="slide" style={{
-          position: 'absolute', top: 0, left: 0, width: 1920, height: 1080,
-          transform: 'scale(' + scale + ')', transformOrigin: 'top left',
-          background: '#0B0E0B', color: '#F2F5EF', pointerEvents: 'none',
-        }}>
-          {contenido}
-        </div>
-        {/* Pista visual de que se puede ampliar. */}
-        <div style={{
-          position: 'absolute', right: 8, bottom: 8, zIndex: 6,
-          background: 'rgba(0,0,0,.55)', color: '#F2F5EF', fontSize: 12, fontWeight: 700,
-          padding: '4px 10px', borderRadius: 999, pointerEvents: 'none',
-        }}>⤢ Toca para ampliar</div>
-      </div>
-
-      {/* Pantalla completa GIRADA 90°. */}
-      {full && <EspejoFullscreen onClose={() => setFull(false)}>{contenido}</EspejoFullscreen>}
-    </React.Fragment>
-  );
-}
-
-/* Capa de pantalla completa que rota el lienzo 1920×1080 noventa grados y lo
-   escala para llenar el celular vertical: el ancho del lienzo (1920) ocupa el
-   ALTO de la pantalla, y el alto del lienzo (1080) ocupa el ANCHO. Así la
-   actividad horizontal se ve grande y completa, leída de lado. */
-function EspejoFullscreen({ children, onClose }) {
-  const [dims, setDims] = React.useState({ w: 0, h: 0 });
-  React.useEffect(() => {
-    const upd = () => setDims({ w: window.innerWidth || 0, h: window.innerHeight || 0 });
-    upd();
-    window.addEventListener('resize', upd);
-    return () => window.removeEventListener('resize', upd);
-  }, []);
-  // Al rotar 90°, el lienzo (1920 ancho × 1080 alto) encaja contra la pantalla
-  // (h alto × w ancho): el 1920 se compara con la altura, el 1080 con el ancho.
-  const escala = Math.min((dims.h || 1) / 1920, (dims.w || 1) / 1080);
-  return (
-    <div onClick={onClose}
-      style={{
-        position: 'fixed', inset: 0, zIndex: 9999, background: '#0B0E0B',
-        display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
-      }}>
-      <div style={{
-        width: 1920, height: 1080, position: 'relative',
-        transform: 'rotate(90deg) scale(' + escala + ')', transformOrigin: 'center center',
-        background: '#0B0E0B', color: '#F2F5EF', pointerEvents: 'none', flexShrink: 0,
-      }}>
-        <div className="slide" style={{ width: 1920, height: 1080, background: '#0B0E0B', color: '#F2F5EF' }}>
-          {children}
-        </div>
-      </div>
-      {/* Botón de cerrar (no rotado, siempre arriba a la derecha). */}
-      <button onClick={(e) => { e.stopPropagation(); onClose(); }}
-        style={{
-          position: 'fixed', top: 14, right: 14, zIndex: 10000,
-          width: 46, height: 46, borderRadius: 999, border: 'none', cursor: 'pointer',
-          background: 'rgba(0,0,0,.6)', color: '#F2F5EF', fontSize: 22, fontWeight: 800,
-        }}>✕</button>
-      {/* Aviso de cómo cerrar. */}
-      <div style={{
-        position: 'fixed', bottom: 16, left: '50%', transform: 'translateX(-50%)', zIndex: 10000,
-        background: 'rgba(0,0,0,.6)', color: '#B9C2B5', fontSize: 13, fontWeight: 600,
-        padding: '6px 14px', borderRadius: 999, whiteSpace: 'nowrap',
-      }}>Toca para cerrar</div>
-    </div>
-  );
-}
-
-Object.assign(window, { StudentView, QuizOptions, EspejoSlide, EspejoActividad, EspejoFullscreen });
+Object.assign(window, { RemoteControl });

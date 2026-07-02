@@ -8,6 +8,20 @@
      - El Presenter ESCRIBE el estado (slide actual, equipos, puntajes…)
      - El celular ESCRIBE comandos; el Presenter los ESCUCHA y reacciona. */
 
+/* Hash del PIN del mando (DJB2). Se define aquí CON GUARDIA, igual que en
+   remote.jsx, para que el Presenter nunca dependa del orden de carga ni de
+   que remote.jsx haya cargado sin errores. El guard `if (!window.hashPin)`
+   evita la doble declaración: quien cargue primero, gana. */
+if (!window.hashPin) {
+  window.hashPin = function hashPin(pin) {
+    const s = String(pin || '');
+    if (!s) return '';
+    let h = 5381;
+    for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) >>> 0;
+    return 'p' + h.toString(36);
+  };
+}
+
 /* ---------- Marcador global de equipos ---------- */
 function TeamScoreboard({ teams, hidden, accentText }) {
   if (!teams || !teams.length) return null;
@@ -516,7 +530,7 @@ function Presenter({ pres, onExit }) {
       // Permisos/seguridad que remote.jsx lee para mostrar "Soy estudiante"
       // y para pedir el PIN antes de entrar como docente.
       permiteEstudiantes: conEstudiantes,
-      mandoHash: pres.mandoPin ? window.hashPin(pres.mandoPin) : '',
+      mandoHash: (pres.mandoPin && typeof window.hashPin === 'function') ? window.hashPin(pres.mandoPin) : '',
       hideScores,
       podio: verPodio,
       activity: isAct ? { tool: slide.tool, titulo: cfg.titulo || (t && t.nombre) || '' } : null,

@@ -46,7 +46,14 @@ function StudentView({ code }) {
   React.useEffect(() => {
     if (!pid || !code || !AIP.listenRemoteSession) return;
     const unsub = AIP.listenRemoteSession(code, (data) => {
-      if (data === null) { setError('La presentación terminó.'); return; }
+      if (data === null) {
+        // Sin esto, el mensaje de error nunca se ve: solo se pinta en la
+        // pantalla de unirse (!pid), pero el estudiante ya estaba dentro.
+        setError('La presentación terminó.');
+        setState(null);
+        setPid(null);
+        return;
+      }
       setState(data.state || {});
     });
     return unsub;
