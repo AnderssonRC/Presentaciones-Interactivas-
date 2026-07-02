@@ -140,9 +140,11 @@ function CanvasElemento({ el, editable, selected, onSelect, onChange, replayKey,
     const up = () => {
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointercancel', up);
     };
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', up);
   };
 
   const iniciarResize = (e) => {
@@ -158,7 +160,9 @@ function CanvasElemento({ el, editable, selected, onSelect, onChange, replayKey,
     const up = () => {
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointercancel', up);
     };
+    window.addEventListener('pointercancel', up);
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);
   };

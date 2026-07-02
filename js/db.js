@@ -82,7 +82,7 @@
         { id: 'colorea',    nombre: 'Colorea con números', desc: 'Pinta siguiendo la clave numérica',  color: '#116CF5', icon: 'chart',    soon: true },
         { ref: 'crucigrama' },
         { ref: 'completa' },
-        { ref: 'adivina' },
+        { id: 'adivina', nombre: 'Adivina la imagen', desc: 'Imagen oculta que se revela poco a poco', color: '#F53711', icon: 'eye', soon: true },
         
       ],
     },
@@ -192,7 +192,8 @@
         break;
       default:
         base.duracion = 180;
-        case 'retaEquipo':
+        break;
+      case 'retaEquipo':
         base.items = ['¿Cuál es la capital de Francia?=París', '¿Cuánto es 7 × 8?=56', 'Nombra un planeta del sistema solar=Marte'];
         base.instrucciones = 'Por turnos, cada equipo responde. Si acierta gana los puntos; si falla, pasa al siguiente.';
         base.puntos = 1;

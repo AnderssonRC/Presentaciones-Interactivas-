@@ -68,7 +68,7 @@ function Dashboard({ profile, presentations, onCreate, onOpen, onPresent, onDele
 
   const totalPlantillas = presentations.reduce((a, p) => a + p.slides.length, 0);
   const totalActs = presentations.reduce((a, p) => a + p.slides.filter((s) => s.type === 'actividad').length, 0);
-  const totalUsos = presentations.reduce((a, p) => a + p.usos, 0);
+  const totalUsos = presentations.reduce((a, p) => a + (p.usos || 0), 0);
 
   const stats = [
     { label: 'Presentaciones creadas', value: presentations.length, color: '#11F555', icon: 'memorama' },

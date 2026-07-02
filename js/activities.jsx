@@ -69,13 +69,15 @@ function RuletaRun({ config, tool, remoteSignal }) {
   const [result, setResult] = React.useState(null);
   const seg = 360 / n;
   const cx = 330, cy = 330, r = 312;
+  const timeoutRef = React.useRef(null);
+  React.useEffect(() => () => clearTimeout(timeoutRef.current), []);
 
   const spin = () => {
     if (spinning) return;
     setResult(null);
     const next = rot + 1440 + Math.random() * 360;
     setRot(next); setSpinning(true);
-    setTimeout(() => {
+    timeoutRef.current = setTimeout(() => {
       const local = ((360 - (next % 360)) % 360 + 360) % 360;
       setResult(Math.min(Math.floor(local / seg), n - 1));
       setSpinning(false);
@@ -253,13 +255,21 @@ function SelectorRun({ config, tool, remoteSignal }) {
   const [display, setDisplay] = React.useState('¿Quién será?');
   const [picking, setPicking] = React.useState(false);
   const [picked, setPicked] = React.useState(false);
+  // Guarda el intervalo y el timeout activos para poder cancelarlos si el
+  // componente se desmonta a mitad de la animación (cambio de diapositiva).
+  const timersRef = React.useRef({ interval: null, timeout: null });
+  React.useEffect(() => () => {
+    clearInterval(timersRef.current.interval);
+    clearTimeout(timersRef.current.timeout);
+  }, []);
 
   const pick = () => {
     if (picking || !names.length) return;
     setPicking(true); setPicked(false);
     let i = 0;
     const t = setInterval(() => { setDisplay(names[i % names.length]); i++; }, 90);
-    setTimeout(() => {
+    timersRef.current.interval = t;
+    timersRef.current.timeout = setTimeout(() => {
       clearInterval(t);
       setDisplay(names[Math.floor(Math.random() * names.length)]);
       setPicking(false); setPicked(true);
@@ -289,12 +299,18 @@ function SelectorRun({ config, tool, remoteSignal }) {
 function DadoRun({ config, tool, remoteSignal }) {
   const [val, setVal] = React.useState(null);
   const [rolling, setRolling] = React.useState(false);
+  const timersRef = React.useRef({ interval: null, timeout: null });
+  React.useEffect(() => () => {
+    clearInterval(timersRef.current.interval);
+    clearTimeout(timersRef.current.timeout);
+  }, []);
   const roll = () => {
     if (rolling) return;
     setRolling(true);
     let i = 0;
     const t = setInterval(() => { setVal(1 + Math.floor(Math.random() * 6)); i++; }, 100);
-    setTimeout(() => { clearInterval(t); setVal(1 + Math.floor(Math.random() * 6)); setRolling(false); }, 1400);
+    timersRef.current.interval = t;
+    timersRef.current.timeout = setTimeout(() => { clearInterval(t); setVal(1 + Math.floor(Math.random() * 6)); setRolling(false); }, 1400);
   };
   useRemoteAction(remoteSignal, { primary: roll, next: roll });
   const DOTS = { 1: [4], 2: [0, 8], 3: [0, 4, 8], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8] };

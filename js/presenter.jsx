@@ -344,10 +344,15 @@ function Presenter({ pres, onExit }) {
   const [remoteSignal, setRemoteSignal] = React.useState({ action: null, nonce: null });
   const lastNonce = React.useRef(null);
 
+  // Ref del intervalo del sorteo, para poder limpiarlo si el docente sale
+  // de Presentar (o cambia de diapositiva) a mitad de la animación.
+  const sorteoRef = React.useRef(null);
+  React.useEffect(() => () => { if (sorteoRef.current) clearInterval(sorteoRef.current); }, []);
+
   // --- Estudiantes / participación ---
-  // Permitir estudiantes: por ahora siempre activo si la presentación lo marca,
-  // o si el docente lo activa en vivo. Lo dejamos activo por defecto.
-  const conEstudiantes = pres.estudiantes !== false;
+  // Coincide con el checkbox del editor (editor.jsx: pres.estudiantes === true):
+  // desactivado por defecto, el docente lo enciende explícitamente.
+  const conEstudiantes = pres.estudiantes === true;
   const [participants, setParticipants] = React.useState([]);
   // Ronda de participación: 'idle' | 'pedir' (manos abiertas) | 'sorteo' (ya hay elegido)
   const [ronda, setRonda] = React.useState('idle');
@@ -412,6 +417,7 @@ function Presenter({ pres, onExit }) {
     if (!manos.length || sorteando) return;
     setSorteando(true);
     let n = 0;
+    if (sorteoRef.current) clearInterval(sorteoRef.current);
     const t = setInterval(() => {
       setElegido(manos[Math.floor(Math.random() * manos.length)].pid);
       n++;
@@ -422,6 +428,7 @@ function Presenter({ pres, onExit }) {
         setRonda('sorteo');
       }
     }, 110);
+    sorteoRef.current = t;
   };
   const cerrarParticipacion = () => { setRonda('idle'); setElegido(null); };
 
@@ -433,13 +440,16 @@ function Presenter({ pres, onExit }) {
       const cmd = data.command;
       if (cmd.nonce === lastNonce.current) return; // ya procesado
       lastNonce.current = cmd.nonce;
-      handleRemoteCommand(cmd);
+      // Se llama vía ref (ver abajo) para no depender de una versión
+      // congelada de handleRemoteCommand (evita leer verPodio/idx viejos).
+      handleRemoteCommandRef.current(cmd);
       AIP.clearRemoteCommand(remoteCode);
     });
     return unsub;
   }, [remoteCode, slides.length]);
 
   // Procesa un comando entrante del celular.
+  const handleRemoteCommandRef = React.useRef(null);
   const handleRemoteCommand = (cmd) => {
     switch (cmd.type) {
       case 'next':
@@ -473,6 +483,7 @@ function Presenter({ pres, onExit }) {
       default: break;
     }
   };
+  handleRemoteCommandRef.current = handleRemoteCommand;
 
   // Escribir el estado espejo en Firestore cada vez que cambia algo relevante.
   React.useEffect(() => {
@@ -481,25 +492,41 @@ function Presenter({ pres, onExit }) {
     const isAct = slide.type === 'actividad';
     const t = isAct ? AIP.toolById(slide.tool) : null;
     const cfg = slide.config || {};
-    // 'mirror' = lo que el estudiante ve en su celular (versión ligera del slide).
+    // 'mirror' = lo que el estudiante ve en su celular. Incluye `config`
+    // (para montar el mismo Runtime de la actividad, EspejoActividad en
+    // student.jsx) o `slide` (para replicar el lienzo libre con EspejoSlide).
     const mirror = isAct
       ? { tipo: 'actividad', tool: slide.tool, nombre: t && t.nombre, color: t && t.color,
-          titulo: cfg.titulo || '', instrucciones: cfg.instrucciones || '' }
-      : { tipo: 'contenido', titulo: slide.titulo || '', texto: slide.texto || '' };
+          titulo: cfg.titulo || '', instrucciones: cfg.instrucciones || '', config: cfg }
+      : { tipo: 'contenido', titulo: slide.titulo || '', texto: slide.texto || '', slide };
+    // Ronda de Quiz/Kahoot: se abre automáticamente para la actividad "elige"
+    // (opción múltiple), tomando la primera pregunta configurada.
+    // Formato de cada línea en 'elige': "Pregunta|Correcta|Distractor1|Distractor2".
+    const primeraPregunta = isAct && slide.tool === 'elige' ? (cfg.items || [])[0] : null;
+    const quiz = primeraPregunta
+      ? { fase: 'abierta',
+          opciones: primeraPregunta.split('|').slice(1).map((txt) => ({ texto: (txt || '').trim() })),
+          correctIdx: 0 }
+      : { fase: 'idle' };
     AIP.updateRemoteState(remoteCode, {
       idx,
       total: slides.length,
       tema: pres.tema || '',
       modo: esEquipos ? 'equipos' : 'normal',
+      // Permisos/seguridad que remote.jsx lee para mostrar "Soy estudiante"
+      // y para pedir el PIN antes de entrar como docente.
+      permiteEstudiantes: conEstudiantes,
+      mandoHash: pres.mandoPin ? window.hashPin(pres.mandoPin) : '',
       hideScores,
       podio: verPodio,
       activity: isAct ? { tool: slide.tool, titulo: cfg.titulo || (t && t.nombre) || '' } : null,
       teams: esEquipos ? teams : [],
       mirror,
+      quiz,
       // Estado de la ronda de participación para los estudiantes.
       ronda: { fase: ronda, elegido },
     });
-  }, [remoteCode, idx, slides.length, hideScores, teams, esEquipos, ronda, elegido, verPodio]);
+  }, [remoteCode, idx, slides.length, hideScores, teams, esEquipos, ronda, elegido, verPodio, conEstudiantes, pres.mandoPin]);
 
   const slide = slides[Math.min(idx, slides.length - 1)];
   const isAct = slide.type === 'actividad';
