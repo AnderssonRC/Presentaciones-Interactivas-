@@ -3,7 +3,8 @@
 
 function Editor({ pres, onChange, onBack, onPresent, theme, setTheme }) {
   const [sel, setSel] = React.useState(0);
-  const [openGroup, setOpenGroup] = React.useState('evaluadoras');
+  // Grupos de interacciones: todos cerrados al entrar; el docente abre el que necesite.
+  const [openGroup, setOpenGroup] = React.useState(null);
   const [teamsOpen, setTeamsOpen] = React.useState(false);
   const [aulaOpen, setAulaOpen] = React.useState(false);
   const [selEl, setSelEl] = React.useState(null); // id del elemento seleccionado en el lienzo

@@ -46,14 +46,7 @@ function StudentView({ code }) {
   React.useEffect(() => {
     if (!pid || !code || !AIP.listenRemoteSession) return;
     const unsub = AIP.listenRemoteSession(code, (data) => {
-      if (data === null) {
-        // Sin esto, el mensaje de error nunca se ve: solo se pinta en la
-        // pantalla de unirse (!pid), pero el estudiante ya estaba dentro.
-        setError('La presentación terminó.');
-        setState(null);
-        setPid(null);
-        return;
-      }
+      if (data === null) { setError('La presentación terminó.'); return; }
       setState(data.state || {});
     });
     return unsub;
@@ -141,10 +134,8 @@ function StudentView({ code }) {
 
   // ----- Pantalla: dentro de la sala -----
   return (
-    <div style={{ ...svWrap, justifyContent: 'flex-start' }}>
-      {/* margin: 'auto' centra la columna cuando el contenido es corto y
-          deja hacer scroll cuando el espejo/quiz la hace más alta que la pantalla. */}
-      <div style={{ width: '100%', maxWidth: 440, margin: 'auto' }}>
+    <div style={{ ...svWrap, justifyContent: 'flex-start', paddingTop: 20 }}>
+      <div style={{ width: '100%', maxWidth: 440 }}>
 
         {/* Cabecera */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
@@ -278,23 +269,16 @@ function QuizOptions({ quiz, onAnswer, mine, pid }) {
 const svWrap = {
   position: 'fixed', inset: 0, background: '#0B0E0B',
   display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-  boxSizing: 'border-box',
-  // Altura dinámica del móvil + área segura inferior (barra de gestos/notch).
-  minHeight: '100dvh',
-  padding: '18px 16px calc(18px + env(safe-area-inset-bottom))',
-  overflowY: 'auto',
-  WebkitOverflowScrolling: 'touch',
+  padding: 18, boxSizing: 'border-box', overflowY: 'auto',
 };
 /* Pantalla de unirse: ocupa todo el alto del celular y centra el formulario.
    Usa min-height con la unidad dinámica del móvil (dvh) en lugar de
    `position: fixed`, para que al aparecer el teclado el formulario no quede
    tapado y se pueda desplazar con normalidad. Respaldo a vh por compatibilidad. */
 const svJoinWrap = {
-  minHeight: '100dvh', background: '#0B0E0B',
+  minHeight: '100vh', background: '#0B0E0B',
   display: 'flex', flexDirection: 'column', justifyContent: 'center',
-  // Área segura inferior para que el botón "Entrar" no quede bajo la barra de gestos.
-  padding: '24px 20px calc(24px + env(safe-area-inset-bottom))',
-  boxSizing: 'border-box',
+  padding: '24px 20px', boxSizing: 'border-box',
 };
 const svInput = {
   width: '100%', fontSize: 18, padding: '14px 16px', marginBottom: 12,
@@ -384,14 +368,11 @@ function EspejoActividad({ Runtime, config, tool }) {
   return (
     <React.Fragment>
       {/* Vista en su sitio: completa, tocable para ampliar. */}
-      <div ref={boxRef} onClick={() => setFull(true)}
+      <div ref={boxRef}
         style={{
-          width: '100%', height: 1080 * scale, position: 'relative', cursor: 'pointer',
+          width: '100%', height: 1080 * scale, position: 'relative',
           borderRadius: 14, overflow: 'hidden', border: '2px solid #2A2F29', background: '#0B0E0B',
         }}>
-        {/* Capa que bloquea toques sobre la actividad (solo lectura) pero deja
-            que el toque del contenedor abra la pantalla completa. */}
-        <div style={{ position: 'absolute', inset: 0, zIndex: 5 }} />
         <div className="slide" style={{
           position: 'absolute', top: 0, left: 0, width: 1920, height: 1080,
           transform: 'scale(' + scale + ')', transformOrigin: 'top left',
@@ -399,6 +380,16 @@ function EspejoActividad({ Runtime, config, tool }) {
         }}>
           {contenido}
         </div>
+        {/* Botón REAL que cubre todo el espejo: bloquea toques sobre la
+            actividad (solo lectura) y abre la pantalla completa. Un <button>
+            dispara el toque de forma fiable en iOS/Android; un <div> con
+            onClick a veces no responde en Safari. */}
+        <button onClick={() => setFull(true)} aria-label="Ampliar actividad"
+          style={{
+            position: 'absolute', inset: 0, zIndex: 5, width: '100%', height: '100%',
+            background: 'transparent', border: 'none', padding: 0, cursor: 'pointer',
+            WebkitTapHighlightColor: 'transparent',
+          }} />
         {/* Pista visual de que se puede ampliar. */}
         <div style={{
           position: 'absolute', right: 8, bottom: 8, zIndex: 6,
@@ -407,27 +398,49 @@ function EspejoActividad({ Runtime, config, tool }) {
         }}>⤢ Toca para ampliar</div>
       </div>
 
-      {/* Pantalla completa GIRADA 90°. */}
+      {/* Pantalla completa (rota solo si el celular está vertical). */}
       {full && <EspejoFullscreen onClose={() => setFull(false)}>{contenido}</EspejoFullscreen>}
     </React.Fragment>
   );
 }
 
-/* Capa de pantalla completa que rota el lienzo 1920×1080 noventa grados y lo
-   escala para llenar el celular vertical: el ancho del lienzo (1920) ocupa el
-   ALTO de la pantalla, y el alto del lienzo (1080) ocupa el ANCHO. Así la
-   actividad horizontal se ve grande y completa, leída de lado. */
+/* Capa de pantalla completa que muestra el lienzo 1920×1080 lo más grande
+   posible en el celular:
+   - Celular VERTICAL: rota el lienzo 90° para que el ancho de la actividad
+     (1920) aproveche el ALTO de la pantalla y se lea grande, de lado.
+   - Celular HORIZONTAL: NO rota (antes rotaba siempre y quedaba de lado);
+     el lienzo se escala derecho y llena la pantalla.
+   Mide con visualViewport cuando existe (innerHeight en móvil no descuenta
+   bien la barra del navegador) y se reajusta al girar el celular. */
 function EspejoFullscreen({ children, onClose }) {
   const [dims, setDims] = React.useState({ w: 0, h: 0 });
   React.useEffect(() => {
-    const upd = () => setDims({ w: window.innerWidth || 0, h: window.innerHeight || 0 });
+    const upd = () => {
+      const vv = window.visualViewport;
+      setDims({
+        w: (vv && vv.width) || window.innerWidth || 0,
+        h: (vv && vv.height) || window.innerHeight || 0,
+      });
+    };
     upd();
     window.addEventListener('resize', upd);
-    return () => window.removeEventListener('resize', upd);
+    window.addEventListener('orientationchange', upd);
+    if (window.visualViewport) window.visualViewport.addEventListener('resize', upd);
+    return () => {
+      window.removeEventListener('resize', upd);
+      window.removeEventListener('orientationchange', upd);
+      if (window.visualViewport) window.visualViewport.removeEventListener('resize', upd);
+    };
   }, []);
-  // Al rotar 90°, el lienzo (1920 ancho × 1080 alto) encaja contra la pantalla
-  // (h alto × w ancho): el 1920 se compara con la altura, el 1080 con el ancho.
-  const escala = Math.min((dims.h || 1) / 1920, (dims.w || 1) / 1080);
+
+  // Vertical: al rotar 90°, el 1920 del lienzo se compara con el ALTO de la
+  // pantalla y el 1080 con el ANCHO. Horizontal: comparación directa.
+  const vertical = (dims.h || 0) >= (dims.w || 0);
+  const escala = vertical
+    ? Math.min((dims.h || 1) / 1920, (dims.w || 1) / 1080)
+    : Math.min((dims.w || 1) / 1920, (dims.h || 1) / 1080);
+  const transform = (vertical ? 'rotate(90deg) ' : '') + 'scale(' + escala + ')';
+
   return (
     <div onClick={onClose}
       style={{
@@ -436,7 +449,7 @@ function EspejoFullscreen({ children, onClose }) {
       }}>
       <div style={{
         width: 1920, height: 1080, position: 'relative',
-        transform: 'rotate(90deg) scale(' + escala + ')', transformOrigin: 'center center',
+        transform, transformOrigin: 'center center',
         background: '#0B0E0B', color: '#F2F5EF', pointerEvents: 'none', flexShrink: 0,
       }}>
         <div className="slide" style={{ width: 1920, height: 1080, background: '#0B0E0B', color: '#F2F5EF' }}>
@@ -446,15 +459,16 @@ function EspejoFullscreen({ children, onClose }) {
       {/* Botón de cerrar (no rotado, siempre arriba a la derecha). */}
       <button onClick={(e) => { e.stopPropagation(); onClose(); }}
         style={{
-          position: 'fixed', top: 14, right: 14, zIndex: 10000,
+          position: 'fixed', top: 'calc(14px + env(safe-area-inset-top))', right: 14, zIndex: 10000,
           width: 46, height: 46, borderRadius: 999, border: 'none', cursor: 'pointer',
           background: 'rgba(0,0,0,.6)', color: '#F2F5EF', fontSize: 22, fontWeight: 800,
+          WebkitTapHighlightColor: 'transparent',
         }}>✕</button>
       {/* Aviso de cómo cerrar. */}
       <div style={{
-        position: 'fixed', bottom: 16, left: '50%', transform: 'translateX(-50%)', zIndex: 10000,
+        position: 'fixed', bottom: 'calc(16px + env(safe-area-inset-bottom))', left: '50%', transform: 'translateX(-50%)', zIndex: 10000,
         background: 'rgba(0,0,0,.6)', color: '#B9C2B5', fontSize: 13, fontWeight: 600,
-        padding: '6px 14px', borderRadius: 999, whiteSpace: 'nowrap',
+        padding: '6px 14px', borderRadius: 999, whiteSpace: 'nowrap', pointerEvents: 'none',
       }}>Toca para cerrar</div>
     </div>
   );
