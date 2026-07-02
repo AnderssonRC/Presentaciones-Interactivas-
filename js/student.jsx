@@ -141,8 +141,10 @@ function StudentView({ code }) {
 
   // ----- Pantalla: dentro de la sala -----
   return (
-    <div style={{ ...svWrap, justifyContent: 'flex-start', paddingTop: 20 }}>
-      <div style={{ width: '100%', maxWidth: 440 }}>
+    <div style={{ ...svWrap, justifyContent: 'flex-start' }}>
+      {/* margin: 'auto' centra la columna cuando el contenido es corto y
+          deja hacer scroll cuando el espejo/quiz la hace más alta que la pantalla. */}
+      <div style={{ width: '100%', maxWidth: 440, margin: 'auto' }}>
 
         {/* Cabecera */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
@@ -276,16 +278,23 @@ function QuizOptions({ quiz, onAnswer, mine, pid }) {
 const svWrap = {
   position: 'fixed', inset: 0, background: '#0B0E0B',
   display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-  padding: 18, boxSizing: 'border-box', overflowY: 'auto',
+  boxSizing: 'border-box',
+  // Altura dinámica del móvil + área segura inferior (barra de gestos/notch).
+  minHeight: '100dvh',
+  padding: '18px 16px calc(18px + env(safe-area-inset-bottom))',
+  overflowY: 'auto',
+  WebkitOverflowScrolling: 'touch',
 };
 /* Pantalla de unirse: ocupa todo el alto del celular y centra el formulario.
    Usa min-height con la unidad dinámica del móvil (dvh) en lugar de
    `position: fixed`, para que al aparecer el teclado el formulario no quede
    tapado y se pueda desplazar con normalidad. Respaldo a vh por compatibilidad. */
 const svJoinWrap = {
-  minHeight: '100vh', background: '#0B0E0B',
+  minHeight: '100dvh', background: '#0B0E0B',
   display: 'flex', flexDirection: 'column', justifyContent: 'center',
-  padding: '24px 20px', boxSizing: 'border-box',
+  // Área segura inferior para que el botón "Entrar" no quede bajo la barra de gestos.
+  padding: '24px 20px calc(24px + env(safe-area-inset-bottom))',
+  boxSizing: 'border-box',
 };
 const svInput = {
   width: '100%', fontSize: 18, padding: '14px 16px', marginBottom: 12,

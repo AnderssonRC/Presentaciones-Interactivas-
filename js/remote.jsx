@@ -206,8 +206,11 @@ function RemoteControl({ initialCode }) {
   const enActividad = !!st.activity;
 
   return (
-    <div style={{ ...rcWrap, justifyContent: 'flex-start', paddingTop: 18 }}>
-      <div style={{ width: '100%', maxWidth: 440 }}>
+    <div style={{ ...rcWrap, justifyContent: 'flex-start' }}>
+      {/* margin: 'auto' centra la columna verticalmente cuando el contenido es
+          corto (sin dejar todo pegado arriba), y si crece más que la pantalla
+          (p. ej. 6 equipos) el contenedor con overflowY hace scroll normal. */}
+      <div style={{ width: '100%', maxWidth: 440, margin: 'auto' }}>
 
         {/* Cabecera con estado */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
@@ -323,8 +326,13 @@ function RemoteControl({ initialCode }) {
 const rcWrap = {
   position: 'fixed', inset: 0, background: '#0B0E0B',
   display: 'flex', flexDirection: 'column', alignItems: 'center',
-  justifyContent: 'center', padding: 18, boxSizing: 'border-box',
+  justifyContent: 'center', boxSizing: 'border-box',
+  // 100dvh descuenta la barra del navegador móvil; el padding inferior con
+  // env(safe-area-inset-bottom) evita que la barra de gestos tape los botones.
+  minHeight: '100dvh',
+  padding: '18px 16px calc(18px + env(safe-area-inset-bottom))',
   overflowY: 'auto',
+  WebkitOverflowScrolling: 'touch',
 };
 const rcLabel = { color: '#9AA396', fontSize: 12, fontWeight: 700, letterSpacing: '.08em', marginBottom: 4 };
 const navBtn = (bg, fg) => ({
