@@ -661,8 +661,10 @@ input, textarea, select { font-family: var(--font-body); color: inherit; }
   align-content: flex-start;
   /* Antes height:56px fija — al envolver, la 2ª fila se salía de la caja
      y el fondo blanco se cortaba. Con min-height la barra crece y el blanco
-     cubre ambas filas. */
+     cubre ambas filas. `height: auto` explícito por si alguna regla vieja
+     (o una hoja cacheada) intenta fijar la altura. */
   min-height: 56px;
+  height: auto;
   width: 100%;
   box-sizing: border-box;
   position: relative;

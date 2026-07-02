@@ -1,5 +1,6 @@
 /* Editor de plantillas — 3 columnas verticales:
    [lista pequeña] [lienzo grande ~65%] [20 herramientas de actividades interactivas] */
+
 function Editor({ pres, onChange, onBack, onPresent, theme, setTheme }) {
   const [sel, setSel] = React.useState(0);
   const [openGroup, setOpenGroup] = React.useState('evaluadoras');
@@ -24,6 +25,26 @@ function Editor({ pres, onChange, onBack, onPresent, theme, setTheme }) {
     previewRef.current = setTimeout(() => setPreviewOn(false), 2600);
   };
   React.useEffect(() => () => { if (previewRef.current) clearTimeout(previewRef.current); }, []);
+
+  // Popovers de la barra superior (Equipos y Aula): se cierran al hacer clic
+  // fuera o con Escape, igual que los menús del lienzo (LzMenu). El listener
+  // solo existe mientras alguno esté abierto.
+  const teamsRef = React.useRef(null);
+  const aulaRef = React.useRef(null);
+  React.useEffect(() => {
+    if (!teamsOpen && !aulaOpen) return;
+    const fuera = (e) => {
+      if (teamsOpen && teamsRef.current && !teamsRef.current.contains(e.target)) setTeamsOpen(false);
+      if (aulaOpen && aulaRef.current && !aulaRef.current.contains(e.target)) setAulaOpen(false);
+    };
+    const esc = (e) => { if (e.key === 'Escape') { setTeamsOpen(false); setAulaOpen(false); } };
+    document.addEventListener('mousedown', fuera);
+    document.addEventListener('keydown', esc);
+    return () => {
+      document.removeEventListener('mousedown', fuera);
+      document.removeEventListener('keydown', esc);
+    };
+  }, [teamsOpen, aulaOpen]);
 
   // Al cambiar de diapositiva, soltar la selección de elemento y cortar la previa.
   React.useEffect(() => { setSelEl(null); setPreviewOn(false); }, [sel]);
@@ -160,8 +181,8 @@ function Editor({ pres, onChange, onBack, onPresent, theme, setTheme }) {
             style={{ border: 'none', background: 'transparent', outline: 'none', fontSize: 13, color: 'var(--muted)', width: '100%' }} />
         </div>
         <ThemeToggle theme={theme} setTheme={setTheme} />
-        <div style={{ position: 'relative' }}>
-          <button className="btn" onClick={() => setTeamsOpen((o) => !o)}
+        <div ref={teamsRef} style={{ position: 'relative' }}>
+          <button className="btn" onClick={() => { setAulaOpen(false); setTeamsOpen((o) => !o); }}
             style={{ background: esEquipos ? 'var(--acento)' : 'transparent', color: esEquipos ? 'var(--acento-text)' : 'inherit', border: '1px solid var(--acento)' }}
             title="Configurar equipos">
             🏆 {esEquipos ? 'Equipos: ' + equipos.length : 'Equipos'}
@@ -203,13 +224,13 @@ function Editor({ pres, onChange, onBack, onPresent, theme, setTheme }) {
         </div>
 
         {/* Panel de Aula: participación con celular + PIN del mando */}
-        <div style={{ position: 'relative' }}>
+        <div ref={aulaRef} style={{ position: 'relative' }}>
           {(() => {
             const conEstudiantes = pres.estudiantes === true;
             const mandoPin = pres.mandoPin || '';
             return (
               <React.Fragment>
-                <button className="btn" onClick={() => setAulaOpen((o) => !o)}
+                <button className="btn" onClick={() => { setTeamsOpen(false); setAulaOpen((o) => !o); }}
                   style={{ background: conEstudiantes ? 'var(--acento)' : 'transparent', color: conEstudiantes ? 'var(--acento-text)' : 'inherit', border: '1px solid var(--acento)' }}
                   title="Configurar participación y mando">
                   📱 Aula{mandoPin ? ' 🔒' : ''}
