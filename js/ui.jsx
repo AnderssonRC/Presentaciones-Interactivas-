@@ -218,9 +218,9 @@ function ResCogitasFooter() {
 
             {/* Logos */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 22, marginBottom: 18, flexWrap: 'wrap' }}>
-              <img src="logoacogitas.png" alt="Res Cogitans"
+              <img src="logo-a-cogitas.png" alt="Res Cogitans"
                 style={{ height: 120, width: 'auto', filter: 'invert(1)' }} />
-              <img src="logorescogitas.png" alt="Res Cogitans"
+              <img src="logo-res-cogitas.png" alt="Res Cogitans"
                 style={{ width: 'min(340px, 70%)', height: 'auto', filter: 'invert(1)' }} />
             </div>
 
