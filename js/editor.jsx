@@ -1,6 +1,5 @@
 /* Editor de plantillas — 3 columnas verticales:
    [lista pequeña] [lienzo grande ~65%] [20 herramientas de actividades interactivas] */
-
 function Editor({ pres, onChange, onBack, onPresent, theme, setTheme }) {
   const [sel, setSel] = React.useState(0);
   const [openGroup, setOpenGroup] = React.useState('evaluadoras');

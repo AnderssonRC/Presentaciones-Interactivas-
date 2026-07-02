@@ -275,6 +275,44 @@ function ParticipationPanel({ fase, participants, elegido, sorteando, onSortear,
   );
 }
 
+/* ---------- Panel manual de puntos (¿Quién acertó?) ----------
+   Disponible en cualquier actividad de una presentación modo-equipos.
+   Permite sumar/restar puntos a mano sin depender de la actividad activa. */
+function PanelPuntos({ teams, onPunto, onCerrar }) {
+  if (!teams || !teams.length) return null;
+  return (
+    <div style={{
+      position: 'absolute', right: 18, top: '50%', transform: 'translateY(-50%)',
+      width: 320, zIndex: 36, background: 'rgba(11,14,11,.92)', backdropFilter: 'blur(10px)',
+      border: '2px solid #11F555', borderRadius: 20, padding: 18, color: '#F2F5EF',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+        <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 20 }}>🏅 ¿Quién acertó?</div>
+        <button onClick={onCerrar} style={{ background: 'transparent', border: 'none', color: '#9AA396', fontSize: 18, cursor: 'pointer' }}>✕</button>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {teams.map((t, i) => (
+          <div key={i} style={{
+            display: 'flex', alignItems: 'center', gap: 10,
+            background: '#141814', borderRadius: 14, padding: '8px 10px',
+            border: '2px solid ' + (t.color || '#2A2F29'),
+          }}>
+            <div style={{ width: 10, height: 34, borderRadius: 4, background: t.color || '#11F555', flexShrink: 0 }} />
+            <div style={{ flex: 1, minWidth: 0, fontWeight: 700, fontFamily: 'var(--font-display)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {t.name || ('Equipo ' + (i + 1))}
+            </div>
+            <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 24, color: t.color || '#11F555', minWidth: 32, textAlign: 'center' }}>
+              {t.score || 0}
+            </div>
+            <button onClick={() => onPunto(i, -1)} style={{ width: 40, height: 40, fontSize: 24, fontWeight: 800, borderRadius: 10, border: 'none', background: '#1C201B', color: '#9AA396', cursor: 'pointer' }}>−</button>
+            <button onClick={() => onPunto(i, 1)} style={{ width: 40, height: 40, fontSize: 24, fontWeight: 800, borderRadius: 10, border: 'none', background: t.color || '#11F555', color: '#06140A', cursor: 'pointer' }}>+</button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // Máximo "orden" de revelado de una plantilla de contenido. Las actividades
 // y las plantillas sin elementos no tienen pasos (devuelven 0).
 function maxPaso(slide) {
@@ -298,6 +336,8 @@ function Presenter({ pres, onExit }) {
   const esEquipos = pres.modo === 'equipos';
   // Pantalla de podio del equipo ganador (manual o automática al final).
   const [verPodio, setVerPodio] = React.useState(false);
+  // Panel manual de puntos (¿Quién acertó?), disponible en cualquier actividad.
+  const [verPuntos, setVerPuntos] = React.useState(false);
 
   // Avanzar: primero revela el siguiente elemento; si ya se reveló todo,
   // pasa al siguiente slide y reinicia los pasos. En modo equipos, al intentar
@@ -588,11 +628,24 @@ function Presenter({ pres, onExit }) {
           sorteando={sorteando} onSortear={sortear} onCerrar={cerrarParticipacion} />
       )}
 
+      {/* Panel manual de puntos (¿Quién acertó?) — solo modo equipos */}
+      {esEquipos && verPuntos && (
+        <PanelPuntos
+          teams={teams}
+          onPunto={(i, d) => setTeams((prev) => prev.map((t, j) => (j === i ? { ...t, score: Math.max(0, (t.score || 0) + d) } : t)))}
+          onCerrar={() => setVerPuntos(false)} />
+      )}
+
       {/* HUD fuera del escenario escalado */}
       <div className="presenter-hud" style={{ top: 18, right: 18, gap: 8 }}>
         {conEstudiantes && ronda === 'idle' && (
           <button className="hud-btn" onClick={abrirParticipacion} title="Pedir participación">
             ✋ Pedir participación
+          </button>
+        )}
+        {esEquipos && (
+          <button className="hud-btn" onClick={() => setVerPuntos((v) => !v)} title="Sumar puntos manualmente">
+            🏅 {verPuntos ? 'Cerrar puntos' : 'Dar puntos'}
           </button>
         )}
         {esEquipos && (
@@ -623,4 +676,4 @@ function Presenter({ pres, onExit }) {
   );
 }
 
-Object.assign(window, { Presenter, TeamScoreboard, RemoteBadge, ParticipationPanel, PodioGanador, Confeti });
+Object.assign(window, { Presenter, TeamScoreboard, RemoteBadge, ParticipationPanel, PodioGanador, Confeti, PanelPuntos });
