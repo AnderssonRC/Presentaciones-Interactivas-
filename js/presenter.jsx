@@ -602,6 +602,10 @@ function Presenter({ pres, onExit }) {
     };
   }, [esEquipos, teams]);
 
+  // Estado de los botones ← / → (deshabilitado al inicio / al final).
+  const inicioTotal = idx === 0 && paso === 0;
+  const finalTotal = idx === slides.length - 1 && paso >= maxPaso(slide) && (!esEquipos || verPodio);
+
   return (
     <div className="presenter-overlay" data-screen-label={'Presentar · ' + String(idx + 1).padStart(2, '0')}>
       <div className="presenter-stagewrap">
@@ -636,8 +640,10 @@ function Presenter({ pres, onExit }) {
           onCerrar={() => setVerPuntos(false)} />
       )}
 
-      {/* HUD fuera del escenario escalado */}
-      <div className="presenter-hud" style={{ top: 18, right: 18, gap: 8 }}>
+      {/* HUD fuera del escenario escalado.
+          `hud-top-right` (styles.css) permite que la fila haga wrap alineada a
+          la derecha para que "Salir" nunca quede cortado por el borde. */}
+      <div className="presenter-hud hud-top-right" style={{ top: 18, right: 18, gap: 8 }}>
         {conEstudiantes && ronda === 'idle' && (
           <button className="hud-btn" onClick={abrirParticipacion} title="Pedir participación">
             ✋ Pedir participación
@@ -663,14 +669,16 @@ function Presenter({ pres, onExit }) {
         )}
         <button className="hud-btn" onClick={onExit} title="Salir (Esc)">✕ Salir</button>
       </div>
-      <div className="presenter-hud" style={{ bottom: 18, left: 18, color: 'rgba(255,255,255,.55)', fontSize: 14, fontWeight: 600 }}>
+      {/* Píldora informativa (tema · página): fondo oscuro para leerse
+          sobre diapositivas blancas. */}
+      <div className="presenter-hud hud-info" style={{ bottom: 18, left: 18, fontSize: 14, fontWeight: 600, gap: 8 }}>
         <span style={{ fontFamily: 'var(--font-display)' }}>{pres.tema}</span>
         <span style={{ opacity: .6 }}>·</span>
         <span>{idx + 1} / {slides.length}</span>
       </div>
       <div className="presenter-hud" style={{ bottom: 18, right: 18 }}>
-        <button className="hud-btn" onClick={retroceder} disabled={idx === 0 && paso === 0} style={{ opacity: (idx === 0 && paso === 0) ? .35 : 1 }}>←</button>
-        <button className="hud-btn" onClick={avanzar} disabled={idx === slides.length - 1 && paso >= maxPaso(slide) && (!esEquipos || verPodio)} style={{ opacity: (idx === slides.length - 1 && paso >= maxPaso(slide) && (!esEquipos || verPodio)) ? .35 : 1 }}>→</button>
+        <button className="hud-btn" onClick={retroceder} disabled={inicioTotal}>←</button>
+        <button className="hud-btn" onClick={avanzar} disabled={finalTotal}>→</button>
       </div>
     </div>
   );
