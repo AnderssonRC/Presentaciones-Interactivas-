@@ -645,6 +645,10 @@ input, textarea, select { font-family: var(--font-body); color: inherit; }
 }
 .score-edit button:hover { background: var(--team); color: #06140A; }
 .hud-btn.on { background: #F5C211; color: #06140A; }
+/* Botón que reaparece cuando el HUD está oculto: discreto por defecto,
+   totalmente visible al pasar el cursor para no distraer durante la clase. */
+.hud-reveal { transition: opacity .18s ease; }
+.hud-reveal:hover { opacity: 1 !important; }
 /* Asa de arrastre del panel de puntos (modo presentar) */
 .panel-grip { cursor: grab; user-select: none; touch-action: none; padding: 2px 2px 4px; }
 .panel-grip:active { cursor: grabbing; }

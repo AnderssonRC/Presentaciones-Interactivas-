@@ -53,18 +53,6 @@
      (objeto completo con soon: true). */
   const GROUPS = [
     {
-      id: 'fisicas',
-      nombre: 'Pausas Físicas',
-      desc: 'Activan el cuerpo: movimiento por zonas',
-      color: '#F53711',
-      icon: 'rayo',
-      tools: [
-        { id: 'pf-cabeza', nombre: 'Cabeza',        desc: 'Movilidad de cuello y rostro', color: '#F53711', icon: 'user', soon: true },
-        { id: 'pf-torso',  nombre: 'Torso medio',   desc: 'Brazos, hombros y espalda',    color: '#F53711', icon: 'user', soon: true },
-        { id: 'pf-tren',   nombre: 'Tren inferior', desc: 'Piernas, cadera y equilibrio', color: '#F53711', icon: 'user', soon: true },
-      ],
-    },
-    {
       id: 'cognitivos',
       nombre: 'Activadores Cognitivos',
       desc: 'Despiertan el pensamiento y el ingenio',

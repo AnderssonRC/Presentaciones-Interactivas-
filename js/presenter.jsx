@@ -338,6 +338,9 @@ function Presenter({ pres, onExit }) {
   const [verPodio, setVerPodio] = React.useState(false);
   // Panel manual de puntos (¿Quién acertó?), disponible en cualquier actividad.
   const [verPuntos, setVerPuntos] = React.useState(false);
+  // Ocultar TODO el HUD (botones superiores + tarjeta de código + flechas).
+  // Deja solo un botón discreto para volver a mostrarlo, para presentar limpio.
+  const [hudOculto, setHudOculto] = React.useState(false);
 
   // Avanzar: primero revela el siguiente elemento; si ya se reveló todo,
   // pasa al siguiente slide y reinicia los pasos. En modo equipos, al intentar
@@ -430,6 +433,8 @@ function Presenter({ pres, onExit }) {
         if (e.key === 'Escape' || e.key === 'ArrowLeft') { e.preventDefault(); setVerPodio(false); }
         return;
       }
+      // Tecla "h": ocultar/mostrar el HUD (atajo rápido para el docente).
+      if (e.key === 'h' || e.key === 'H') { e.preventDefault(); setHudOculto((v) => !v); return; }
       if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') { e.preventDefault(); avanzar(); }
       else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); retroceder(); }
       else if (e.key === 'Escape') onExit();
@@ -616,70 +621,87 @@ function Presenter({ pres, onExit }) {
         </div>
       </div>
 
-      {/* Marcador de equipos (solo modo equipos) */}
-      {esEquipos && <TeamScoreboard teams={teams} hidden={hideScores} />}
+      {/* Marcador de equipos (solo modo equipos). Se oculta junto con el HUD. */}
+      {esEquipos && <TeamScoreboard teams={teams} hidden={hideScores || hudOculto} />}
 
       {/* Pantalla del equipo ganador (podio) */}
       {esEquipos && verPodio && <PodioGanador teams={teams} onCerrar={() => setVerPodio(false)} />}
 
-      {/* Tarjeta de conexión del control remoto */}
-      {badgeVisible && <RemoteBadge code={remoteCode} onClose={() => setBadgeVisible(false)} count={participants.length} />}
+      {/* Con el HUD oculto: un único botón discreto abajo a la derecha para
+          traerlo de vuelta. Todo lo demás (tarjeta de código, paneles y la
+          barra superior) queda escondido para presentar sin estorbos. */}
+      {hudOculto ? (
+        <button className="hud-btn hud-reveal" onClick={() => setHudOculto(false)}
+          title="Mostrar controles (tecla H)"
+          style={{ position: 'absolute', bottom: 18, right: 18, zIndex: 40, opacity: .5 }}>
+          ☰
+        </button>
+      ) : (
+        <React.Fragment>
+          {/* Tarjeta de conexión del control remoto */}
+          {badgeVisible && <RemoteBadge code={remoteCode} onClose={() => setBadgeVisible(false)} count={participants.length} />}
 
-      {/* Panel de participación (sorteo de manos levantadas) */}
-      {ronda !== 'idle' && (
-        <ParticipationPanel
-          fase={ronda} participants={participants} elegido={elegido}
-          sorteando={sorteando} onSortear={sortear} onCerrar={cerrarParticipacion} />
+          {/* Panel de participación (sorteo de manos levantadas) */}
+          {ronda !== 'idle' && (
+            <ParticipationPanel
+              fase={ronda} participants={participants} elegido={elegido}
+              sorteando={sorteando} onSortear={sortear} onCerrar={cerrarParticipacion} />
+          )}
+
+          {/* Panel manual de puntos (¿Quién acertó?) — solo modo equipos */}
+          {esEquipos && verPuntos && (
+            <PanelPuntos
+              teams={teams}
+              onPunto={(i, d) => setTeams((prev) => prev.map((t, j) => (j === i ? { ...t, score: Math.max(0, (t.score || 0) + d) } : t)))}
+              onCerrar={() => setVerPuntos(false)} />
+          )}
+
+          {/* HUD fuera del escenario escalado.
+              `hud-top-right` (styles.css) permite que la fila haga wrap alineada a
+              la derecha para que "Salir" nunca quede cortado por el borde. */}
+          <div className="presenter-hud hud-top-right" style={{ top: 18, right: 18, gap: 8 }}>
+            {/* Ocultar todo el HUD para presentar limpio (también con la tecla H). */}
+            <button className="hud-btn" onClick={() => setHudOculto(true)} title="Ocultar controles (tecla H)">
+              🙈 Ocultar controles
+            </button>
+            {conEstudiantes && ronda === 'idle' && (
+              <button className="hud-btn" onClick={abrirParticipacion} title="Pedir participación">
+                ✋ Pedir participación
+              </button>
+            )}
+            {esEquipos && (
+              <button className="hud-btn" onClick={() => setVerPuntos((v) => !v)} title="Sumar puntos manualmente">
+                🏅 {verPuntos ? 'Cerrar puntos' : 'Dar puntos'}
+              </button>
+            )}
+            {esEquipos && (
+              <button className="hud-btn" onClick={() => setHideScores((h) => !h)} title="Ocultar/mostrar puntaje">
+                {hideScores ? '👁 Mostrar puntaje' : '🙈 Ocultar puntaje'}
+              </button>
+            )}
+            {esEquipos && (
+              <button className="hud-btn" onClick={() => setVerPodio((v) => !v)} title="Mostrar el equipo ganador">
+                🏆 {verPodio ? 'Cerrar ganador' : 'Ver ganador'}
+              </button>
+            )}
+            {!badgeVisible && remoteCode && (
+              <button className="hud-btn" onClick={() => setBadgeVisible(true)} title="Mostrar código de control">📱 {remoteCode}</button>
+            )}
+            <button className="hud-btn" onClick={onExit} title="Salir (Esc)">✕ Salir</button>
+          </div>
+          {/* Píldora informativa (tema · página): fondo oscuro para leerse
+              sobre diapositivas blancas. */}
+          <div className="presenter-hud hud-info" style={{ bottom: 18, left: 18, fontSize: 14, fontWeight: 600, gap: 8 }}>
+            <span style={{ fontFamily: 'var(--font-display)' }}>{pres.tema}</span>
+            <span style={{ opacity: .6 }}>·</span>
+            <span>{idx + 1} / {slides.length}</span>
+          </div>
+          <div className="presenter-hud" style={{ bottom: 18, right: 18 }}>
+            <button className="hud-btn" onClick={retroceder} disabled={inicioTotal}>←</button>
+            <button className="hud-btn" onClick={avanzar} disabled={finalTotal}>→</button>
+          </div>
+        </React.Fragment>
       )}
-
-      {/* Panel manual de puntos (¿Quién acertó?) — solo modo equipos */}
-      {esEquipos && verPuntos && (
-        <PanelPuntos
-          teams={teams}
-          onPunto={(i, d) => setTeams((prev) => prev.map((t, j) => (j === i ? { ...t, score: Math.max(0, (t.score || 0) + d) } : t)))}
-          onCerrar={() => setVerPuntos(false)} />
-      )}
-
-      {/* HUD fuera del escenario escalado.
-          `hud-top-right` (styles.css) permite que la fila haga wrap alineada a
-          la derecha para que "Salir" nunca quede cortado por el borde. */}
-      <div className="presenter-hud hud-top-right" style={{ top: 18, right: 18, gap: 8 }}>
-        {conEstudiantes && ronda === 'idle' && (
-          <button className="hud-btn" onClick={abrirParticipacion} title="Pedir participación">
-            ✋ Pedir participación
-          </button>
-        )}
-        {esEquipos && (
-          <button className="hud-btn" onClick={() => setVerPuntos((v) => !v)} title="Sumar puntos manualmente">
-            🏅 {verPuntos ? 'Cerrar puntos' : 'Dar puntos'}
-          </button>
-        )}
-        {esEquipos && (
-          <button className="hud-btn" onClick={() => setHideScores((h) => !h)} title="Ocultar/mostrar puntaje">
-            {hideScores ? '👁 Mostrar puntaje' : '🙈 Ocultar puntaje'}
-          </button>
-        )}
-        {esEquipos && (
-          <button className="hud-btn" onClick={() => setVerPodio((v) => !v)} title="Mostrar el equipo ganador">
-            🏆 {verPodio ? 'Cerrar ganador' : 'Ver ganador'}
-          </button>
-        )}
-        {!badgeVisible && remoteCode && (
-          <button className="hud-btn" onClick={() => setBadgeVisible(true)} title="Mostrar código de control">📱 {remoteCode}</button>
-        )}
-        <button className="hud-btn" onClick={onExit} title="Salir (Esc)">✕ Salir</button>
-      </div>
-      {/* Píldora informativa (tema · página): fondo oscuro para leerse
-          sobre diapositivas blancas. */}
-      <div className="presenter-hud hud-info" style={{ bottom: 18, left: 18, fontSize: 14, fontWeight: 600, gap: 8 }}>
-        <span style={{ fontFamily: 'var(--font-display)' }}>{pres.tema}</span>
-        <span style={{ opacity: .6 }}>·</span>
-        <span>{idx + 1} / {slides.length}</span>
-      </div>
-      <div className="presenter-hud" style={{ bottom: 18, right: 18 }}>
-        <button className="hud-btn" onClick={retroceder} disabled={inicioTotal}>←</button>
-        <button className="hud-btn" onClick={avanzar} disabled={finalTotal}>→</button>
-      </div>
     </div>
   );
 }
