@@ -47,6 +47,11 @@
 
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; }
+/* Evita una barra de scroll HORIZONTAL accidental (franja) cuando algo mide
+   unos píxeles más de ancho que la ventana. El scroll vertical del dashboard
+   se conserva; las vistas fijas (Presentar/estudiante) evitan su propio scroll
+   con overflow:hidden en su contenedor. */
+body { overflow-x: hidden; }
 body {
   background: var(--bg);
   color: var(--ink);
@@ -334,38 +339,22 @@ input, textarea, select { font-family: var(--font-body); color: inherit; }
 .slide-input::placeholder { color: var(--slide-text); opacity: .5; }
 
 /* ---------- presenter ---------- */
-.presenter-overlay { position: fixed; inset: 0; background: #000; z-index: 60; }
+/* overflow:hidden evita que un panel o la barra del HUD que sobresalga unos
+   píxeles genere scroll y dibuje la barra blanca del navegador en el borde. */
+.presenter-overlay { position: fixed; inset: 0; background: #000; z-index: 60; overflow: hidden; }
 .presenter-stagewrap { position: absolute; inset: 0; display: grid; place-items: center; overflow: hidden; }
 .presenter-hud {
   position: fixed; z-index: 65; display: flex; gap: 10px; align-items: center;
   white-space: nowrap;
 }
-/* Fila superior derecha: puede tener muchos botones (participación, puntos,
-   puntaje, ganador, código, salir). Se permite el salto de línea alineado a
-   la derecha para que "Salir" nunca quede cortado por el borde. */
-.presenter-hud.hud-top-right {
-  flex-wrap: wrap; justify-content: flex-end; row-gap: 8px;
-  max-width: min(62vw, 980px);
-}
 .hud-btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
   height: 46px; min-width: 46px; padding: 0 14px; border-radius: 12px;
-  /* Fondo oscuro SÓLIDO: los botones deben leerse igual sobre diapositivas
-     blancas (contenido) que sobre negras (actividades). */
-  background: rgba(11,14,11,.85); color: #F2F5EF;
-  border: 1px solid rgba(255,255,255,.22);
-  box-shadow: 0 4px 16px rgba(0,0,0,.35);
+  background: rgba(255,255,255,.1); color: #fff; border: 1px solid rgba(255,255,255,.16);
   font-size: 15px; font-weight: 600; backdrop-filter: blur(8px);
-  transition: background .12s ease, border-color .12s ease;
+  transition: background .12s ease;
 }
-.hud-btn:hover { background: rgba(34,40,33,.95); border-color: rgba(255,255,255,.38); }
-.hud-btn:disabled { opacity: .35; cursor: default; }
-/* Píldora informativa del HUD (tema · página): legible sobre cualquier fondo */
-.hud-info {
-  background: rgba(11,14,11,.72); backdrop-filter: blur(8px);
-  border: 1px solid rgba(255,255,255,.14); border-radius: 12px;
-  padding: 8px 14px; color: rgba(255,255,255,.85);
-}
+.hud-btn:hover { background: rgba(255,255,255,.22); }
 
 /* activity runtime shared */
 .act-stage {
@@ -645,10 +634,6 @@ input, textarea, select { font-family: var(--font-body); color: inherit; }
 }
 .score-edit button:hover { background: var(--team); color: #06140A; }
 .hud-btn.on { background: #F5C211; color: #06140A; }
-/* Botón que reaparece cuando el HUD está oculto: discreto por defecto,
-   totalmente visible al pasar el cursor para no distraer durante la clase. */
-.hud-reveal { transition: opacity .18s ease; }
-.hud-reveal:hover { opacity: 1 !important; }
 /* Asa de arrastre del panel de puntos (modo presentar) */
 .panel-grip { cursor: grab; user-select: none; touch-action: none; padding: 2px 2px 4px; }
 .panel-grip:active { cursor: grabbing; }
@@ -665,10 +650,8 @@ input, textarea, select { font-family: var(--font-body); color: inherit; }
   align-content: flex-start;
   /* Antes height:56px fija — al envolver, la 2ª fila se salía de la caja
      y el fondo blanco se cortaba. Con min-height la barra crece y el blanco
-     cubre ambas filas. `height: auto` explícito por si alguna regla vieja
-     (o una hoja cacheada) intenta fijar la altura. */
+     cubre ambas filas. */
   min-height: 56px;
-  height: auto;
   width: 100%;
   box-sizing: border-box;
   position: relative;

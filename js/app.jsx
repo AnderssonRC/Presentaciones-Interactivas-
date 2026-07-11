@@ -129,18 +129,25 @@ function App() {
 
   return (
     <React.Fragment>
-      {editing ? (
-        <Editor pres={editing} onChange={changePres} onBack={() => setEditingId(null)}
-          onPresent={() => present(editing.id)} theme={theme} setTheme={setTheme} />
+      {presenting ? (
+        /* Durante Presentar NO montamos el Dashboard/Editor detrás: al quedar
+           en el flujo del documento, su altura generaba el scroll del body y
+           asomaba la barra blanca del navegador por el borde. El Presenter es
+           pantalla completa, así que es lo único que debe existir. */
+        <Presenter pres={presenting} onExit={() => setPresentingId(null)} />
       ) : (
-        <Dashboard profile={profile} presentations={presentations} variant={t.pantallaPrincipal}
-          onCreate={createPres} onOpen={setEditingId} onPresent={present} onDelete={deletePres} onLogout={logout}
-          theme={theme} setTheme={setTheme} />
+        <React.Fragment>
+          {editing ? (
+            <Editor pres={editing} onChange={changePres} onBack={() => setEditingId(null)}
+              onPresent={() => present(editing.id)} theme={theme} setTheme={setTheme} />
+          ) : (
+            <Dashboard profile={profile} presentations={presentations} variant={t.pantallaPrincipal}
+              onCreate={createPres} onOpen={setEditingId} onPresent={present} onDelete={deletePres} onLogout={logout}
+              theme={theme} setTheme={setTheme} />
+          )}
+          <ResCogitasFooter />
+        </React.Fragment>
       )}
-      {presenting && <Presenter pres={presenting} onExit={() => setPresentingId(null)} />}
-      {/* Pie de Res Cogitans: visible en inicio y editor, NO durante Presentar
-         (taparía la pantalla del televisor). */}
-      {!presenting && <ResCogitasFooter />}
       <AppTweaks t={t} setTweak={setTweak} />
     </React.Fragment>
   );
