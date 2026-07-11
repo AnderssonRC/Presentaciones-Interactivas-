@@ -394,6 +394,49 @@ function Presenter({ pres, onExit }) {
   const [hideScores, setHideScores] = React.useState(false);
   React.useEffect(() => { setTeams(equiposBase); setHideScores(false); }, [equiposBase]);
 
+  // --- Pantalla completa real del navegador (como PowerPoint/Slides) ---
+  // Al entrar a Presentar pedimos fullscreen para ocultar pestañas y barra
+  // del navegador. Los navegadores exigen que esto ocurra tras un gesto del
+  // usuario; como Presentar se abre al pulsar el botón, el permiso ya existe.
+  // Si el navegador lo rechaza, la app sigue funcionando igual (sin fullscreen).
+  React.useEffect(() => {
+    const el = document.documentElement;
+    const pedir = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+    if (pedir) {
+      try {
+        const r = pedir.call(el);
+        if (r && r.catch) r.catch(() => {});   // ignora el rechazo (no rompe nada)
+      } catch (e) { /* algunos navegadores lanzan si no hay gesto: se ignora */ }
+    }
+    // Al salir de Presentar, liberamos la pantalla completa.
+    return () => {
+      const salir = document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen;
+      if (salir && (document.fullscreenElement || document.webkitFullscreenElement)) {
+        try {
+          const r = salir.call(document);
+          if (r && r.catch) r.catch(() => {});
+        } catch (e) { /* ignora */ }
+      }
+    };
+  }, []);
+
+  // Si el docente sale de pantalla completa con F11 o Esc del navegador,
+  // cerramos también el modo Presentar para no quedar en un estado a medias
+  // (ventana normal con el overlay encima). Solo actúa cuando ya NO hay
+  // elemento en fullscreen (es decir, se acaba de salir).
+  React.useEffect(() => {
+    const onFsChange = () => {
+      const enFs = document.fullscreenElement || document.webkitFullscreenElement;
+      if (!enFs) onExit();
+    };
+    document.addEventListener('fullscreenchange', onFsChange);
+    document.addEventListener('webkitfullscreenchange', onFsChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', onFsChange);
+      document.removeEventListener('webkitfullscreenchange', onFsChange);
+    };
+  }, [onExit]);
+
   // --- Control remoto ---
   const [remoteCode, setRemoteCode] = React.useState(null);
   const [badgeVisible, setBadgeVisible] = React.useState(true);
