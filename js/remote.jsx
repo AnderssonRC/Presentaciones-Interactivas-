@@ -204,6 +204,9 @@ function RemoteControl({ initialCode }) {
   const teams = st.teams || [];
   const esEquipos = st.modo === 'equipos';
   const enActividad = !!st.activity;
+  // ¿El podio del ganador está abierto en el televisor? El presenter lo publica
+  // en el estado espejo (campo `podio`) para que el botón refleje su estado.
+  const podioAbierto = st.podio === true;
 
   return (
     <div style={{ ...rcWrap, justifyContent: 'flex-start' }}>
@@ -296,6 +299,18 @@ function RemoteControl({ initialCode }) {
                 </div>
               ))}
             </div>
+
+            {/* Mostrar/ocultar el podio del equipo ganador en el televisor.
+                Envía el comando 'podium' que el presenter ya interpreta. */}
+            <button onClick={() => { send('podium'); buzz(podioAbierto ? '✕' : '🏆'); }}
+              style={{
+                width: '100%', marginTop: 12, padding: '16px 0', fontSize: 16, fontWeight: 800,
+                fontFamily: 'var(--font-display)', borderRadius: 14, border: 'none',
+                background: podioAbierto ? '#2A2F29' : '#F5C211',
+                color: podioAbierto ? '#F2F5EF' : '#1A1600', cursor: 'pointer',
+              }}>
+              {podioAbierto ? '✕ Cerrar ganador' : '🏆 Ver ganador'}
+            </button>
           </div>
         )}
 
