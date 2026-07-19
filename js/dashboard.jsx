@@ -72,8 +72,8 @@ function Dashboard({ profile, presentations, onCreate, onOpen, onPresent, onDele
 
   const stats = [
     { label: 'Presentaciones creadas', value: presentations.length, color: '#11F555', icon: 'memorama' },
-    { label: 'Plantillas totales', value: totalPlantillas, color: '#F53711', icon: 'sopa' },
-    { label: 'Actividades interactivas', value: totalActs, color: '#116CF5', icon: 'rayo' },
+    { label: 'Plantillas totales', value: totalPlantillas, color: '#16A34A', icon: 'sopa' },
+    { label: 'Actividades interactivas', value: totalActs, color: '#0D9488', icon: 'rayo' },
     { label: 'Veces presentadas', value: totalUsos, color: '#000000', icon: 'play' },
   ];
 
@@ -81,7 +81,13 @@ function Dashboard({ profile, presentations, onCreate, onOpen, onPresent, onDele
     <div data-screen-label="Inicio">
       {/* -------- barra de navegación superior -------- */}
       <header className="topnav">
-        <Logo size={24} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <img src="logo-192.png" alt="Actividades Interactivas"
+          style={{ height: 38, width: 38, borderRadius: 10, objectFit: 'contain' }} />
+            <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 16.5, lineHeight: 1.05 }}>
+               Actividades<br />Interactivas
+</span>
+</div>
         <nav style={{ display: 'flex', gap: 4, marginLeft: 18, flex: 1 }}>
           <button className="navlink active">Mis presentaciones</button>
         </nav>
@@ -100,9 +106,9 @@ function Dashboard({ profile, presentations, onCreate, onOpen, onPresent, onDele
       <main className="main-wrap">
         {/* -------- hero con degradado -------- */}
         <section className="hero-grad fade-up">
-          <Sparkle size={120} style={{ position: 'absolute', top: 26, right: 120, color: '#F53711', opacity: .85, zIndex: 0 }} />
-          <Sparkle size={56} style={{ position: 'absolute', top: 120, right: 60, color: '#FF8A66', opacity: .8, zIndex: 0 }} />
-          <Sparkle size={34} style={{ position: 'absolute', top: 30, right: 280, color: '#11F555', opacity: .9, zIndex: 0 }} />
+            <Sparkle size={120} style={{ position: 'absolute', top: 26, right: 120, color: '#2FC46B', opacity: .55, zIndex: 0 }} />
+            <Sparkle size={56} style={{ position: 'absolute', top: 120, right: 60, color: '#7FE8A8', opacity: .6, zIndex: 0 }} />
+            <Sparkle size={34} style={{ position: 'absolute', top: 30, right: 280, color: '#CDF5DC', opacity: .7, zIndex: 0 }} />
           <div className="hero-pill"><Icon name="memorama" size={14} /> {presentations.length} presentaciones en tu biblioteca</div>
           <h1>¡Hola, {profile.nombre}!</h1>
           <p style={{ maxWidth: '36em', margin: '12px 0 0', fontSize: 16, color: 'rgba(255,255,255,.92)' }}>

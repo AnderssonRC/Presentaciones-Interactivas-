@@ -829,3 +829,70 @@ input, textarea, select { font-family: var(--font-body); color: inherit; }
 @media (hover: none) {
   .del-btn { opacity: .9; }
 }
+/* ============================================================
+   ATMÓSFERA DASHBOARD — noche verde con brillos (estilo afiche)
+   Truco: redefinimos los tokens SOLO dentro del dashboard y casi
+   toda la pantalla (tarjetas, textos, bordes) se re-pinta sola.
+   ============================================================ */
+[data-screen-label="Inicio"] {
+  --bg: #050B06;                /* negro-verde profundo */
+  --surface: #0B130C;           /* tarjetas oscuras */
+  --surface2: #111D11;
+  --ink: #F2F7EF;
+  --muted: #8EA189;
+  --line: #1B2A18;              /* líneas con tinte verde */
+  --shadow: 0 1px 2px rgba(0,0,0,.5), 0 14px 34px -14px rgba(70,190,70,.16);
+  --verde-ink: #7FE85A;         /* kickers legibles sobre oscuro */
+  --naranja-ink: #FFA07A;
+  --azul-ink: #ff5100;
+
+  color: var(--ink);
+  min-height: 100dvh;
+  background:
+    radial-gradient(1100px 420px at 50% -8%, rgba(70,190,70,.14), transparent 60%),
+    var(--bg);                  /* halo verde que baja desde arriba */
+}
+
+/* Barra superior: vidrio oscuro */
+[data-screen-label="Inicio"] .topnav {
+  background: rgba(6,12,7,.85);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--line);
+}
+[data-screen-label="Inicio"] .navlink.active {
+  color: #8CF04F;
+  background: rgba(110,214,68,.12);
+}
+
+/* Héroe: escenario oscuro con pedestal luminoso (como el afiche:
+   brillo verde abajo y un toque dorado sutil arriba a la derecha) */
+[data-screen-label="Inicio"] .hero-grad {
+  background:
+    radial-gradient(850px 320px at 50% 118%, rgba(110,214,68,.30), transparent 62%),
+    radial-gradient(650px 240px at 88% -35%, rgba(232,178,58,.12), transparent 60%),
+    linear-gradient(165deg, #081108, #0A180B 90%);
+  border: 1px solid #1F3418;
+  box-shadow: 0 0 0 1px rgba(110,214,68,.07), 0 34px 80px -34px rgba(110,214,68,.4);
+}
+[data-screen-label="Inicio"] .hero-pill {
+  border-color: rgba(140,240,79,.4);
+  background: rgba(110,214,68,.10);
+  color: #DFF5D0;
+}
+
+/* Chips de estadísticas: anillo tenue (el chip negro ya no se pierde) */
+[data-screen-label="Inicio"] .stat-ico { outline: 1px solid #223A1E; }
+
+/* Tarjetas: al pasar el mouse, brillo verde en vez de solo elevarse */
+[data-screen-label="Inicio"] .pres-card2:hover,
+[data-screen-label="Inicio"] .pres-row:hover {
+  border-color: #2C4A24;
+  box-shadow: 0 0 0 1px rgba(110,214,68,.12), 0 18px 44px -18px rgba(110,214,68,.30);
+}
+
+/* Tarjeta "+ Crear": el hover pasa de naranja a lima brillante */
+[data-screen-label="Inicio"] .create-card:hover {
+  border-color: #8CF04F;
+  color: #8CF04F;
+  background: rgba(110,214,68,.06);
+}
