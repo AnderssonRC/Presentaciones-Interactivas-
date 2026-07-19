@@ -482,7 +482,6 @@ function GruposEditor({ current, curIdx, updateSlide, setItems }) {
     </div>
   );
 }
-
 function itemsLabel(toolId) {
   return {
     ruleta: 'Preguntas de la ruleta (una por línea)',
@@ -528,57 +527,7 @@ function itemsHint(toolId) {
   }[toolId] || 'Opcional según la actividad. Un elemento por línea.';
 }
 
-/* Detecta pantallas angostas EN VIVO: si el docente rota el celular a
-   horizontal o agranda la ventana, el editor aparece sin recargar. */
-function useEsMovil() {
-  const [movil, setMovil] = React.useState(() => window.matchMedia('(max-width: 900px)').matches);
-  React.useEffect(() => {
-    const mq = window.matchMedia('(max-width: 900px)');
-    const fn = (e) => setMovil(e.matches);
-    mq.addEventListener('change', fn);
-    return () => mq.removeEventListener('change', fn);
-  }, []);
-  return movil;
-}
-
-/* Aviso amable cuando el editor se abre en un celular. */
-function AvisoEditorMovil({ onBack }) {
-  return (
-    <div data-screen-label="Editor" style={{ minHeight: '100dvh', background: '#070907', color: '#F2F5EF',
-      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-      textAlign: 'center', padding: '40px 26px 70px', gap: 18 }}>
-      <Logo dark size={26} />
-      <div style={{ width: 74, height: 74, borderRadius: 22, background: 'rgba(17,245,85,.12)',
-        border: '1px solid rgba(17,245,85,.35)', display: 'grid', placeItems: 'center',
-        color: '#11F555', marginTop: 8 }}>
-        <Icon name="tv" size={36} />
-      </div>
-      <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 26, lineHeight: 1.2, maxWidth: '14em' }}>
-        El editor está diseñado para computador
-      </h1>
-      <p style={{ color: '#9AA396', fontSize: 15, lineHeight: 1.6, maxWidth: '26em', margin: 0 }}>
-        Crear y editar presentaciones necesita espacio: el lienzo, los paneles
-        y arrastrar elementos. Abre tu cuenta en un computador para editar.
-      </p>
-      <p style={{ color: '#9AA396', fontSize: 14.5, lineHeight: 1.6, maxWidth: '26em', margin: 0 }}>
-        Desde tu celular sí puedes <strong style={{ color: '#F2F5EF' }}>usar el mando</strong> al
-        presentar, o <strong style={{ color: '#F2F5EF' }}>entrar como estudiante</strong> con el PIN del aula.
-      </p>
-      <button className="btn btn-lg" onClick={onBack}
-        style={{ background: '#11F555', color: '#06140A', borderColor: 'transparent', fontWeight: 700, marginTop: 10 }}>
-        Volver a mis presentaciones
-      </button>
-    </div>
-  );
-}
-
-/* Puerta de entrada: decide entre el aviso móvil y el editor real. */
-function EditorGate(props) {
-  const movil = useEsMovil();
-  return movil ? <AvisoEditorMovil onBack={props.onBack} /> : <Editor {...props} />;
-}
-Object.assign(window, { Editor: EditorGate });
-
+Object.assign(window, { Editor });
 
 /* ============================================================
    Barra de herramientas del lienzo libre (diapositivas de contenido)
