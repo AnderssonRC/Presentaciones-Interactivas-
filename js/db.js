@@ -43,6 +43,7 @@
     { id: 'pulsador',   nombre: 'Pulsador por turnos',  desc: 'El equipo que pulsa primero responde',   color: '#11F555', icon: 'rayo' },
     { id: 'apuesta',    nombre: 'Apuesta de puntos',    desc: 'Cada equipo apuesta antes de responder', color: '#116CF5', icon: 'trofeo' },
     { id: 'recuadros',  nombre: 'Recuadros por equipo', desc: 'Cada equipo resuelve su propio tablero', color: '#F5C211', icon: 'memorama' },
+    { id: 'grupos', nombre: 'Formar grupos', desc: 'Reparte la lista de estudiantes al azar', color: '#A855F7', icon: 'pares' },
   ];
 
   const toolById = (id) => TOOLS.find((t) => t.id === id) || TOOLS[0];
@@ -71,7 +72,7 @@
         { ref: 'crucigrama' },
         { ref: 'completa' },
         { id: 'adivina', nombre: 'Adivina la imagen', desc: 'Imagen oculta que se revela poco a poco', color: '#F53711', icon: 'eye', soon: true },
-        
+              
       ],
     },
     {
@@ -98,6 +99,7 @@
         { ref: 'pulsador' },
         { ref: 'apuesta' },
         { ref: 'recuadros' },
+        { ref: 'grupos' },
       ],
     },
   ];
@@ -204,6 +206,11 @@
         ];
         base.instrucciones = 'Cada equipo abre su tablero, responde sus preguntas y escribe la secuencia de respuestas.';
         base.puntos = 2;
+        break;
+        case 'grupos':
+        base.items = ['Ana María López', 'Carlos Pérez Ruiz', 'Sofía Torres', 'Juan D. Gómez', 'María Fernanda Díaz', 'Pedro Sánchez M.'];
+        base.numGrupos = 3;
+        base.instrucciones = 'Estos son los grupos de hoy. ¡A trabajar con tu equipo!';
         break;
     }
     return base;

@@ -107,12 +107,17 @@ function urlEmbed(url) {
    haya hover — lo activa el botón "Previsualizar" de la toolbar. */
 function CanvasElemento({ el, editable, selected, onSelect, onChange, replayKey, previewOn }) {
   const dragRef = React.useRef(null);
-  // En el editor las animaciones están apagadas; se ven al pasar el mouse
-  // (hover) o cuando previewOn está activo.
-  const [hover, setHover] = React.useState(false);
+  // En el editor las animaciones están apagadas; se reproducen SOLO con el
+  // botón "Previsualizar" (previewOn). Antes también se activaban con hover,
+  // pero eso cambiaba la `key` del nodo en pleno arrastre (el cursor entra y
+  // sale del elemento mientras se mueve), React re-montaba el elemento y las
+  // imágenes se recargaban: ese era el parpadeo molesto al mover.
 
   const estiloPos = {
     position: 'absolute', left: el.x, top: el.y, width: el.w, height: el.h,
+    // touchAction none: permite arrastrar con el dedo en pantallas táctiles
+    // sin que el navegador interprete el gesto como scroll.
+    touchAction: editable ? 'none' : undefined,
   };
 
   /* ---- arrastre y redimensionado (solo modo editable) ---- */
@@ -185,6 +190,10 @@ function CanvasElemento({ el, editable, selected, onSelect, onChange, replayKey,
       display: 'flex', flexDirection: 'column',
       justifyContent: el.align === 'center' ? 'center' : 'flex-start',
       overflow: 'hidden', wordBreak: 'break-word',
+      // pre-wrap: respeta los saltos de línea (Enter) y los espacios que el
+      // docente escribe en el textarea. Sin esto, HTML colapsa los "\n" y
+      // todo el texto se veía unido en un solo párrafo.
+      whiteSpace: 'pre-wrap',
     };
     if (editable && selected) {
       contenido = (
@@ -205,11 +214,21 @@ function CanvasElemento({ el, editable, selected, onSelect, onChange, replayKey,
             outline: 'none', resize: 'none' }} />
       );
     } else {
-      contenido = <div className="canvas-text" style={estiloTexto}>{el.valor}</div>;
+      // userSelect none en el editor: al arrastrar el texto, el navegador no
+      // intenta seleccionarlo (lo que interrumpía el movimiento).
+      contenido = <div className="canvas-text"
+        style={{ ...estiloTexto, userSelect: editable ? 'none' : undefined }}>{el.valor}</div>;
     }
   } else if (el.tipo === 'imagen') {
+    // draggable={false} + pointerEvents 'none' (en el editor): sin esto, el
+    // navegador inicia su propio arrastre de imagen (la "imagen fantasma")
+    // al hacer clic sobre la <img>, secuestra los eventos pointermove y el
+    // arrastre del lienzo nunca llega a ocurrir. Con pointerEvents 'none'
+    // el clic cae directo en el contenedor .canvas-el, que sí sabe moverse.
     contenido = el.valor
-      ? <img src={el.valor} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 18, display: 'block' }} />
+      ? <img src={el.valor} alt="" draggable={false}
+          style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 18, display: 'block',
+            pointerEvents: editable ? 'none' : 'auto', userSelect: 'none' }} />
       : <div className="canvas-ph">Pega la URL de una imagen en el panel ▸</div>;
   } else if (el.tipo === 'video') {
     contenido = el.valor
@@ -220,19 +239,19 @@ function CanvasElemento({ el, editable, selected, onSelect, onChange, replayKey,
 
   // ¿Debe verse la animación ahora mismo?
   // - Presentación (no editable): siempre, según el catálogo.
-  // - Editor (editable): solo al pasar el mouse (hover) o con "Previsualizar".
-  const animar = editable ? (hover || previewOn) : true;
+  // - Editor (editable): SOLO con el botón "Previsualizar" (previewOn).
+  //   Nunca por hover: el hover cambiaba la key en pleno arrastre y el
+  //   re-montaje hacía parpadear las imágenes.
+  const animar = editable ? previewOn : true;
   const claseAnim = animar ? animClase(el.anim) : '';
   // Cambiar esta parte del key re-monta el nodo y reinicia la animación CSS
-  // cada vez que empieza un hover o se activa la previa.
+  // cada vez que se activa la previa (o al entrar al slide en presentación).
   const animKey = (replayKey || '') + '-' + (animar ? 'on' : 'off');
 
   return (
     <div ref={dragRef} key={animKey}
       className={'canvas-el ' + claseAnim + (editable ? ' editable' : '') + (selected ? ' sel' : '')}
       style={estiloPos}
-      onPointerEnter={editable ? () => setHover(true) : undefined}
-      onPointerLeave={editable ? () => setHover(false) : undefined}
       onPointerDown={iniciarArrastre}
       onClick={(e) => { if (editable) { e.stopPropagation(); onSelect && onSelect(el.id); } }}>
       {contenido}

@@ -416,9 +416,18 @@ window.ACT_EJEMPLOS = {
       ],
     },
   },
-
+  grupos: {
+  que: 'Reparte tu lista de estudiantes en grupos al azar y los muestra en pantalla.',
+  comoVe: 'Una animación de sorteo y luego tarjetas de colores, una por grupo, con los nombres.',
+  formato: 'Pega la lista desde Excel: un nombre completo por línea. Elige cuántos grupos.',
+  ejemplo: {
+    titulo: 'Grupos de trabajo de hoy',
+    instrucciones: 'Estos son los grupos. ¡Reúnete con tu equipo!',
+    numGrupos: 3,
+    items: ['Ana María López', 'Carlos Pérez Ruiz', 'Sofía Torres García', 'Juan David Gómez', 'María Fernanda Díaz', 'Pedro Sánchez Mora'],
+  },
+},
 };
-
 /* Devuelve la guía de una actividad (o null si no existe ejemplo). */
 window.actEjemplo = function (toolId) {
   return (window.ACT_EJEMPLOS && window.ACT_EJEMPLOS[toolId]) || null;

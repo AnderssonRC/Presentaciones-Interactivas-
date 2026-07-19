@@ -73,10 +73,14 @@ function ThemeToggle({ theme, setTheme }) {
   );
 }
 
-/* Escala un lienzo 1920x1080 al ancho disponible */
+/* Escala un lienzo 1920x1080 al espacio disponible: se ajusta al ANCHO del
+   contenedor y, además, limita la escala para que la diapositiva quepa
+   COMPLETA en el ALTO visible de la columna (sin quedar cortada por el pie
+   de página). Cuando el alto es el que limita, el lienzo se centra
+   horizontalmente. */
 function ScaledSlide({ children, maxH }) {
   const boxRef = useRef(null);
-  const [scale, setScale] = useState(0.3);
+  const [fit, setFit] = useState({ scale: 0.3, off: 0 });
   useEffect(() => {
     const el = boxRef.current;
     if (!el) return;
@@ -85,16 +89,32 @@ function ScaledSlide({ children, maxH }) {
     // desde `scale`, su geometría cambiaba, el ResizeObserver volvía a disparar
     // y el redondeo sub-pixel de Chrome hacía oscilar `scale` (la "vibración").
     const medible = el.parentElement || el;
+    // Espacio reservado bajo el lienzo: padding inferior de la columna (~24px)
+    // + el pie de página fijo de Res Cogitans (~34px) que se superpone abajo.
+    const RESERVA = 60;
     let rafId = 0;
-    let ultimo = -1;
+    let ultimoS = -1, ultimoOff = -1;
     const aplicar = () => {
       rafId = 0;
       let s = medible.clientWidth / 1920;
       if (maxH) s = Math.min(s, maxH / 1080);
+      // Ajuste al ALTO: posición del stagebox dentro de la columna (usando
+      // scrollTop para que sea independiente del scroll) y alto que queda
+      // hasta el borde inferior visible.
+      const rBox = el.getBoundingClientRect();
+      const rCol = medible.getBoundingClientRect();
+      const posEnCol = rBox.top - rCol.top + medible.scrollTop;
+      const disponible = medible.clientHeight - posEnCol - RESERVA;
+      // Solo limitamos por alto si el espacio es razonable (ventanas muy
+      // bajas caen al ajuste por ancho para no dejar un lienzo diminuto).
+      if (disponible > 240) s = Math.min(s, disponible / 1080);
+      // Centrado horizontal cuando el alto limitó la escala y el lienzo
+      // quedó más angosto que la columna.
+      const off = Math.max(0, Math.round((medible.clientWidth - 1920 * s) / 2));
       // Ignora cambios sub-pixel: evita re-renders por ruido de redondeo.
-      if (Math.abs(s - ultimo) < 0.0005) return;
-      ultimo = s;
-      setScale(s);
+      if (Math.abs(s - ultimoS) < 0.0005 && off === ultimoOff) return;
+      ultimoS = s; ultimoOff = off;
+      setFit({ scale: s, off });
     };
     const update = () => {
       // Coalesce a un solo cálculo por frame.
@@ -103,11 +123,21 @@ function ScaledSlide({ children, maxH }) {
     aplicar();
     const ro = new ResizeObserver(update);
     ro.observe(medible);
-    return () => { if (rafId) cancelAnimationFrame(rafId); ro.disconnect(); };
+    // El alto disponible también cambia al redimensionar la ventana (p. ej.
+    // cuando la toolbar pasa de una a dos filas).
+    window.addEventListener('resize', update);
+    return () => {
+      if (rafId) cancelAnimationFrame(rafId);
+      ro.disconnect();
+      window.removeEventListener('resize', update);
+    };
   }, [maxH]);
+  const { scale, off } = fit;
   return (
     <div className="slide-stagebox" ref={boxRef} style={{ height: Math.round(1080 * scale) }}>
-      <div className="slide" style={{ transform: `scale(${scale})`, borderRadius: 12 / scale > 60 ? 0 : 12, boxShadow: 'var(--shadow)' }}>
+      {/* translateX va ANTES de scale: el desplazamiento se aplica en píxeles
+          de pantalla (post-escala) y centra el lienzo ya reducido. */}
+      <div className="slide" style={{ transform: `translateX(${off}px) scale(${scale})`, borderRadius: 12 / scale > 60 ? 0 : 12, boxShadow: 'var(--shadow)' }}>
         {children}
       </div>
     </div>

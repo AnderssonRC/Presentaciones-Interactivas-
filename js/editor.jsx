@@ -364,6 +364,8 @@ function Editor({ pres, onChange, onBack, onPresent, theme, setTheme }) {
                 <DescubreEditor current={current} curIdx={curIdx} updateSlide={updateSlide} setItems={setItems} />
               ) : current.tool === 'errores' ? (
                 <DiferenciasEditor current={current} curIdx={curIdx} updateSlide={updateSlide} />
+                ) : current.tool === 'grupos' ? (
+                <GruposEditor current={current} curIdx={curIdx} updateSlide={updateSlide} setItems={setItems} />  
               ) : (
                 <div className="field">
                   <label>{itemsLabel(current.tool)}</label>
@@ -452,6 +454,29 @@ function DescubreEditor({ current, curIdx, updateSlide, setItems }) {
           placeholder="PALABRA=pista (la pista es opcional)"></textarea>
         <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 5 }}>
           Formato: PALABRA=pista. Cada palabra puede tener distinta longitud. Ej: ELEFANTE=Animal con trompa
+        </div>
+      </div>
+    </div>
+  );
+  }
+  /* Editor de Formar grupos: número de grupos + lista de nombres (pegada de Excel). */
+function GruposEditor({ current, curIdx, updateSlide, setItems }) {
+  const setN = (e) => updateSlide(curIdx, { ...current, config: { ...current.config, numGrupos: Number(e.target.value) } });
+  return (
+    <div>
+      <div className="field">
+        <label>Número de grupos</label>
+        <select value={current.config.numGrupos || 3} onChange={setN}
+          style={{ padding: '9px 12px', borderRadius: 10, border: '1px solid var(--line)', background: 'var(--surface2)', color: 'var(--ink)', fontFamily: 'var(--font-body)', fontSize: 14 }}>
+          {[2, 3, 4, 5, 6, 7, 8].map((n) => <option key={n} value={n}>{n} grupos</option>)}
+        </select>
+      </div>
+      <div className="field">
+        <label>Lista de estudiantes (un nombre por línea)</label>
+        <textarea rows="8" value={(current.config.items || []).join('\n')} onChange={setItems}
+          placeholder={'Pega aquí tu lista desde Excel\nAna María López\nCarlos Pérez Ruiz\n…'}></textarea>
+        <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 5 }}>
+          Copia la columna de nombres en Excel y pégala aquí tal cual: la numeración (1., 2)…), las tabulaciones y las líneas vacías se limpian solas. Los nombres completos caben: la letra se ajusta en pantalla.
         </div>
       </div>
     </div>
