@@ -56,8 +56,7 @@ function presIcon(p) {
   return act ? AIP.toolById(act.tool).icon : 'tv';
 }
 
-function Dashboard({ profile, presentations, onCreate, onOpen, onPresent, onDelete, onLogout, theme, setTheme, variant }) {
-  const [q, setQ] = React.useState('');
+function Dashboard({ profile, presentations, onCreate, onOpen, onPresent, onDelete, onLogout, theme, setTheme, variant, esAdmin, onAdmin }) {  const [q, setQ] = React.useState('');
   const norm = (s) => (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   const filtered = presentations.filter((p) =>
     norm(p.tema + ' ' + p.materia + ' ' + p.objetivo).includes(norm(q)))
@@ -90,6 +89,7 @@ function Dashboard({ profile, presentations, onCreate, onOpen, onPresent, onDele
 </div>
         <nav style={{ display: 'flex', gap: 4, marginLeft: 18, flex: 1 }}>
           <button className="navlink active">Mis presentaciones</button>
+          {esAdmin && <button className="navlink" onClick={onAdmin}>Administración</button>}
         </nav>
         <ThemeToggle theme={theme} setTheme={setTheme} />
         <button className="btn btn-primary" onClick={() => onCreate("normal")} style={{ borderRadius: 999 }}>
@@ -206,4 +206,107 @@ function Dashboard({ profile, presentations, onCreate, onOpen, onPresent, onDele
   );
 }
 
-Object.assign(window, { Dashboard, inkFor });
+Object.assign(window, { Dashboard, inkFor, PantallaAccesoPendiente, AdminPanel });
+/* ---------- Pantalla de espera: solicitud pendiente o rechazada ---------- */
+function PantallaAccesoPendiente({ estado, onLogout }) {
+  const rechazado = estado === 'rechazado';
+  return (
+    <div style={{ minHeight: '100dvh', background: '#070907', color: '#F2F5EF', display: 'flex',
+      flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center',
+      padding: '40px 26px 70px', gap: 16 }}>
+      <Logo dark size={26} />
+      <div style={{ width: 74, height: 74, borderRadius: 22, fontSize: 32, display: 'grid', placeItems: 'center', marginTop: 8,
+        background: rechazado ? 'rgba(245,55,17,.12)' : 'rgba(17,245,85,.12)',
+        border: '1px solid ' + (rechazado ? 'rgba(245,55,17,.4)' : 'rgba(17,245,85,.35)'),
+        color: rechazado ? '#FF7A5C' : '#11F555' }}>
+        {rechazado ? '✕' : '⏳'}
+      </div>
+      <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 26, maxWidth: '16em', lineHeight: 1.25 }}>
+        {rechazado ? 'Tu solicitud no fue aprobada' : 'Tu solicitud está en revisión'}
+      </h1>
+      <p style={{ color: '#9AA396', fontSize: 15, lineHeight: 1.6, maxWidth: '26em', margin: 0 }}>
+        {rechazado
+          ? 'El administrador no aprobó el acceso con esta cuenta. Si crees que es un error, contáctalo directamente.'
+          : 'Tu cuenta fue creada y espera la aprobación del administrador. Cuando te aprueben, al entrar verás tu biblioteca.'}
+      </p>
+      <button className="btn btn-lg" onClick={onLogout}
+        style={{ background: '#11F555', color: '#06140A', borderColor: 'transparent', fontWeight: 700, marginTop: 8 }}>
+        Cerrar sesión
+      </button>
+    </div>
+  );
+}
+
+/* ---------- Panel de administración: gestiona solicitudes de acceso ---------- */
+function AdminPanel({ onBack }) {
+  const [lista, setLista] = React.useState(null);
+  const [error, setError] = React.useState('');
+  const cargar = () => {
+    AIP.listarSolicitudes().then(setLista)
+      .catch((e) => { console.error(e); setError('No se pudieron cargar las solicitudes.'); setLista([]); });
+  };
+  React.useEffect(cargar, []);
+  const resolver = (uid, estado) => {
+    AIP.resolverSolicitud(uid, estado).then(cargar)
+      .catch((e) => { console.error(e); window.alert('No se pudo actualizar la solicitud.'); });
+  };
+  const pend = (lista || []).filter((s) => s.estado === 'pendiente');
+  const resueltas = (lista || []).filter((s) => s.estado !== 'pendiente');
+
+  const Fila = ({ s, acciones }) => (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 14, background: 'var(--surface)',
+      border: '1px solid var(--line)', borderRadius: 12, padding: '14px 18px' }}>
+      <div className="profile-avatar" style={{ width: 38, height: 38, fontSize: 16,
+        background: s.estado === 'rechazado' ? '#3A2620' : '#11F555',
+        color: s.estado === 'rechazado' ? '#FF9B80' : '#08120B' }}>
+        {(s.nombre || s.email || '?').charAt(0).toUpperCase()}
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontWeight: 700 }}>{s.nombre || '(sin nombre)'}</div>
+        <div style={{ fontSize: 13, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {s.email} · {tiempoRelativo(s.creado) || 'fecha desconocida'}
+        </div>
+      </div>
+      {acciones ? (
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="btn btn-sm" onClick={() => resolver(s.uid, 'rechazado')}>Rechazar</button>
+          <button className="btn btn-sm btn-primary" onClick={() => resolver(s.uid, 'aprobado')}>Aprobar</button>
+        </div>
+      ) : (
+        <span style={{ fontSize: 12.5, fontWeight: 700, padding: '5px 12px', borderRadius: 999,
+          background: s.estado === 'aprobado' ? 'rgba(17,245,85,.14)' : 'rgba(245,55,17,.14)',
+          color: s.estado === 'aprobado' ? 'var(--verde-ink)' : 'var(--naranja-ink)' }}>{s.estado}</span>
+      )}
+    </div>
+  );
+
+  return (
+    <div data-screen-label="Inicio" style={{ minHeight: '100dvh' }}>
+      <header className="topnav">
+        <button className="btn btn-sm" onClick={onBack}>← Volver</button>
+        <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 16, marginLeft: 8 }}>Administración</span>
+      </header>
+      <main className="main-wrap" style={{ maxWidth: 760 }}>
+        <h2 style={{ fontSize: 22, fontWeight: 800, margin: '10px 0 16px' }}>
+          Solicitudes pendientes {lista && <span style={{ color: 'var(--muted)', fontWeight: 600 }}>· {pend.length}</span>}
+        </h2>
+        {lista === null && <p style={{ color: 'var(--muted)' }}>Cargando solicitudes…</p>}
+        {error && <p style={{ color: 'var(--naranja-ink)' }}>{error}</p>}
+        {lista && pend.length === 0 && !error && (
+          <p style={{ color: 'var(--muted)' }}>No hay solicitudes pendientes. 🎉</p>
+        )}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {pend.map((s) => <Fila key={s.uid} s={s} acciones />)}
+        </div>
+        {resueltas.length > 0 && (
+          <React.Fragment>
+            <h2 style={{ fontSize: 18, fontWeight: 800, margin: '34px 0 14px', color: 'var(--muted)' }}>Historial</h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {resueltas.map((s) => <Fila key={s.uid} s={s} />)}
+            </div>
+          </React.Fragment>
+        )}
+      </main>
+    </div>
+  );
+}

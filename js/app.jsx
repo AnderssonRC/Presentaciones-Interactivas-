@@ -17,6 +17,8 @@ function App() {
   const [presentations, setPresentations] = React.useState([]);
   const [editingId, setEditingId] = React.useState(null);
   const [presentingId, setPresentingId] = React.useState(null);
+  const [acceso, setAcceso] = React.useState(null);      // null = verificando
+  const [adminOpen, setAdminOpen] = React.useState(false);
 
   const setTheme = (v) => { setThemeState(v); localStorage.setItem('aip_theme', v); };
 
@@ -38,6 +40,18 @@ function App() {
     });
     return unsub;
   }, []);
+
+  // Verifica la solicitud de acceso del usuario actual.
+React.useEffect(() => {
+  let activo = true;
+  if (!user) { setAcceso(null); setAdminOpen(false); return; }
+  AIP.miEstadoAcceso()
+    .then((e) => { if (activo) setAcceso(e); })
+    // Si la consulta falla, no bloqueamos la app: las reglas de Firestore
+    // son la verdadera barrera de seguridad.
+    .catch(() => { if (activo) setAcceso('aprobado'); });
+  return () => { activo = false; };
+}, [user]);
 
   // Cuando hay usuario, carga sus presentaciones
   React.useEffect(() => {
@@ -112,6 +126,35 @@ function App() {
       </React.Fragment>
     );
   }
+  
+  // Con sesión, pero acceso aún verificándose o no aprobado
+if (acceso === null) {
+  return (
+    <React.Fragment>
+      <LoadingScreen mensaje="Verificando tu acceso…" />
+      <AppTweaks t={t} setTweak={setTweak} />
+    </React.Fragment>
+  );
+}
+if (acceso !== 'aprobado') {
+  return (
+    <React.Fragment>
+      <PantallaAccesoPendiente estado={acceso} onLogout={logout} />
+      <ResCogitasFooter />
+      <AppTweaks t={t} setTweak={setTweak} />
+    </React.Fragment>
+  );
+}
+// Panel de administración (solo admin)
+if (adminOpen && AIP.esAdmin()) {
+  return (
+    <React.Fragment>
+      <AdminPanel onBack={() => setAdminOpen(false)} />
+      <ResCogitasFooter />
+      <AppTweaks t={t} setTweak={setTweak} />
+    </React.Fragment>
+  );
+}
 
   // Con sesión pero aún cargando datos
   if (loadingData) {
@@ -142,6 +185,7 @@ function App() {
               onPresent={() => present(editing.id)} theme={theme} setTheme={setTheme} />
           ) : (
             <Dashboard profile={profile} presentations={presentations} variant={t.pantallaPrincipal}
+            esAdmin={AIP.esAdmin()} onAdmin={() => setAdminOpen(true)}
               onCreate={createPres} onOpen={setEditingId} onPresent={present} onDelete={deletePres} onLogout={logout}
               theme={theme} setTheme={setTheme} />
           )}

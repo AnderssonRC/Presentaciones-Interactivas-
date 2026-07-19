@@ -276,6 +276,9 @@
     const cred = await window.fbAuth.createUserWithEmailAndPassword(email.trim(), password);
     if (nombre && nombre.trim()) {
       await cred.user.updateProfile({ displayName: nombre.trim() });
+      // Registra la solicitud de acceso: el admin debe aprobarla.
+    try { await crearSolicitud(cred.user); }
+    catch (e) { console.error('No se pudo registrar la solicitud:', e); }
     }
     return cred.user;
   }
@@ -289,7 +292,35 @@
   function onAuth(cb) {
     return window.fbAuth.onAuthStateChanged(cb);
   }
+// ---------- Solicitudes de acceso (modo administración) ----------
+  // UID(s) con permisos de administrador. Para conocer el tuyo: entra con tu
+  // cuenta, abre la consola del navegador (F12) y escribe AIP.currentUid()
+  const ADMIN_UIDS = ['PEGA_AQUI_TU_UID'];
 
+  function esAdmin() { const u = currentUid(); return !!u && ADMIN_UIDS.includes(u); }
+  function reqDoc(uidStr) { return requireDB().collection('accessRequests').doc(uidStr); }
+
+  async function crearSolicitud(user) {
+    await reqDoc(user.uid).set({
+      uid: user.uid, nombre: user.displayName || '', email: user.email || '',
+      estado: 'pendiente', creado: Date.now(),
+    });
+  }
+  // Estado del usuario actual. Cuentas antiguas (sin solicitud) = aprobadas.
+  async function miEstadoAcceso() {
+    const u = currentUid(); if (!u) return 'sin-sesion';
+    if (ADMIN_UIDS.includes(u)) return 'aprobado';
+    const snap = await reqDoc(u).get();
+    if (!snap.exists) return 'aprobado';
+    return snap.data().estado || 'pendiente';
+  }
+  async function listarSolicitudes() {
+    const snap = await requireDB().collection('accessRequests').orderBy('creado', 'desc').get();
+    return snap.docs.map((d) => d.data());
+  }
+  async function resolverSolicitud(uidStr, estado) {
+    await reqDoc(uidStr).update({ estado, resuelto: Date.now() });
+  }
   // ---------- Presentaciones (asíncronas) ----------
   // Carga todas las presentaciones del docente actual. Si no tiene ninguna,
   // siembra las de ejemplo una sola vez.
@@ -491,6 +522,7 @@
     uid, TOOLS, GROUPS, groupTools, toolById, defaultConfig, seedPresentations,
     // auth
     signUp, signIn, signOut, onAuth, currentUid,
+    esAdmin, crearSolicitud, miEstadoAcceso, listarSolicitudes, resolverSolicitud,
     // datos
     loadPresentations, savePresentation, deletePresentation,
     // control remoto
