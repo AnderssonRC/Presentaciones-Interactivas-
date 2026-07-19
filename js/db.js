@@ -295,7 +295,7 @@
 // ---------- Solicitudes de acceso (modo administración) ----------
   // UID(s) con permisos de administrador. Para conocer el tuyo: entra con tu
   // cuenta, abre la consola del navegador (F12) y escribe AIP.currentUid()
-  const ADMIN_UIDS = ['PEGA_AQUI_TU_UID'];
+  const ADMIN_UIDS = ['NiPfi5dd3dbzyBMzltrf7VcanlT2'];
 
   function esAdmin() { const u = currentUid(); return !!u && ADMIN_UIDS.includes(u); }
   function reqDoc(uidStr) { return requireDB().collection('accessRequests').doc(uidStr); }
