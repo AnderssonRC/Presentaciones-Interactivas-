@@ -709,3 +709,123 @@ input, textarea, select { font-family: var(--font-body); color: inherit; }
 @media (prefers-reduced-motion: reduce) {
   @keyframes confetiCae { 0%,100% { transform: none; opacity: 1; } }
 }
+/* ============================================================
+   LOGIN RESPONSIVE — celulares y tablets en vertical
+   En pantallas angostas el login pasa de 2 columnas lado a lado
+   a una sola columna: héroe compacto arriba, formulario debajo.
+   ============================================================ */
+@media (max-width: 860px) {
+
+  .login-screen {
+    grid-template-columns: 1fr;          /* una sola columna */
+    min-height: 100dvh;                  /* dvh: respeta la barra del navegador móvil */
+    overflow: visible;                   /* permite scroll vertical si hace falta */
+  }
+
+  .login-brandside {
+    padding: 28px 22px 26px;
+    justify-content: flex-start;         /* flujo normal, sin estirar a toda la altura */
+    gap: 20px;
+  }
+  .login-brandside::after { background-size: 56px 56px; }
+
+  .login-title {
+    font-size: clamp(30px, 8vw, 38px);   /* título contundente pero contenido */
+  }
+  .login-brandside p {
+    font-size: 15px !important;
+    margin-top: 14px !important;
+  }
+  /* Chips de características: más discretos en móvil */
+  .login-brandside > div:last-child {
+    gap: 14px !important;
+    font-size: 12.5px !important;
+  }
+
+  .login-panel {
+    border-left: none;
+    border-top: 1px solid #1C211B;       /* la división pasa de vertical a horizontal */
+    padding: 30px 22px 70px;             /* holgura extra abajo: el pie fijo de
+                                            Res Cogitas no tapa el enlace final */
+    justify-content: flex-start;
+    gap: 22px;
+  }
+
+  /* CLAVE en iPhone: con menos de 16px, Safari hace zoom automático
+     al tocar un campo y descuadra toda la pantalla. */
+  .login-input {
+    font-size: 16px;
+    padding: 15px 16px;                  /* área táctil cómoda */
+  }
+
+  /* Botón y enlace con altura táctil adecuada (~44px) */
+  .login-panel .btn-lg { padding: 15px 20px; }
+  .login-panel > button:last-child { padding: 10px 0; font-size: 14.5px !important; }
+}
+
+/* Franja intermedia (tablets horizontales / ventanas medianas):
+   mantiene las 2 columnas pero relaja los espacios para que no se apriete. */
+@media (min-width: 861px) and (max-width: 1120px) {
+  .login-brandside { padding: 44px; }
+  .login-panel { padding: 44px 36px; }
+}
+/* ============================================================
+   DASHBOARD RESPONSIVE — celulares y tablets en vertical
+   ============================================================ */
+
+/* Tablets: las 4 estadísticas pasan a 2×2 antes de apretarse */
+@media (max-width: 1000px) {
+  .stat-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 760px) {
+
+  /* ---- Barra superior: solo lo esencial ----
+     El botón "Crear nueva Presentación" no cabe y es redundante:
+     el héroe y la tarjeta "+ Crear" ya cumplen esa función. */
+  .topnav { padding: 10px 16px; gap: 8px; }
+  .topnav .btn-primary { display: none; }
+  .topnav .navlink { display: none; }
+
+  .main-wrap { padding: 16px 16px 70px; }
+
+  /* ---- Héroe: compacto y sin adornos que estorben ---- */
+  .hero-grad { padding: 26px 20px 24px; border-radius: 18px; }
+  .hero-grad > svg { display: none; }        /* destellos decorativos fuera */
+  .hero-grad h1 { font-size: clamp(26px, 7.5vw, 34px); }
+  .hero-grad .btn-lg {                        /* botones apilados, ancho completo */
+    width: 100%; justify-content: center; padding: 14px 18px;
+  }
+
+  /* ---- Estadísticas 2×2 compactas ---- */
+  .stat-grid { gap: 12px; margin-top: 18px; }
+  .stat-card { padding: 14px; }
+  .stat-ico { width: 42px; height: 42px; }
+  .stat-value { font-size: 20px; }
+  .stat-label { font-size: 12px; }
+
+  /* ---- Encabezado del listado: título arriba, buscador debajo ---- */
+  .main-wrap div:has(> .search-input) {
+    flex-direction: column; align-items: stretch; gap: 12px;
+    margin: 28px 0 14px;
+  }
+  .search-input { width: 100%; }
+  .search-input input { font-size: 16px; }    /* evita el zoom automático de iOS */
+
+  /* ---- Variante Editorial (filas): de fila a tarjeta apilada ----
+     La franja de color lateral se convierte en un chip de color arriba. */
+  .pres-row {
+    display: flex; flex-direction: column; align-items: flex-start;
+    gap: 10px; padding: 16px 18px;
+  }
+  .pres-row > div:first-child { height: 6px; width: 46px; border-radius: 99px; }
+  .pres-row > div:nth-child(2) { padding-left: 0 !important; }
+  .pres-row > div:last-child { display: flex; width: 100%; }
+  .pres-row > div:last-child .btn-sm { flex: 1; justify-content: center; }
+}
+
+/* Pantallas táctiles (sin mouse): el botón de eliminar de las tarjetas
+   solo aparecía al hacer hover, que en un celular no existe. */
+@media (hover: none) {
+  .del-btn { opacity: .9; }
+}
