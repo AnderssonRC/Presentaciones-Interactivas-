@@ -322,7 +322,7 @@ function maxPaso(slide) {
   return els.reduce((m, el) => Math.max(m, el.orden || 0), 0);
 }
 
-function Presenter({ pres, onExit }) {
+function Presenter({ pres, onExit, onChange }) {
   const [idx, setIdx] = React.useState(0);
   // `paso` = cuántos niveles de animación se han revelado en el slide actual.
   // Avanza con → / espacio antes de pasar al siguiente slide.
@@ -388,11 +388,43 @@ function Presenter({ pres, onExit }) {
     const src = (pres.equipos && pres.equipos.length)
       ? pres.equipos
       : [{ name: 'Equipo Verde', color: '#11F555' }, { name: 'Equipo Naranja', color: '#F53711' }];
-    return src.slice(0, 6).map((t) => ({ name: t.name, color: t.color, score: 0 }));
+    return src.slice(0, 6).map((t) => ({ name: t.name, color: t.color, miembros: t.miembros || [], score: 0 }));
   }, [pres.id]);
   const [teams, setTeams] = React.useState(equiposBase);
   const [hideScores, setHideScores] = React.useState(false);
   React.useEffect(() => { setTeams(equiposBase); setHideScores(false); }, [equiposBase]);
+
+  // --- Resultado del sorteo de "Formar grupos", por diapositiva ---
+  // GruposRun guarda su resultado en estado local, que se pierde al salir de
+  // la diapositiva (se desmonta). Lo guardamos aquí también, en el Presenter
+  // (que no se desmonta al navegar), para que si el docente retrocede y
+  // vuelve a esa diapositiva, siga viendo los mismos grupos sin tener que
+  // sortear de nuevo.
+  const [gruposPorSlide, setGruposPorSlide] = React.useState({});
+  React.useEffect(() => { setGruposPorSlide({}); }, [pres.id]);
+
+  // --- Historial de partidas (Modo Equipos) ---
+  // Al mostrar el podio (automático al final o manual con "Ver ganador"),
+  // se guarda una sola vez por sesión el resultado final: equipos, sus
+  // integrantes (configurados en el Editor) y el puntaje con el que
+  // terminó cada uno. Se consulta luego desde el Editor.
+  const historialGuardadoRef = React.useRef(false);
+  React.useEffect(() => { historialGuardadoRef.current = false; }, [pres.id]);
+  React.useEffect(() => {
+    if (!verPodio || !esEquipos || historialGuardadoRef.current || !onChange) return;
+    if (!teams.some((t) => (t.score || 0) > 0)) return; // nada que registrar
+    historialGuardadoRef.current = true;
+    const entrada = {
+      fecha: Date.now(),
+      equipos: teams.map((t, i) => ({
+        name: t.name || ('Equipo ' + (i + 1)),
+        color: t.color,
+        miembros: t.miembros || [],
+        score: t.score || 0,
+      })),
+    };
+    onChange({ ...pres, historialEquipos: [...(pres.historialEquipos || []), entrada] });
+  }, [verPodio, esEquipos, teams, pres, onChange]);
 
   // --- Pantalla completa real del navegador (como PowerPoint/Slides) ---
   // Al entrar a Presentar pedimos fullscreen para ocultar pestañas y barra
@@ -636,17 +668,25 @@ function Presenter({ pres, onExit }) {
   const Runtime = isAct ? (ActivityRuntimes[slide.tool] || ActivityRuntimes.default) : null;
 
   // API que consumen las actividades de equipo (RetaEquipoRun, PulsadorRun,
-  // ApuestaRun, RecuadrosRun). Esperan { equipos, sumar(id,pts), color(id) }
-  // con cada equipo en forma { id, nombre, color, puntos }. Nuestro estado
-  // `teams` usa { name, color, score }, así que mapeamos usando el índice como id.
+  // ApuestaRun, RecuadrosRun, GruposRun). Esperan
+  // { equipos, sumar(id,pts), color(id), asignarMiembros(gruposPorId) }
+  // con cada equipo en forma { id, nombre, color, puntos, miembros }.
+  // Nuestro estado `teams` usa { name, color, score, miembros }, así que
+  // mapeamos usando el índice como id.
   // Solo se entrega en modo equipos; en presentaciones normales es undefined
   // y las actividades muestran su aviso "solo Modo Equipos".
   const equiposApi = React.useMemo(() => {
     if (!esEquipos) return undefined;
     return {
-      equipos: teams.map((t, i) => ({ id: i, nombre: t.name || ('Equipo ' + (i + 1)), color: t.color, puntos: t.score || 0 })),
+      equipos: teams.map((t, i) => ({ id: i, nombre: t.name || ('Equipo ' + (i + 1)), color: t.color, puntos: t.score || 0, miembros: t.miembros || [] })),
       sumar: (id, pts) => setTeams((prev) => prev.map((t, i) => (i === id ? { ...t, score: Math.max(0, (t.score || 0) + pts) } : t))),
       color: (id) => (teams[id] && teams[id].color) || '#11F555',
+      // Asigna integrantes a los equipos a partir del resultado del sorteo de
+      // "Formar grupos" (GruposRun): un array de arrays de nombres, uno por
+      // equipo, en el mismo orden que `equipos`. Así el marcador y el
+      // historial quedan con los integrantes reales sin escribirlos a mano.
+      asignarMiembros: (gruposPorId) => setTeams((prev) => prev.map((t, i) =>
+        (gruposPorId[i] ? { ...t, miembros: gruposPorId[i] } : t))),
     };
   }, [esEquipos, teams]);
 
@@ -659,7 +699,9 @@ function Presenter({ pres, onExit }) {
       <div className="presenter-stagewrap">
         <div className="slide" key={slide.id} style={{ position: 'absolute', left: '50%', top: '50%', transform: `translate(-50%, -50%) scale(${scale})`, transformOrigin: 'center', background: isAct ? '#0B0E0B' : '#FFFFFF', color: isAct ? '#F2F5EF' : '#0B0F0C' }}>
           {isAct
-            ? <Runtime config={slide.config} tool={tool} remoteSignal={remoteSignal} equiposApi={equiposApi} />
+            ? <Runtime config={slide.config} tool={tool} remoteSignal={remoteSignal} equiposApi={equiposApi}
+                gruposGuardados={gruposPorSlide[slide.id]}
+                onGrupos={(gs) => setGruposPorSlide((prev) => ({ ...prev, [slide.id]: gs }))} />
             : <ContenidoSlide slide={slide} materia={pres.materia || 'Tema'} accent={pres.color} pasoActual={paso} replay={replay} />}
         </div>
       </div>

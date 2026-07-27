@@ -7,6 +7,7 @@ function Editor({ pres, onChange, onBack, onPresent, theme, setTheme }) {
   const [openGroup, setOpenGroup] = React.useState(null);
   const [teamsOpen, setTeamsOpen] = React.useState(false);
   const [aulaOpen, setAulaOpen] = React.useState(false);
+  const [historialOpen, setHistorialOpen] = React.useState(false);
   const [selEl, setSelEl] = React.useState(null); // id del elemento seleccionado en el lienzo
   // Previa de animaciones en el editor: al activarla, todos los elementos
   // reproducen su animación una vez. `previewTick` re-monta el lienzo para
@@ -84,6 +85,9 @@ function Editor({ pres, onChange, onBack, onPresent, theme, setTheme }) {
     if (equipos.length <= 2) return;
     update({ equipos: equipos.filter((_, j) => j !== i) });
   };
+  // Historial de partidas jugadas en Modo Equipos (se guarda al ver el podio
+  // del ganador en Presentar; ver js/presenter.jsx).
+  const historial = pres.historialEquipos || [];
   const updateSlides = (next, nextSel) => {
     update({ slides: next });
     if (nextSel !== undefined) setSel(nextSel);
@@ -172,6 +176,7 @@ function Editor({ pres, onChange, onBack, onPresent, theme, setTheme }) {
 
   return (
     <div className="editor-shell" data-screen-label="Editor de plantillas">
+      {historialOpen && <HistorialEquiposModal historial={historial} onClose={() => setHistorialOpen(false)} />}
       {/* barra superior */}
       <div className="editor-topbar">
         <button className="icon-btn" onClick={onBack} title="Volver al inicio"><Icon name="atras" size={17} /></button>
@@ -190,7 +195,8 @@ function Editor({ pres, onChange, onBack, onPresent, theme, setTheme }) {
           </button>
           {teamsOpen && (
             <div style={{
-              position: 'absolute', top: '110%', right: 0, zIndex: 60, width: 300,
+              position: 'absolute', top: '110%', right: 0, zIndex: 60, width: 320,
+              maxHeight: '75vh', overflowY: 'auto',
               background: 'var(--surface, #141814)', border: '1px solid var(--border, #2A2F29)',
               borderRadius: 14, padding: 14, boxShadow: '0 20px 50px -20px rgba(0,0,0,.6)',
             }}>
@@ -202,23 +208,36 @@ function Editor({ pres, onChange, onBack, onPresent, theme, setTheme }) {
                 Muestra un marcador en el televisor y permite sumar puntos desde el celular.
               </div>
               {esEquipos && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                   {equipos.map((t, i) => (
-                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <input type="color" value={t.color} onChange={(e) => setEquipo(i, { color: e.target.value })}
-                        style={{ width: 30, height: 30, border: 'none', background: 'none', padding: 0, cursor: 'pointer', flexShrink: 0 }} />
-                      <input value={t.name} onChange={(e) => setEquipo(i, { name: e.target.value })}
-                        style={{ flex: 1, minWidth: 0, padding: '6px 8px', borderRadius: 8, border: '1px solid var(--border, #2A2F29)', background: 'transparent', color: 'inherit' }} />
-                      {equipos.length > 2 && (
-                        <button onClick={() => removeEquipo(i)} title="Quitar"
-                          style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: 18, flexShrink: 0 }}>×</button>
-                      )}
+                    <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 6, paddingBottom: 8, borderBottom: '1px solid var(--border, #2A2F29)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <input type="color" value={t.color} onChange={(e) => setEquipo(i, { color: e.target.value })}
+                          style={{ width: 30, height: 30, border: 'none', background: 'none', padding: 0, cursor: 'pointer', flexShrink: 0 }} />
+                        <input value={t.name} onChange={(e) => setEquipo(i, { name: e.target.value })}
+                          style={{ flex: 1, minWidth: 0, padding: '6px 8px', borderRadius: 8, border: '1px solid var(--border, #2A2F29)', background: 'transparent', color: 'inherit' }} />
+                        {equipos.length > 2 && (
+                          <button onClick={() => removeEquipo(i)} title="Quitar"
+                            style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: 18, flexShrink: 0 }}>×</button>
+                        )}
+                      </div>
+                      <textarea value={(t.miembros || []).join('\n')}
+                        onChange={(e) => setEquipo(i, { miembros: e.target.value.split('\n') })}
+                        placeholder="Integrantes del equipo (opcional, uno por línea)"
+                        rows={2}
+                        style={{ width: '100%', resize: 'vertical', padding: '6px 8px', borderRadius: 8, border: '1px solid var(--border, #2A2F29)', background: 'transparent', color: 'inherit', fontSize: 12.5, fontFamily: 'inherit' }} />
                     </div>
                   ))}
                   {equipos.length < 6 && (
-                    <button className="btn btn-sm" onClick={addEquipo} style={{ marginTop: 4 }}>+ Agregar equipo</button>
+                    <button className="btn btn-sm" onClick={addEquipo}>+ Agregar equipo</button>
                   )}
                 </div>
+              )}
+              {historial.length > 0 && (
+                <button className="btn btn-sm" onClick={() => { setHistorialOpen(true); setTeamsOpen(false); }}
+                  style={{ marginTop: 12, width: '100%' }}>
+                  📜 Ver historial de partidas ({historial.length})
+                </button>
               )}
             </div>
           )}
@@ -365,7 +384,7 @@ function Editor({ pres, onChange, onBack, onPresent, theme, setTheme }) {
               ) : current.tool === 'errores' ? (
                 <DiferenciasEditor current={current} curIdx={curIdx} updateSlide={updateSlide} />
                 ) : current.tool === 'grupos' ? (
-                <GruposEditor current={current} curIdx={curIdx} updateSlide={updateSlide} setItems={setItems} />  
+                <GruposEditor current={current} curIdx={curIdx} updateSlide={updateSlide} setItems={setItems} esEquipos={esEquipos} numEquipos={equipos.length} />
               ) : (
                 <div className="field">
                   <label>{itemsLabel(current.tool)}</label>
@@ -431,6 +450,90 @@ function Editor({ pres, onChange, onBack, onPresent, theme, setTheme }) {
     </div>
   );
 }
+/* ---------- Historial de partidas (Modo Equipos) ----------
+   Cada vez que se muestra el podio del ganador en Presentar, se guarda una
+   entrada con la fecha, los equipos, sus integrantes y el puntaje final
+   (ver js/presenter.jsx). Aquí se listan todas las partidas jugadas,
+   resaltando al equipo (o equipos, si hay empate) que ganó cada una. */
+function HistorialEquiposModal({ historial, onClose }) {
+  const partidas = [...historial].sort((a, b) => (b.fecha || 0) - (a.fecha || 0));
+  return (
+    <div onClick={onClose} style={{
+      position: 'fixed', inset: 0, zIndex: 9998,
+      background: 'rgba(0,0,0,.72)', backdropFilter: 'blur(4px)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      padding: 18, overflowY: 'auto',
+    }}>
+      <div onClick={(e) => e.stopPropagation()} style={{
+        width: '100%', maxWidth: 640, margin: 'auto', maxHeight: '85vh', overflowY: 'auto',
+        background: '#11160F', border: '1px solid #2A2F29', borderRadius: 22,
+        padding: '26px 24px', position: 'relative',
+        boxShadow: '0 30px 80px -30px rgba(0,0,0,.8)', color: '#F2F5EF',
+      }}>
+        <button onClick={onClose} title="Cerrar" style={{
+          position: 'absolute', top: 14, right: 14,
+          width: 38, height: 38, borderRadius: 999, border: 'none', cursor: 'pointer',
+          background: '#1C201B', color: '#9AA396', fontSize: 18, fontWeight: 800,
+        }}>✕</button>
+
+        <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 22, marginBottom: 4 }}>
+          📜 Historial de partidas
+        </div>
+        <div style={{ color: '#9AA396', fontSize: 13, marginBottom: 20 }}>
+          {partidas.length} {partidas.length === 1 ? 'partida jugada' : 'partidas jugadas'}
+        </div>
+
+        {!partidas.length ? (
+          <div style={{ color: '#9AA396', fontSize: 14 }}>Todavía no se ha jugado ninguna partida.</div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {partidas.map((partida, pi) => {
+              const equiposOrden = (partida.equipos || []).map((t, i) => ({ ...t, _i: i }))
+                .sort((a, b) => (b.score || 0) - (a.score || 0) || a._i - b._i);
+              const max = equiposOrden.length ? (equiposOrden[0].score || 0) : 0;
+              return (
+                <div key={pi} style={{ background: '#161A15', border: '1px solid #2A2F29', borderRadius: 16, padding: 16 }}>
+                  <div title={partida.fecha ? new Date(partida.fecha).toLocaleString() : ''}
+                    style={{ fontSize: 12.5, color: '#9AA396', fontWeight: 600, marginBottom: 10 }}>
+                    {tiempoRelativo(partida.fecha) || 'Fecha desconocida'}
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {equiposOrden.map((t) => {
+                      const gano = max > 0 && (t.score || 0) === max;
+                      const miembros = (t.miembros || []).filter((m) => m && m.trim());
+                      return (
+                        <div key={t._i} style={{
+                          display: 'flex', alignItems: 'flex-start', gap: 10,
+                          background: '#141814', borderRadius: 12, padding: '10px 12px',
+                          border: '2px solid ' + (gano ? (t.color || '#F5C211') : '#2A2F29'),
+                        }}>
+                          <div style={{ width: 10, height: 34, borderRadius: 4, background: t.color || '#11F555', flexShrink: 0, marginTop: 2 }} />
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, fontFamily: 'var(--font-display)' }}>
+                              {gano && '🏆'} {t.name || ('Equipo ' + (t._i + 1))}
+                            </div>
+                            {miembros.length > 0 && (
+                              <div style={{ fontSize: 12, color: '#9AA396', marginTop: 2 }}>
+                                {miembros.join(' · ')}
+                              </div>
+                            )}
+                          </div>
+                          <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 22, color: t.color || '#11F555', minWidth: 30, textAlign: 'right' }}>
+                            {t.score || 0}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 /* Editor especial para Descubre la palabra: palabras + número de intentos. */
 function DescubreEditor({ current, curIdx, updateSlide, setItems }) {
   const setIntentos = (e) => {
@@ -460,17 +563,28 @@ function DescubreEditor({ current, curIdx, updateSlide, setItems }) {
   );
   }
   /* Editor de Formar grupos: número de grupos + lista de nombres (pegada de Excel). */
-function GruposEditor({ current, curIdx, updateSlide, setItems }) {
+function GruposEditor({ current, curIdx, updateSlide, setItems, esEquipos, numEquipos }) {
   const setN = (e) => updateSlide(curIdx, { ...current, config: { ...current.config, numGrupos: Number(e.target.value) } });
   return (
     <div>
-      <div className="field">
-        <label>Número de grupos</label>
-        <select value={current.config.numGrupos || 3} onChange={setN}
-          style={{ padding: '9px 12px', borderRadius: 10, border: '1px solid var(--line)', background: 'var(--surface2)', color: 'var(--ink)', fontFamily: 'var(--font-body)', fontSize: 14 }}>
-          {[2, 3, 4, 5, 6, 7, 8].map((n) => <option key={n} value={n}>{n} grupos</option>)}
-        </select>
-      </div>
+      {esEquipos ? (
+        <div className="field">
+          <label>Número de grupos</label>
+          <div style={{ fontSize: 13, color: 'var(--muted)', padding: '9px 0' }}>
+            Como el Modo Equipos está activo, se formarán exactamente <strong>{numEquipos} grupos</strong> —
+            uno por cada equipo del marcador (nombre y color incluidos). Los integrantes de cada equipo
+            se actualizarán solos al sortear, sin que tengas que escribirlos en "🏆 Equipos".
+          </div>
+        </div>
+      ) : (
+        <div className="field">
+          <label>Número de grupos</label>
+          <select value={current.config.numGrupos || 3} onChange={setN}
+            style={{ padding: '9px 12px', borderRadius: 10, border: '1px solid var(--line)', background: 'var(--surface2)', color: 'var(--ink)', fontFamily: 'var(--font-body)', fontSize: 14 }}>
+            {[2, 3, 4, 5, 6, 7, 8].map((n) => <option key={n} value={n}>{n} grupos</option>)}
+          </select>
+        </div>
+      )}
       <div className="field">
         <label>Lista de estudiantes (un nombre por línea)</label>
         <textarea rows="8" value={(current.config.items || []).join('\n')} onChange={setItems}

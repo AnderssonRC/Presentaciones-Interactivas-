@@ -177,7 +177,7 @@ if (adminOpen && AIP.esAdmin()) {
            en el flujo del documento, su altura generaba el scroll del body y
            asomaba la barra blanca del navegador por el borde. El Presenter es
            pantalla completa, así que es lo único que debe existir. */
-        <Presenter pres={presenting} onExit={() => setPresentingId(null)} />
+        <Presenter pres={presenting} onExit={() => setPresentingId(null)} onChange={changePres} />
       ) : (
         <React.Fragment>
           {editing ? (

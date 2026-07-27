@@ -2727,8 +2727,13 @@ function RecuadrosRun({ config, tool, equiposApi }) {
   );
 }
 /* ---------- Formar grupos (sorteo aleatorio de la lista) ---------- */
-function GruposRun({ config, tool, remoteSignal }) {
+function GruposRun({ config, tool, remoteSignal, equiposApi, gruposGuardados, onGrupos }) {
   const GCOLS = ['#11F555', '#F53711', '#116CF5', '#F5C211', '#A855F7', '#EC4899', '#38BDF8', '#FB923C'];
+  // En Modo Equipos, los grupos son los equipos del marcador (mismo nombre y
+  // color): así el sorteo reparte directamente en "Equipo Verde", "Equipo
+  // Naranja"... en vez de "Grupo 1", "Grupo 2", y los integrantes quedan
+  // guardados en el equipo sin tener que escribirlos a mano.
+  const equiposDef = equiposApi ? equiposApi.equipos : null;
   // Limpieza pensada para listas pegadas desde Excel: quita numeración
   // inicial ("1. ", "12) ", "3 - "), tabulaciones y líneas vacías.
   const nombres = React.useMemo(() =>
@@ -2736,8 +2741,10 @@ function GruposRun({ config, tool, remoteSignal }) {
       .map((s) => String(s).replace(/\t/g, ' ').replace(/^\s*\d+\s*[.)\-–]?\s*/, '').trim())
       .filter(Boolean),
     [config.items]);
-  const n = Math.max(2, Math.min(Number(config.numGrupos) || 3, 8));
-  const [grupos, setGrupos] = React.useState(null);
+  const n = equiposDef ? equiposDef.length : Math.max(2, Math.min(Number(config.numGrupos) || 3, 8));
+  // Si ya se había sorteado antes en esta diapositiva (el docente avanzó y
+  // volvió), arrancamos mostrando ese mismo resultado en vez del botón inicial.
+  const [grupos, setGrupos] = React.useState(gruposGuardados || null);
   const [girando, setGirando] = React.useState(false);
   const ref = React.useRef(null);
   React.useEffect(() => () => { if (ref.current) clearInterval(ref.current); }, []);
@@ -2756,7 +2763,15 @@ function GruposRun({ config, tool, remoteSignal }) {
       const gs = Array.from({ length: n }, () => []);
       m.forEach((nom, i) => gs[i % n].push(nom));   // reparto balanceado
       setGrupos(gs);
-      if (++pasos > 10) { clearInterval(ref.current); setGirando(false); }
+      if (++pasos > 10) {
+        clearInterval(ref.current); setGirando(false);
+        // Persiste el resultado en el Presenter para que sobreviva si el
+        // docente retrocede y vuelve a esta diapositiva.
+        if (onGrupos) onGrupos(gs);
+        // En Modo Equipos, deja los integrantes guardados en el marcador
+        // (y por lo tanto en el historial) sin pasos adicionales.
+        if (equiposApi && equiposApi.asignarMiembros) equiposApi.asignarMiembros(gs);
+      }
     }, 120);
   };
   useRemoteAction(remoteSignal, { primary: sortear, next: sortear });
@@ -2767,7 +2782,9 @@ function GruposRun({ config, tool, remoteSignal }) {
       <div className="act-stage" style={{ justifyContent: 'center' }}>
         <ActHeader tool={tool} titulo={config.titulo} instrucciones={config.instrucciones} compact />
         <div style={{ marginTop: 30, color: '#9AA396', fontSize: 34, fontFamily: 'var(--font-display)' }}>
-          {nombres.length} estudiantes · {n} grupos
+          {equiposDef
+            ? (nombres.length + ' estudiantes · ' + n + ' equipos')
+            : (nombres.length + ' estudiantes · ' + n + ' grupos')}
         </div>
         <button className="act-bigbtn" style={{ background: tool.color, color: '#fff' }}
           onClick={sortear} disabled={girando || !nombres.length}>
@@ -2814,13 +2831,17 @@ function GruposRun({ config, tool, remoteSignal }) {
       {/* Rejilla de grupos: llena el alto restante sin desbordarse */}
       <div style={{ flex: 1, minHeight: 0, width: '100%', marginTop: 24, display: 'grid',
         gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: 22 }}>
-        {grupos.map((g, i) => (
-          <div key={i} style={{ borderRadius: 22, border: '3px solid ' + GCOLS[i % GCOLS.length],
+        {grupos.map((g, i) => {
+          const eq = equiposDef && equiposDef[i];
+          const gcolor = eq ? eq.color : GCOLS[i % GCOLS.length];
+          const gnombre = eq ? eq.nombre : ('Grupo ' + (i + 1));
+          return (
+          <div key={i} style={{ borderRadius: 22, border: '3px solid ' + gcolor,
             background: 'rgba(255,255,255,.04)', padding: '14px 20px', overflow: 'hidden',
             display: 'flex', flexDirection: 'column', minWidth: 0 }}>
             <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 32,
-              color: GCOLS[i % GCOLS.length], marginBottom: 8, flexShrink: 0 }}>
-              Grupo {i + 1} <span style={{ fontSize: 20, color: '#9AA396', fontWeight: 600 }}>· {g.length}</span>
+              color: gcolor, marginBottom: 8, flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {gnombre} <span style={{ fontSize: 20, color: '#9AA396', fontWeight: 600 }}>· {g.length}</span>
             </div>
             <div style={{ flex: 1, minHeight: 0, columnCount: colInterno, columnGap: 24 }}>
               {g.map((nom, j) => (
@@ -2829,7 +2850,8 @@ function GruposRun({ config, tool, remoteSignal }) {
               ))}
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
