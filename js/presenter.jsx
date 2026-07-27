@@ -342,46 +342,53 @@ function Presenter({ pres, onExit, onChange }) {
   // Deja solo un botón discreto para volver a mostrarlo, para presentar limpio.
   const [hudOculto, setHudOculto] = React.useState(false);
 
+  // Refs con el valor más reciente de idx/paso, para leerlos de forma
+  // síncrona dentro de avanzar/retroceder. ANTES, esas funciones leían el
+  // resultado de un setPaso(p => ...) anidado dentro de un setIdx(i => ...)
+  // a través de una variable (`saltar`/`bajar`) mutada en el updater de
+  // paso: React no garantiza que ese updater ya se haya ejecutado en el
+  // momento de leer la variable, así que a veces el primer clic no hacía
+  // nada (se necesitaba un segundo clic para "notar" el cambio). Usar refs
+  // evita depender de ese orden.
+  const idxRef = React.useRef(idx);
+  const pasoRef = React.useRef(paso);
+  idxRef.current = idx;
+  pasoRef.current = paso;
+
   // Avanzar: primero revela el siguiente elemento; si ya se reveló todo,
   // pasa al siguiente slide y reinicia los pasos. En modo equipos, al intentar
   // pasar de la última diapositiva, se muestra el podio automáticamente.
   const avanzar = React.useCallback(() => {
-    setIdx((i) => {
-      const tope = maxPaso(slides[Math.min(i, slides.length - 1)]);
-      let saltar = false;
-      setPaso((p) => {
-        if (p < tope) return p + 1;       // revelar siguiente elemento
-        saltar = true; return p;          // ya está todo: marcamos salto de slide
-      });
-      if (saltar) {
-        if (i < slides.length - 1) {
-          setPaso(0); setReplay((r) => r + 1);
-          return i + 1;
-        }
-        // Estamos en la última diapositiva y ya se reveló todo.
-        if (esEquipos) setVerPodio(true);   // mostrar ganador
-      }
-      return i;
-    });
+    const i = idxRef.current;
+    const tope = maxPaso(slides[Math.min(i, slides.length - 1)]);
+    if (pasoRef.current < tope) {
+      setPaso((p) => p + 1);              // revelar siguiente elemento
+      return;
+    }
+    if (i < slides.length - 1) {
+      setIdx(i + 1);
+      setPaso(0);
+      setReplay((r) => r + 1);
+      return;
+    }
+    // Estamos en la última diapositiva y ya se reveló todo.
+    if (esEquipos) setVerPodio(true);     // mostrar ganador
   }, [slides, esEquipos]);
 
   // Retroceder: oculta el último elemento revelado; si ya está en 0,
   // vuelve al slide anterior mostrándolo completo.
   const retroceder = React.useCallback(() => {
-    setIdx((i) => {
-      let bajar = false;
-      setPaso((p) => {
-        if (p > 0) return p - 1;          // ocultar último elemento
-        bajar = true; return p;
-      });
-      if (bajar && i > 0) {
-        const prev = i - 1;
-        setPaso(maxPaso(slides[prev]));   // slide anterior completo
-        setReplay((r) => r + 1);
-        return prev;
-      }
-      return i;
-    });
+    if (pasoRef.current > 0) {
+      setPaso((p) => p - 1);              // ocultar último elemento
+      return;
+    }
+    const i = idxRef.current;
+    if (i > 0) {
+      const prev = i - 1;
+      setIdx(prev);
+      setPaso(maxPaso(slides[prev]));     // slide anterior completo
+      setReplay((r) => r + 1);
+    }
   }, [slides]);
 
   const equiposBase = React.useMemo(() => {
