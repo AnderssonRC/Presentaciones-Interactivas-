@@ -244,10 +244,23 @@ function RemoteControl({ initialCode }) {
         </div>
 
         {/* Navegación */}
-        <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
+        <div style={{ display: 'flex', gap: 12, marginBottom: 12 }}>
           <button onClick={() => { send('prev'); buzz('◀'); }} style={navBtn('#2A2F29', '#F2F5EF')}>◀ Atrás</button>
           <button onClick={() => { send('next'); buzz('▶'); }} style={navBtn('#11F555', '#06140A')}>Avanzar ▶</button>
         </div>
+
+        {/* Ocultar/mostrar el HUD del televisor (botones, tarjeta de código,
+            flechas) para presentar limpio. Igual que la tecla H en el
+            Presenter, pero desde el celular. */}
+        <button onClick={() => { send('hud'); buzz(st.hudOculto ? '👁' : '🙈'); }}
+          style={{
+            width: '100%', padding: '13px 0', marginBottom: 16, fontSize: 14.5, fontWeight: 700,
+            fontFamily: 'var(--font-display)', borderRadius: 12, border: '1px solid #2A2F29',
+            background: st.hudOculto ? '#11F555' : 'transparent',
+            color: st.hudOculto ? '#06140A' : '#9AA396', cursor: 'pointer',
+          }}>
+          {st.hudOculto ? '👁 Mostrar controles en TV' : '🙈 Ocultar controles en TV'}
+        </button>
 
         {/* Controles de la actividad activa */}
         {enActividad && (

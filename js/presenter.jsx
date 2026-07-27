@@ -615,6 +615,10 @@ function Presenter({ pres, onExit, onChange }) {
       case 'podium':
         // El celular puede pedir mostrar/ocultar el podio del ganador.
         setVerPodio((v) => (typeof cmd.payload === 'boolean' ? cmd.payload : !v)); break;
+      case 'hud':
+        // El celular puede ocultar/mostrar todo el HUD del televisor (igual
+        // que la tecla H en el propio Presenter), para presentar limpio.
+        setHudOculto((h) => (typeof cmd.payload === 'boolean' ? cmd.payload : !h)); break;
       case 'exit':
         onExit(); break;
       case 'activity':
@@ -660,6 +664,9 @@ function Presenter({ pres, onExit, onChange }) {
       mandoHash: (pres.mandoPin && typeof window.hashPin === 'function') ? window.hashPin(pres.mandoPin) : '',
       hideScores,
       podio: verPodio,
+      // Para que el celular sepa si el HUD del televisor ya está oculto y
+      // pueda mostrar el botón con la etiqueta correcta ("Ocultar"/"Mostrar").
+      hudOculto,
       activity: isAct ? { tool: slide.tool, titulo: cfg.titulo || (t && t.nombre) || '' } : null,
       teams: esEquipos ? teams : [],
       mirror,
@@ -667,7 +674,7 @@ function Presenter({ pres, onExit, onChange }) {
       // Estado de la ronda de participación para los estudiantes.
       ronda: { fase: ronda, elegido },
     });
-  }, [remoteCode, idx, slides.length, hideScores, teams, esEquipos, ronda, elegido, verPodio, conEstudiantes, pres.mandoPin]);
+  }, [remoteCode, idx, slides.length, hideScores, hudOculto, teams, esEquipos, ronda, elegido, verPodio, conEstudiantes, pres.mandoPin]);
 
   const slide = slides[Math.min(idx, slides.length - 1)];
   const isAct = slide.type === 'actividad';
