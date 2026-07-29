@@ -116,7 +116,11 @@
 
   function defaultConfig(toolId) {
     const t = toolById(toolId);
-    const base = { titulo: t.nombre, instrucciones: t.desc + '.', duracion: 120, items: [] };
+    // `tiempoActivo` decide si el cronómetro de la actividad se muestra en
+    // Presentar. Apagado por defecto: el docente lo activa explícitamente
+    // desde el editor (ver tiempoHabilitado() más abajo para el caso de
+    // presentaciones guardadas antes de que existiera este campo).
+    const base = { titulo: t.nombre, instrucciones: t.desc + '.', duracion: 120, tiempoActivo: false, items: [] };
     switch (toolId) {
       case 'ruleta':
         base.items = ['¿Qué aprendimos hoy?', 'Da un ejemplo del tema', 'Explica con tus palabras', '¿Dónde lo ves en tu vida diaria?', 'Pregunta sorpresa del docente'];
@@ -137,11 +141,13 @@
       case 'crea':
         base.instrucciones = 'En parejas, escriban una pregunta sobre el tema. La mejor pregunta se responde en grupo.';
         base.duracion = 180;
+        base.tiempoActivo = true;
         break;
       case 'problema':
         base.instrucciones = 'Resuelve el problema en tu cuaderno antes de que termine el tiempo.';
         base.items = ['Escribe aquí el enunciado del problema.'];
         base.duracion = 300;
+        base.tiempoActivo = true;
         break;
       case 'selector':
         base.items = ['Ana', 'Carlos', 'María', 'Juan', 'Sofía', 'Pedro'];
@@ -154,6 +160,7 @@
       case 'temporizador':
         base.duracion = 300;
         base.instrucciones = 'Tiempo para completar la actividad.';
+        base.tiempoActivo = true;
         break;
       case 'lluvia':
         base.items = [];
@@ -214,6 +221,18 @@
         break;
     }
     return base;
+  }
+
+  // ¿Debe mostrarse el cronómetro de esta actividad en Presentar?
+  // Antes de que existiera `config.tiempoActivo`, estas 3 herramientas ya
+  // mostraban su cuenta regresiva de forma incondicional (con que `duracion`
+  // existiera, que siempre era el caso). Para no apagar de golpe el tiempo en
+  // presentaciones ya guardadas sin el campo nuevo, si `tiempoActivo` no está
+  // definido se asume encendido solo para esas 3; para el resto, apagado.
+  const TOOLS_TIEMPO_SIEMPRE = ['crea', 'problema', 'temporizador'];
+  function tiempoHabilitado(config, toolId) {
+    if (config && typeof config.tiempoActivo === 'boolean') return config.tiempoActivo;
+    return TOOLS_TIEMPO_SIEMPRE.includes(toolId);
   }
 
   // ---------- presentaciones semilla (para cuentas nuevas) ----------
@@ -519,7 +538,7 @@
   }
 
   window.AIP = {
-    uid, TOOLS, GROUPS, groupTools, toolById, defaultConfig, seedPresentations,
+    uid, TOOLS, GROUPS, groupTools, toolById, defaultConfig, tiempoHabilitado, seedPresentations,
     // auth
     signUp, signIn, signOut, onAuth, currentUid,
     esAdmin, crearSolicitud, miEstadoAcceso, listarSolicitudes, resolverSolicitud,

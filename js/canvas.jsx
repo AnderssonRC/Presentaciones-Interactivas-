@@ -43,6 +43,25 @@ function animClase(id) {
   return id && id !== 'none' ? 'anim-' + id : '';
 }
 
+// Limita un valor de posición/tamaño entre [min, max]. Si max < min (p. ej.
+// un elemento ya más ancho que el propio lienzo), se queda en min: nunca deja
+// que la caja "crezca" más allá de lo que permite el otro campo. La usan
+// tanto el arrastre/redimensionado de abajo como el panel "Posición y
+// tamaño" del editor (editor.jsx), para que ningún elemento quede fuera del
+// lienzo de 1920×1080.
+function clampPos(v, min, max) {
+  return Math.min(Math.max(v, min), Math.max(min, max));
+}
+
+// El valor de un elemento de texto es HTML (soporta <span style="color:…">
+// para colorear solo una parte, ver LienzoToolbar en editor.jsx). Los campos
+// viejos `slide.titulo`/`slide.texto` (de antes de que existiera el modelo de
+// elementos) son texto plano, así que se escapan al migrarlos para que no se
+// interpreten por accidente como etiquetas.
+function escapeHtml(s) {
+  return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
 /* Migra una plantilla de contenido al modelo de elementos libres.
    Si ya trae `elementos`, la devuelve tal cual (no destruye trabajo previo). */
 function migrarContenido(slide) {
@@ -50,7 +69,7 @@ function migrarContenido(slide) {
   const elementos = [];
   if (slide.titulo) {
     elementos.push({
-      id: AIP.uid(), tipo: 'texto', valor: slide.titulo,
+      id: AIP.uid(), tipo: 'texto', valor: escapeHtml(slide.titulo),
       x: 130, y: 150, w: 1100, h: 220,
       color: '#0B0F0C', font: "'Sora', sans-serif", size: 104, peso: 800, align: 'left',
       anim: 'slideUp', orden: 0,
@@ -58,7 +77,7 @@ function migrarContenido(slide) {
   }
   if (slide.texto) {
     elementos.push({
-      id: AIP.uid(), tipo: 'texto', valor: slide.texto,
+      id: AIP.uid(), tipo: 'texto', valor: escapeHtml(slide.texto),
       x: 130, y: 430, w: 1100, h: 320,
       color: '#2B312B', font: "'Outfit', sans-serif", size: 46, peso: 500, align: 'left',
       anim: 'fade', orden: 1,
@@ -105,8 +124,37 @@ function urlEmbed(url) {
 /* Render de un único elemento dentro del lienzo (coordenadas 1920x1080).
    `previewOn` (modo editable): cuando es true fuerza la animación aunque no
    haya hover — lo activa el botón "Previsualizar" de la toolbar. */
-function CanvasElemento({ el, editable, selected, onSelect, onChange, replayKey, previewOn }) {
+function CanvasElemento({ el, editable, selected, onSelect, onChange, replayKey, previewOn, editRef }) {
   const dragRef = React.useRef(null);
+  const textRef = React.useRef(null); // nodo contentEditable, mientras está seleccionado
+
+  // Al ENTRAR en edición (selected pasa a false→true) carga el HTML guardado
+  // en el nodo y pone el cursor al final. Solo se dispara con ese cambio,
+  // nunca en cada tecleo: si tocáramos el nodo en cada `input`, el cursor
+  // saltaría al principio con cada letra. Antes esto se hacía en un ref
+  // callback con una bandera en `dataset`, pero React reutiliza el mismo
+  // <div> al alternar entre el modo edición y el de solo lectura (mismo
+  // tag), así que la bandera seguía puesta de una edición anterior y el
+  // texto se quedaba en blanco al volver a seleccionar (React limpia el
+  // innerHTML al quitarle `dangerouslySetInnerHTML` si nadie lo repone).
+  React.useEffect(() => {
+    if (!editable || !selected || el.tipo !== 'texto') return;
+    const node = textRef.current;
+    if (!node) return;
+    node.innerHTML = el.valor || '';
+    if (editRef) editRef.current = node;
+    try { node.focus({ preventScroll: true }); } catch (e) { node.focus(); }
+    try {
+      const range = document.createRange();
+      range.selectNodeContents(node);
+      range.collapse(false);
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+    } catch (e) {}
+    return () => { if (editRef && editRef.current === node) editRef.current = null; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected, editable]);
   // En el editor las animaciones están apagadas; se reproducen SOLO con el
   // botón "Previsualizar" (previewOn). Antes también se activaban con hover,
   // pero eso cambiaba la `key` del nodo en pleno arrastre (el cursor entra y
@@ -124,10 +172,14 @@ function CanvasElemento({ el, editable, selected, onSelect, onChange, replayKey,
   const escala = () => {
     // El lienzo .slide está escalado por transform: scale(s). Calculamos s
     // comparando ancho real renderizado contra 1920 para convertir px de pantalla
-    // a px de lienzo.
+    // a px de lienzo. Si por lo que sea no se puede medir (remount a mitad de
+    // gesto, etc.), devolvemos null: antes se asumía escala 1, lo que podía
+    // mover el elemento a una velocidad muy distinta a la esperada y dejarlo
+    // fuera del lienzo.
     const slideEl = dragRef.current && dragRef.current.closest('.slide');
-    if (!slideEl) return 1;
-    return slideEl.getBoundingClientRect().width / 1920;
+    if (!slideEl) return null;
+    const w = slideEl.getBoundingClientRect().width;
+    return w > 0 ? w / 1920 : null;
   };
 
   const iniciarArrastre = (e) => {
@@ -135,11 +187,14 @@ function CanvasElemento({ el, editable, selected, onSelect, onChange, replayKey,
     e.stopPropagation();
     onSelect && onSelect(el.id);
     const s = escala();
+    if (!s) return;
     const startX = e.clientX, startY = e.clientY;
     const ox = el.x, oy = el.y;
     const move = (ev) => {
-      const nx = Math.round(ox + (ev.clientX - startX) / s);
-      const ny = Math.round(oy + (ev.clientY - startY) / s);
+      // Acotado a [0, 1920-w] / [0, 1080-h]: el elemento nunca queda fuera
+      // del lienzo al arrastrarlo (antes no había límite).
+      const nx = clampPos(Math.round(ox + (ev.clientX - startX) / s), 0, 1920 - el.w);
+      const ny = clampPos(Math.round(oy + (ev.clientY - startY) / s), 0, 1080 - el.h);
       onChange && onChange({ ...el, x: nx, y: ny });
     };
     const up = () => {
@@ -155,11 +210,14 @@ function CanvasElemento({ el, editable, selected, onSelect, onChange, replayKey,
   const iniciarResize = (e) => {
     e.stopPropagation();
     const s = escala();
+    if (!s) return;
     const startX = e.clientX, startY = e.clientY;
     const ow = el.w, oh = el.h;
     const move = (ev) => {
-      const nw = Math.max(80, Math.round(ow + (ev.clientX - startX) / s));
-      const nh = Math.max(60, Math.round(oh + (ev.clientY - startY) / s));
+      // Mínimo 80×60 (como antes) y máximo lo que quede hasta el borde del
+      // lienzo desde la posición actual del elemento.
+      const nw = clampPos(Math.round(ow + (ev.clientX - startX) / s), 80, 1920 - el.x);
+      const nh = clampPos(Math.round(oh + (ev.clientY - startY) / s), 60, 1080 - el.y);
       onChange && onChange({ ...el, w: nw, h: nh });
     };
     const up = () => {
@@ -172,52 +230,68 @@ function CanvasElemento({ el, editable, selected, onSelect, onChange, replayKey,
     window.addEventListener('pointerup', up);
   };
 
-  const editarTexto = (e) => {
-    onChange && onChange({ ...el, valor: e.target.value });
-  };
-
   /* ---- contenido según tipo ---- */
   let contenido = null;
   if (el.tipo === 'texto') {
     // Si la animación cicla el color, no fijamos color inline para que el
     // keyframe (que actúa sobre .canvas-text) controle el color del texto.
     const animaColor = el.anim === 'colorShift';
+    // `estiloContenedor` (flex) solo posiciona el bloque de texto dentro de
+    // la caja del elemento (centrado vertical si align='center'). Va en un
+    // div APARTE de `estiloTexto`: si el flex quedara en el mismo nodo que
+    // el texto editable, cada <span> de color que insertamos al pintar una
+    // selección pasaría a ser un hijo directo del contenedor flex — es
+    // decir, un "flex item" propio — y saltaría a su propia línea en vez de
+    // seguir fluyendo junto al resto de la frase.
+    const estiloContenedor = {
+      width: '100%', height: '100%', overflow: 'hidden',
+      display: 'flex', flexDirection: 'column',
+      justifyContent: el.align === 'center' ? 'center' : 'flex-start',
+    };
     const estiloTexto = {
       color: animaColor ? undefined : el.color,
       fontFamily: el.font, fontSize: el.size,
       fontWeight: el.peso, textAlign: el.align, lineHeight: 1.15,
-      width: '100%', height: '100%', margin: 0, padding: 0,
-      display: 'flex', flexDirection: 'column',
-      justifyContent: el.align === 'center' ? 'center' : 'flex-start',
+      width: '100%', margin: 0, padding: 0,
       overflow: 'hidden', wordBreak: 'break-word',
       // pre-wrap: respeta los saltos de línea (Enter) y los espacios que el
-      // docente escribe en el textarea. Sin esto, HTML colapsa los "\n" y
-      // todo el texto se veía unido en un solo párrafo.
+      // docente escribe. Sin esto, HTML colapsa los "\n" y todo el texto se
+      // veía unido en un solo párrafo.
       whiteSpace: 'pre-wrap',
     };
     if (editable && selected) {
+      // contentEditable (antes era un <textarea>): permite seleccionar solo
+      // una PARTE del texto y pintarla de otro color (ver "Color de
+      // selección" en la barra, editor.jsx), algo imposible con un textarea
+      // de texto plano. `el.valor` pasa a ser HTML (puede traer <span
+      // style="color:…">). El contenido se pone a mano en el nodo (ver el
+      // efecto más arriba) en vez de con dangerouslySetInnerHTML en cada
+      // render: si React reescribiera el innerHTML en cada tecleo, el cursor
+      // saltaría al principio con cada letra.
       contenido = (
-        <textarea className="canvas-text" value={el.valor} onChange={editarTexto} spellCheck="false"
-          ref={(node) => {
-            // Enfoca una sola vez al montar, sin que el navegador desplace la
-            // vista (preventScroll), para no provocar reflujo/vibración dentro
-            // del lienzo escalado.
-            if (node && !node.dataset.enfocado) {
-              node.dataset.enfocado = '1';
-              try { node.focus({ preventScroll: true }); } catch (e) { node.focus(); }
-              const fin = (node.value || '').length;
-              try { node.setSelectionRange(fin, fin); } catch (e) {}
-            }
-          }}
-          onPointerDown={(e) => e.stopPropagation()}
-          style={{ ...estiloTexto, background: 'transparent', border: 'none',
-            outline: 'none', resize: 'none' }} />
+        // stopPropagation también en el contenedor: si el clic cae en el
+        // espacio vacío alrededor de un texto corto centrado (fuera del
+        // <div> interno), que no dispare el arrastre del elemento.
+        <div className="canvas-text" style={estiloContenedor} onPointerDown={(e) => e.stopPropagation()}>
+          <div contentEditable suppressContentEditableWarning spellCheck="false"
+            ref={textRef}
+            onInput={(e) => onChange && onChange({ ...el, valor: e.currentTarget.innerHTML })}
+            style={{ ...estiloTexto, background: 'transparent', border: 'none',
+              outline: 'none', cursor: 'text' }} />
+        </div>
       );
     } else {
       // userSelect none en el editor: al arrastrar el texto, el navegador no
       // intenta seleccionarlo (lo que interrumpía el movimiento).
-      contenido = <div className="canvas-text"
-        style={{ ...estiloTexto, userSelect: editable ? 'none' : undefined }}>{el.valor}</div>;
+      // dangerouslySetInnerHTML: `valor` es HTML (puede traer <span
+      // style="color:…"> de un color parcial); aquí es solo lectura, sin
+      // cursor que preservar, así que no hay problema en re-pintarlo normal.
+      contenido = (
+        <div className="canvas-text" style={estiloContenedor}>
+          <div style={{ ...estiloTexto, userSelect: editable ? 'none' : undefined }}
+            dangerouslySetInnerHTML={{ __html: el.valor || '' }} />
+        </div>
+      );
     }
   } else if (el.tipo === 'imagen') {
     // draggable={false} + pointerEvents 'none' (en el editor): sin esto, el
@@ -270,7 +344,7 @@ function CanvasElemento({ el, editable, selected, onSelect, onChange, replayKey,
    En modo editable se ven todos.
    `previewOn` (editor): fuerza que TODOS los elementos reproduzcan su animación
    (lo activa el botón "Previsualizar" de la toolbar). */
-function LienzoLibre({ slide, editable, selId, onSelect, onChangeEl, replay, pasoActual, previewOn }) {
+function LienzoLibre({ slide, editable, selId, onSelect, onChangeEl, replay, pasoActual, previewOn, editRef }) {
   const fondo = slide.fondo || { tipo: 'color', valor: '' };
   const estiloFondo = fondo.tipo === 'url' && fondo.valor
     ? { backgroundImage: `url("${fondo.valor}")`, backgroundSize: 'cover', backgroundPosition: 'center' }
@@ -289,7 +363,8 @@ function LienzoLibre({ slide, editable, selId, onSelect, onChangeEl, replay, pas
             onSelect={onSelect}
             onChange={(next) => onChangeEl && onChangeEl(el.id, next)}
             replayKey={(replay || 0) + '-' + el.id}
-            previewOn={previewOn} />
+            previewOn={previewOn}
+            editRef={editable && selId === el.id ? editRef : undefined} />
         );
       })}
     </div>

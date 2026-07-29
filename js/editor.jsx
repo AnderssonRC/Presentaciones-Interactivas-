@@ -9,6 +9,13 @@ function Editor({ pres, onChange, onBack, onPresent, theme, setTheme }) {
   const [aulaOpen, setAulaOpen] = React.useState(false);
   const [historialOpen, setHistorialOpen] = React.useState(false);
   const [selEl, setSelEl] = React.useState(null); // id del elemento seleccionado en el lienzo
+  // Nodo DOM del texto que se está editando ahora mismo (contentEditable),
+  // para que la barra de herramientas pueda leer/envolver su selección de
+  // texto y pintar solo esa parte de otro color (ver LienzoToolbar).
+  const textEditRef = React.useRef(null);
+  // Arrastrar para reordenar la lista de plantillas (además de las flechas).
+  const [dragIdx, setDragIdx] = React.useState(null);
+  const [overIdx, setOverIdx] = React.useState(null);
   // Previa de animaciones en el editor: al activarla, todos los elementos
   // reproducen su animación una vez. `previewTick` re-monta el lienzo para
   // reiniciar las animaciones cada vez que se pulsa "Previsualizar".
@@ -117,6 +124,18 @@ function Editor({ pres, onChange, onBack, onPresent, theme, setTheme }) {
     const next = slides.slice();
     const [s] = next.splice(i, 1); next.splice(j, 0, s);
     updateSlides(next, sel === i ? j : sel);
+  };
+  // Reordenar arrastrando una miniatura sobre otra (además de las flechas).
+  // Ubica la diapositiva seleccionada por id en el arreglo resultante, para
+  // que la selección no "salte" a otra plantilla tras el arrastre.
+  const reorderSlide = (from, to) => {
+    if (from === to || from < 0 || to < 0 || from >= slides.length || to >= slides.length) return;
+    const next = slides.slice();
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved);
+    const selId = slides[sel] && slides[sel].id;
+    const newSel = selId ? next.findIndex((s) => s.id === selId) : sel;
+    updateSlides(next, newSel < 0 ? sel : newSel);
   };
 
   const curIdx = Math.min(sel, slides.length - 1);
@@ -304,7 +323,21 @@ function Editor({ pres, onChange, onBack, onPresent, theme, setTheme }) {
           {slides.map((s, i) => {
             const t = s.type === 'actividad' ? AIP.toolById(s.tool) : null;
             return (
-              <button key={s.id} className={'slide-thumb' + (i === curIdx ? ' active' : '')} onClick={() => setSel(i)}>
+              <button key={s.id} draggable
+                className={'slide-thumb'
+                  + (i === curIdx ? ' active' : '')
+                  + (i === dragIdx ? ' dragging' : '')
+                  + (i === overIdx && i !== dragIdx ? ' drag-over' : '')}
+                onClick={() => setSel(i)}
+                onDragStart={(e) => { setDragIdx(i); e.dataTransfer.effectAllowed = 'move'; }}
+                onDragOver={(e) => { e.preventDefault(); if (dragIdx !== null) setOverIdx(i); }}
+                onDragLeave={() => setOverIdx((o) => (o === i ? null : o))}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  if (dragIdx !== null) reorderSlide(dragIdx, i);
+                  setDragIdx(null); setOverIdx(null);
+                }}
+                onDragEnd={() => { setDragIdx(null); setOverIdx(null); }}>
                 <span style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--muted)', letterSpacing: '.1em' }}>
                   {String(i + 1).padStart(2, '0')} · {t ? 'ACTIVIDAD' : 'CONTENIDO'}
                 </span>
@@ -339,14 +372,15 @@ function Editor({ pres, onChange, onBack, onPresent, theme, setTheme }) {
               onFondo={setFondo}
               totalElementos={(migrada.elementos || []).length}
               onPrevisualizar={previsualizar}
-              previewOn={previewOn} />
+              previewOn={previewOn}
+              editRef={textEditRef} />
           )}
 
           <ScaledSlide>
             {current.type === 'contenido' ? (
               <ContenidoSlide slide={migrada} materia={pres.materia || 'Tema'} accent={pres.color} editable
                 selId={selEl} onSelect={setSelEl} onChangeEl={cambiarElemento}
-                previewOn={previewOn} replay={previewTick} />
+                previewOn={previewOn} replay={previewTick} editRef={textEditRef} />
             ) : (
               <ActividadSlidePreview slide={current} />
             )}
@@ -369,10 +403,52 @@ function Editor({ pres, onChange, onBack, onPresent, theme, setTheme }) {
                   <input type="text" value={current.config.titulo} onChange={setCfg('titulo')} />
                 </div>
                 <div className="field">
-                  <label>Tiempo (segundos)</label>
-                  <input type="number" min="10" step="10" value={current.config.duracion} onChange={setCfg('duracion')} />
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                    <input type="checkbox" checked={!!current.config.tiempoActivo}
+                      onChange={(e) => updateSlide(curIdx, { ...current, config: { ...current.config, tiempoActivo: e.target.checked } })} />
+                    Activar tiempo
+                  </label>
+                  {!current.config.tiempoActivo && (
+                    <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6 }}>
+                      Sin cronómetro: no se muestra tiempo en Presentar.
+                    </div>
+                  )}
                 </div>
               </div>
+              {/* Duración en minutos: presets rápidos + campo manual para ser
+                  preciso (admite decimales, ej. 1.5 = 1 min 30 s). Se guarda
+                  internamente en segundos (config.duracion). */}
+              {current.config.tiempoActivo && (
+                <div className="field">
+                  <label>Duración</label>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
+                    {[1, 2, 3, 5, 10, 15, 20, 30].map((min) => {
+                      const activo = current.config.duracion === min * 60;
+                      return (
+                        <button key={min} type="button"
+                          onClick={() => updateSlide(curIdx, { ...current, config: { ...current.config, duracion: min * 60 } })}
+                          style={{
+                            padding: '7px 14px', borderRadius: 999, fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                            border: '1.5px solid ' + (activo ? 'var(--acento)' : 'var(--line)'),
+                            background: activo ? 'var(--acento)' : 'transparent',
+                            color: activo ? 'var(--acento-text)' : 'inherit',
+                          }}>
+                          {min} min
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <input type="number" min="0.5" step="0.5" style={{ maxWidth: 160 }}
+                    value={Math.round(((current.config.duracion || 0) / 60) * 100) / 100}
+                    onChange={(e) => {
+                      const min = Math.max(0, Number(e.target.value) || 0);
+                      updateSlide(curIdx, { ...current, config: { ...current.config, duracion: Math.round(min * 60) } });
+                    }} />
+                  <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 5 }}>
+                    Minutos. Usa el campo para un valor exacto (ej. 1.5 = 1 min 30 s) si necesitas precisión.
+                  </div>
+                </div>
+              )}
               <div className="field">
                 <label>Instrucciones para el grupo</label>
                 <textarea rows="2" value={current.config.instrucciones} onChange={setCfg('instrucciones')}></textarea>
@@ -649,7 +725,10 @@ Object.assign(window, { Editor });
    cada categoría es un botón que abre su menú desplegable justo debajo.
    Solo un menú abierto a la vez. No es una columna apilada.
    ============================================================ */
-function LienzoToolbar({ elemento, onAgregar, onCambiar, onBorrar, fondo, onFondo, totalElementos, onPrevisualizar, previewOn }) {
+// clampPos() vive en canvas.jsx (se carga antes) y también la usan
+// iniciarArrastre/iniciarResize ahí, para que un elemento nunca quede fuera
+// del lienzo de 1920×1080 ni al escribir a mano ni al arrastrar.
+function LienzoToolbar({ elemento, onAgregar, onCambiar, onBorrar, fondo, onFondo, totalElementos, onPrevisualizar, previewOn, editRef }) {
   const [menu, setMenu] = React.useState(null); // id del menú abierto
   const barraRef = React.useRef(null);
   const toggle = (id) => setMenu((m) => (m === id ? null : id));
@@ -668,6 +747,50 @@ function LienzoToolbar({ elemento, onAgregar, onCambiar, onBorrar, fondo, onFond
   const set = (patch) => elemento && onCambiar({ ...elemento, ...patch });
   const esTexto = elemento && elemento.tipo === 'texto';
   const hay = !!elemento;
+
+  // Guarda la selección de texto (Range) justo antes de que el <input
+  // type="color"> nativo robe el foco para abrir su selector del sistema —
+  // para cuando el docente por fin elige un color, ya no hay forma de leer
+  // window.getSelection() (el diálogo del SO se comió el foco entre medio).
+  const rangoGuardadoRef = React.useRef(null);
+  const guardarSeleccion = () => {
+    const nodo = editRef && editRef.current;
+    const sel = window.getSelection();
+    rangoGuardadoRef.current = (nodo && sel && sel.rangeCount > 0 && !sel.isCollapsed && nodo.contains(sel.anchorNode))
+      ? sel.getRangeAt(0).cloneRange() : null;
+  };
+
+  // Aplica un color: si hay texto seleccionado dentro del elemento en
+  // edición, envuelve SOLO esa selección en un <span style="color:…">
+  // (deja el resto del párrafo tal cual). Si no hay selección, se comporta
+  // como antes: pinta todo el elemento (elemento.color).
+  const aplicarColor = (color, rangoForzado) => {
+    const nodo = editRef && editRef.current;
+    let rango = rangoForzado || null;
+    if (!rango && nodo) {
+      const sel = window.getSelection();
+      if (sel && sel.rangeCount > 0 && !sel.isCollapsed && nodo.contains(sel.anchorNode)) {
+        rango = sel.getRangeAt(0);
+      }
+    }
+    if (nodo && rango) {
+      const span = document.createElement('span');
+      span.style.color = color;
+      span.appendChild(rango.extractContents());
+      rango.insertNode(span);
+      const sel = window.getSelection();
+      if (sel) {
+        sel.removeAllRanges();
+        const nr = document.createRange();
+        nr.selectNodeContents(span);
+        nr.collapse(false);
+        sel.addRange(nr);
+      }
+      set({ valor: nodo.innerHTML });
+      return;
+    }
+    set({ color });
+  };
 
   return (
     <div className="lienzo-bar" ref={barraRef}
@@ -721,13 +844,21 @@ function LienzoToolbar({ elemento, onAgregar, onCambiar, onBorrar, fondo, onFond
 
             <LzMenu id="color" label="Color" abierto={menu === 'color'} onToggle={toggle}>
               <div className="lz-pop-title">Color del texto</div>
+              <div className="lz-hint" style={{ marginBottom: 6 }}>
+                Selecciona una parte del texto para pintar solo esa parte; sin selección, se pinta todo.
+              </div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', maxWidth: 220 }}>
                 {COLORES_TEXTO.map((c) => (
-                  <button key={c} onClick={() => set({ color: c })} title={c}
+                  // onMouseDown con preventDefault: evita que el botón le
+                  // robe el foco al texto en edición, que es justo lo que
+                  // borraría la selección antes de poder pintarla.
+                  <button key={c} onMouseDown={(e) => e.preventDefault()} onClick={() => aplicarColor(c)} title={c}
                     style={{ width: 28, height: 28, borderRadius: 8, background: c, cursor: 'pointer',
                       border: elemento.color === c ? '3px solid var(--azul, #116CF5)' : '1px solid var(--line)' }} />
                 ))}
-                <input type="color" value={elemento.color || '#0B0F0C'} onChange={(e) => set({ color: e.target.value })}
+                <input type="color" value={elemento.color || '#0B0F0C'}
+                  onFocus={guardarSeleccion}
+                  onChange={(e) => aplicarColor(e.target.value, rangoGuardadoRef.current)}
                   title="Color personalizado"
                   style={{ width: 28, height: 28, border: '1px solid var(--line)', borderRadius: 8, background: 'none', padding: 0, cursor: 'pointer' }} />
               </div>
@@ -798,10 +929,16 @@ function LienzoToolbar({ elemento, onAgregar, onCambiar, onBorrar, fondo, onFond
           <LzMenu id="pos" label="Posición" abierto={menu === 'pos'} onToggle={toggle}>
             <div className="lz-pop-title">Posición y tamaño</div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, width: 220 }}>
-              <label className="lz-mini">X<input type="number" value={elemento.x} onChange={(e) => set({ x: Number(e.target.value) })} /></label>
-              <label className="lz-mini">Y<input type="number" value={elemento.y} onChange={(e) => set({ y: Number(e.target.value) })} /></label>
-              <label className="lz-mini">Ancho<input type="number" value={elemento.w} onChange={(e) => set({ w: Math.max(80, Number(e.target.value)) })} /></label>
-              <label className="lz-mini">Alto<input type="number" value={elemento.h} onChange={(e) => set({ h: Math.max(60, Number(e.target.value)) })} /></label>
+              {/* Acotado al lienzo de 1920×1080: sin esto, un valor a mano
+                  podía dejar el elemento fuera de la diapositiva. */}
+              <label className="lz-mini">X<input type="number" value={elemento.x}
+                onChange={(e) => set({ x: clampPos(Number(e.target.value) || 0, 0, 1920 - elemento.w) })} /></label>
+              <label className="lz-mini">Y<input type="number" value={elemento.y}
+                onChange={(e) => set({ y: clampPos(Number(e.target.value) || 0, 0, 1080 - elemento.h) })} /></label>
+              <label className="lz-mini">Ancho<input type="number" value={elemento.w}
+                onChange={(e) => set({ w: clampPos(Number(e.target.value) || 80, 80, 1920 - elemento.x) })} /></label>
+              <label className="lz-mini">Alto<input type="number" value={elemento.h}
+                onChange={(e) => set({ h: clampPos(Number(e.target.value) || 60, 60, 1080 - elemento.y) })} /></label>
             </div>
           </LzMenu>
         )}

@@ -148,12 +148,12 @@ function ScaledSlide({ children, maxH }) {
    - En modo editable: se arrastran/seleccionan elementos (props selId/onSelect/onChangeEl).
    - En presentación: solo muestra y reproduce animaciones.
    Plantillas viejas (titulo/texto/imagen) se migran al vuelo con migrarContenido(). */
-function ContenidoSlide({ slide, editable, selId, onSelect, onChangeEl, replay, pasoActual, previewOn }) {
+function ContenidoSlide({ slide, editable, selId, onSelect, onChangeEl, replay, pasoActual, previewOn, editRef }) {
   const migrado = migrarContenido(slide);
   return (
     <LienzoLibre slide={migrado} editable={editable}
       selId={selId} onSelect={onSelect} onChangeEl={onChangeEl}
-      replay={replay} pasoActual={pasoActual} previewOn={previewOn} />
+      replay={replay} pasoActual={pasoActual} previewOn={previewOn} editRef={editRef} />
   );
 }
 

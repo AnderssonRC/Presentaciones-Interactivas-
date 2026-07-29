@@ -322,6 +322,53 @@ function maxPaso(slide) {
   return els.reduce((m, el) => Math.max(m, el.orden || 0), 0);
 }
 
+/* ---------- Cronómetro de la actividad (esquina inferior izquierda) ----------
+   Disponible para cualquier actividad con `tiempoActivo` en su configuración
+   (ver editor.jsx y db.js: tiempoHabilitado). Arranca solo al entrar a la
+   diapositiva; un clic pausa/reanuda, y al llegar a 0 muestra "SIN TIEMPO"
+   (otro clic lo reinicia). Usa useCountdown/fmtTime, definidos en
+   activities.jsx (cargado antes que este archivo). */
+// Herramientas que ya traen su propia cuenta regresiva grande en el centro
+// de la actividad: el cronómetro pequeño no se duplica ahí.
+const TOOLS_TIMER_PROPIO = ['crea', 'problema', 'temporizador'];
+function MiniTimer({ duracion, accent }) {
+  const [secs, running, ctl] = useCountdown(duracion);
+  const arrancado = React.useRef(false);
+  React.useEffect(() => { if (!arrancado.current) { arrancado.current = true; ctl.start(); } }, []);
+  const acabado = secs === 0;
+  const bajo = !acabado && secs <= 10;
+  const color = acabado || bajo ? '#F53711' : (accent || '#11F555');
+  const onTap = () => {
+    if (acabado) { ctl.reset(); ctl.start(); return; }
+    running ? ctl.pause() : ctl.start();
+  };
+  return (
+    <button onClick={onTap}
+      title={acabado ? 'Reiniciar el tiempo' : (running ? 'Pausar' : 'Reanudar')}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer',
+        border: '3px solid ' + color, borderRadius: 999, padding: '8px 26px 8px 8px',
+        background: 'rgba(11,14,11,.85)', backdropFilter: 'blur(10px)',
+        boxShadow: '0 0 28px -6px ' + color + (acabado ? ', 0 0 0 6px rgba(245,55,17,.18)' : ''),
+        animation: (acabado || bajo) ? 'a-pulse 1s ease-in-out infinite' : 'none',
+        transition: 'border-color .2s ease, box-shadow .2s ease',
+      }}>
+      <span style={{
+        width: 50, height: 50, borderRadius: '50%', flexShrink: 0,
+        display: 'grid', placeItems: 'center', background: color,
+        fontSize: 24, filter: 'drop-shadow(0 2px 4px rgba(0,0,0,.35))',
+      }}>{acabado ? '⏰' : (running ? '⏸' : '▶')}</span>
+      <span style={{
+        fontFamily: 'var(--font-display)', fontWeight: 800, letterSpacing: '.02em',
+        fontSize: acabado ? 24 : 34, lineHeight: 1, color: acabado ? '#FF8A65' : '#F2F5EF',
+        whiteSpace: 'nowrap',
+      }}>
+        {acabado ? 'SIN TIEMPO' : fmtTime(secs)}
+      </span>
+    </button>
+  );
+}
+
 function Presenter({ pres, onExit, onChange }) {
   const [idx, setIdx] = React.useState(0);
   // `paso` = cuántos niveles de animación se han revelado en el slide actual.
@@ -341,6 +388,10 @@ function Presenter({ pres, onExit, onChange }) {
   // Ocultar TODO el HUD (botones superiores + tarjeta de código + flechas).
   // Deja solo un botón discreto para volver a mostrarlo, para presentar limpio.
   const [hudOculto, setHudOculto] = React.useState(false);
+  // Modo Exceso de Luz: invierte el brillo de la diapositiva (fondos negros
+  // -> blancos) para que se vea mejor bajo luz solar directa. Solo afecta lo
+  // que ve el público (la diapositiva); no toca el HUD del docente.
+  const [brilloAlto, setBrilloAlto] = React.useState(false);
 
   // Refs con el valor más reciente de idx/paso, para leerlos de forma
   // síncrona dentro de avanzar/retroceder. ANTES, esas funciones leían el
@@ -619,6 +670,9 @@ function Presenter({ pres, onExit, onChange }) {
         // El celular puede ocultar/mostrar todo el HUD del televisor (igual
         // que la tecla H en el propio Presenter), para presentar limpio.
         setHudOculto((h) => (typeof cmd.payload === 'boolean' ? cmd.payload : !h)); break;
+      case 'brillo':
+        // El celular puede activar/desactivar el Modo Exceso de Luz.
+        setBrilloAlto((b) => (typeof cmd.payload === 'boolean' ? cmd.payload : !b)); break;
       case 'exit':
         onExit(); break;
       case 'activity':
@@ -667,6 +721,8 @@ function Presenter({ pres, onExit, onChange }) {
       // Para que el celular sepa si el HUD del televisor ya está oculto y
       // pueda mostrar el botón con la etiqueta correcta ("Ocultar"/"Mostrar").
       hudOculto,
+      // Igual, pero para el Modo Exceso de Luz.
+      brilloAlto,
       activity: isAct ? { tool: slide.tool, titulo: cfg.titulo || (t && t.nombre) || '' } : null,
       teams: esEquipos ? teams : [],
       mirror,
@@ -674,12 +730,16 @@ function Presenter({ pres, onExit, onChange }) {
       // Estado de la ronda de participación para los estudiantes.
       ronda: { fase: ronda, elegido },
     });
-  }, [remoteCode, idx, slides.length, hideScores, hudOculto, teams, esEquipos, ronda, elegido, verPodio, conEstudiantes, pres.mandoPin]);
+  }, [remoteCode, idx, slides.length, hideScores, hudOculto, brilloAlto, teams, esEquipos, ronda, elegido, verPodio, conEstudiantes, pres.mandoPin]);
 
   const slide = slides[Math.min(idx, slides.length - 1)];
   const isAct = slide.type === 'actividad';
   const tool = isAct ? AIP.toolById(slide.tool) : null;
   const Runtime = isAct ? (ActivityRuntimes[slide.tool] || ActivityRuntimes.default) : null;
+
+  // Cronómetro pequeño (ver MiniTimer/TOOLS_TIMER_PROPIO arriba).
+  const mostrarMiniTimer = isAct && !TOOLS_TIMER_PROPIO.includes(slide.tool)
+    && AIP.tiempoHabilitado(slide.config, slide.tool) && (slide.config.duracion || 0) > 0;
 
   // API que consumen las actividades de equipo (RetaEquipoRun, PulsadorRun,
   // ApuestaRun, RecuadrosRun, GruposRun). Esperan
@@ -711,7 +771,7 @@ function Presenter({ pres, onExit, onChange }) {
   return (
     <div className="presenter-overlay" data-screen-label={'Presentar · ' + String(idx + 1).padStart(2, '0')}>
       <div className="presenter-stagewrap">
-        <div className="slide" key={slide.id} style={{ position: 'absolute', left: '50%', top: '50%', transform: `translate(-50%, -50%) scale(${scale})`, transformOrigin: 'center', background: isAct ? '#0B0E0B' : '#FFFFFF', color: isAct ? '#F2F5EF' : '#0B0F0C' }}>
+        <div className={'slide' + (brilloAlto ? ' slide-brillo' : '')} key={slide.id} style={{ position: 'absolute', left: '50%', top: '50%', transform: `translate(-50%, -50%) scale(${scale})`, transformOrigin: 'center', background: isAct ? '#0B0E0B' : '#FFFFFF', color: isAct ? '#F2F5EF' : '#0B0F0C' }}>
           {isAct
             ? <Runtime config={slide.config} tool={tool} remoteSignal={remoteSignal} equiposApi={equiposApi}
                 gruposGuardados={gruposPorSlide[slide.id]}
@@ -763,6 +823,12 @@ function Presenter({ pres, onExit, onChange }) {
             <button className="hud-btn" onClick={() => setHudOculto(true)} title="Ocultar controles (tecla H)">
               🙈 Ocultar controles
             </button>
+            {/* Modo Exceso de Luz: invierte el brillo de la diapositiva para
+                que se vea mejor bajo luz solar directa. */}
+            <button className={'hud-btn' + (brilloAlto ? ' on' : '')} onClick={() => setBrilloAlto((v) => !v)}
+              title="Invierte el brillo de la diapositiva para verla mejor con luz solar directa">
+              ☀️ {brilloAlto ? 'Quitar Modo Exceso de Luz' : 'Modo Exceso de Luz'}
+            </button>
             {conEstudiantes && ronda === 'idle' && (
               <button className="hud-btn" onClick={abrirParticipacion} title="Pedir participación">
                 ✋ Pedir participación
@@ -795,6 +861,12 @@ function Presenter({ pres, onExit, onChange }) {
             <span style={{ opacity: .6 }}>·</span>
             <span>{idx + 1} / {slides.length}</span>
           </div>
+          {/* Cronómetro de la actividad, justo arriba de esa píldora. */}
+          {mostrarMiniTimer && (
+            <div className="presenter-hud" style={{ bottom: 74, left: 18 }}>
+              <MiniTimer key={slide.id} duracion={slide.config.duracion} accent={tool && tool.color} />
+            </div>
+          )}
           <div className="presenter-hud" style={{ bottom: 18, right: 18 }}>
             <button className="hud-btn" onClick={retroceder} disabled={inicioTotal}>←</button>
             <button className="hud-btn" onClick={avanzar} disabled={finalTotal}>→</button>

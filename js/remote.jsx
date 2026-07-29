@@ -249,18 +249,20 @@ function RemoteControl({ initialCode }) {
           <button onClick={() => { send('next'); buzz('▶'); }} style={navBtn('#11F555', '#06140A')}>Avanzar ▶</button>
         </div>
 
-        {/* Ocultar/mostrar el HUD del televisor (botones, tarjeta de código,
-            flechas) para presentar limpio. Igual que la tecla H en el
-            Presenter, pero desde el celular. */}
-        <button onClick={() => { send('hud'); buzz(st.hudOculto ? '👁' : '🙈'); }}
-          style={{
-            width: '100%', padding: '13px 0', marginBottom: 16, fontSize: 14.5, fontWeight: 700,
-            fontFamily: 'var(--font-display)', borderRadius: 12, border: '1px solid #2A2F29',
-            background: st.hudOculto ? '#11F555' : 'transparent',
-            color: st.hudOculto ? '#06140A' : '#9AA396', cursor: 'pointer',
-          }}>
-          {st.hudOculto ? '👁 Mostrar controles en TV' : '🙈 Ocultar controles en TV'}
-        </button>
+        {/* Ocultar/mostrar el HUD del televisor, y Modo Exceso de Luz (invierte
+            el brillo de la diapositiva para verla mejor con sol directo).
+            Igual que la tecla H y el botón del propio Presenter, pero desde
+            el celular. Van juntos y del mismo tamaño para que quepan en fila. */}
+        <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
+          <button onClick={() => { send('hud'); buzz(st.hudOculto ? '👁' : '🙈'); }}
+            style={toggleBtn(st.hudOculto)}>
+            {st.hudOculto ? '👁 Mostrar TV' : '🙈 Ocultar TV'}
+          </button>
+          <button onClick={() => { send('brillo'); buzz(st.brilloAlto ? '🌙' : '☀️'); }}
+            style={toggleBtn(st.brilloAlto)}>
+            {st.brilloAlto ? '🌙 Quitar luz' : '☀️ Exceso de luz'}
+          </button>
+        </div>
 
         {/* Controles de la actividad activa */}
         {enActividad && (
@@ -371,6 +373,14 @@ const navBtn = (bg, fg) => ({
 const ptBtn = (bg, fg) => ({
   width: 44, height: 44, fontSize: 26, fontWeight: 800, flexShrink: 0,
   borderRadius: 10, border: 'none', background: bg, color: fg, cursor: 'pointer',
+});
+// Botones pequeños de "ajustes de pantalla" (ocultar TV / exceso de luz):
+// van en fila de dos, mitad y mitad, por eso son más compactos que navBtn.
+const toggleBtn = (activo) => ({
+  flex: 1, padding: '13px 4px', fontSize: 13.5, fontWeight: 700,
+  fontFamily: 'var(--font-display)', borderRadius: 12, border: '1px solid #2A2F29',
+  background: activo ? '#11F555' : 'transparent',
+  color: activo ? '#06140A' : '#9AA396', cursor: 'pointer',
 });
 
 Object.assign(window, { RemoteControl });
