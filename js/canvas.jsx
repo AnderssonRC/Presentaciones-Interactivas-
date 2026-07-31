@@ -137,7 +137,15 @@ function CanvasElemento({ el, editable, selected, onSelect, onChange, replayKey,
   // tag), así que la bandera seguía puesta de una edición anterior y el
   // texto se quedaba en blanco al volver a seleccionar (React limpia el
   // innerHTML al quitarle `dangerouslySetInnerHTML` si nadie lo repone).
-  React.useEffect(() => {
+  // useLayoutEffect (no useEffect): se ejecuta ANTES de que el navegador
+  // pinte, en el mismo ciclo que el clic que seleccionó el elemento. Con
+  // useEffect (que corre después de pintar) quedaba una ventana breve en la
+  // que el <div> ya era contentEditable pero todavía sin foco ni contenido;
+  // si el usuario alcanzaba a hacer otro clic justo en ese instante (muy
+  // fácil en un clic normal, que dispara pointerdown+pointerup+click casi
+  // seguidos), ese clic no encontraba nada enfocable todavía y parecía que
+  // "no dejaba editar" hasta un segundo o tercer intento.
+  React.useLayoutEffect(() => {
     if (!editable || !selected || el.tipo !== 'texto') return;
     const node = textRef.current;
     if (!node) return;
@@ -269,10 +277,34 @@ function CanvasElemento({ el, editable, selected, onSelect, onChange, replayKey,
       // render: si React reescribiera el innerHTML en cada tecleo, el cursor
       // saltaría al principio con cada letra.
       contenido = (
-        // stopPropagation también en el contenedor: si el clic cae en el
-        // espacio vacío alrededor de un texto corto centrado (fuera del
-        // <div> interno), que no dispare el arrastre del elemento.
-        <div className="canvas-text" style={estiloContenedor} onPointerDown={(e) => e.stopPropagation()}>
+        // Si la caja es más alta/ancha que el propio texto (p. ej. texto
+        // corto centrado en un recuadro grande), queda espacio "vacío"
+        // alrededor del <div contentEditable> interno. Un clic ahí NO cae
+        // sobre un elemento editable, así que el navegador no le da foco
+        // solo — por eso hacía falta acertarle justo al texto (o al borde,
+        // que es la propia caja) y en cualquier otro punto "no dejaba
+        // editar". Aquí, si el clic no fue directo sobre el texto, se le
+        // da foco a mano al contentEditable.
+        <div className="canvas-text" style={estiloContenedor}
+          onPointerDown={(e) => {
+            e.stopPropagation();
+            // .contains(): además del propio nodo, cubre clics sobre un
+            // <span> de color anidado dentro del texto (herencia de
+            // "Color de selección") — esos SÍ deben dejar que el navegador
+            // coloque el cursor donde se hizo clic, no forzarlo al final.
+            if (textRef.current && !textRef.current.contains(e.target)) {
+              e.preventDefault();
+              textRef.current.focus();
+              try {
+                const range = document.createRange();
+                range.selectNodeContents(textRef.current);
+                range.collapse(false);
+                const sel = window.getSelection();
+                sel.removeAllRanges();
+                sel.addRange(range);
+              } catch (err) {}
+            }
+          }}>
           <div contentEditable suppressContentEditableWarning spellCheck="false"
             ref={textRef}
             onInput={(e) => onChange && onChange({ ...el, valor: e.currentTarget.innerHTML })}
