@@ -100,7 +100,7 @@ function nuevoElemento(tipo) {
   const base = { id: AIP.uid(), tipo, anim: 'fade', orden: 0 };
   if (tipo === 'texto') {
     return Object.assign(base, {
-      valor: 'Doble clic para editar', x: 660, y: 460, w: 600, h: 160,
+      valor: 'Escribe aquí', x: 660, y: 460, w: 600, h: 160,
       color: '#0B0F0C', font: "'Sora', sans-serif", size: 64, peso: 700, align: 'center',
     });
   }
@@ -124,11 +124,22 @@ function urlEmbed(url) {
 /* Render de un único elemento dentro del lienzo (coordenadas 1920x1080).
    `previewOn` (modo editable): cuando es true fuerza la animación aunque no
    haya hover — lo activa el botón "Previsualizar" de la toolbar. */
-function CanvasElemento({ el, editable, selected, onSelect, onChange, replayKey, previewOn, editRef }) {
+function CanvasElemento({ el, editable, selected, editing, onSelect, onEditText, onChange, replayKey, previewOn, editRef }) {
   const dragRef = React.useRef(null);
-  const textRef = React.useRef(null); // nodo contentEditable, mientras está seleccionado
+  const textRef = React.useRef(null); // nodo contentEditable, mientras está en edición
 
-  // Al ENTRAR en edición (selected pasa a false→true) carga el HTML guardado
+  // `selected` (un clic) = puede arrastrarse/redimensionarse, muestra el
+  // borde y los tiradores. `editing` (un clic MÁS, sin arrastrar) = además
+  // entra en modo texto (contentEditable con foco). Antes un solo clic hacía
+  // las dos cosas a la vez y competían: el mismo gesto que selecciona
+  // también empieza a "escuchar" un posible arrastre, y si el clic caía en
+  // el área vacía alrededor del texto (la caja casi siempre es más grande
+  // que el texto) no había nada que enfocar. Separarlo en dos pasos hace
+  // que el primer clic sea simple (seleccionar/mover) y el segundo sea
+  // inequívoco (editar), sin esa pelea.
+  const enEdicion = editable && editing && el.tipo === 'texto';
+
+  // Al ENTRAR en edición (editing pasa a false→true) carga el HTML guardado
   // en el nodo y pone el cursor al final. Solo se dispara con ese cambio,
   // nunca en cada tecleo: si tocáramos el nodo en cada `input`, el cursor
   // saltaría al principio con cada letra. Antes esto se hacía en un ref
@@ -138,15 +149,9 @@ function CanvasElemento({ el, editable, selected, onSelect, onChange, replayKey,
   // texto se quedaba en blanco al volver a seleccionar (React limpia el
   // innerHTML al quitarle `dangerouslySetInnerHTML` si nadie lo repone).
   // useLayoutEffect (no useEffect): se ejecuta ANTES de que el navegador
-  // pinte, en el mismo ciclo que el clic que seleccionó el elemento. Con
-  // useEffect (que corre después de pintar) quedaba una ventana breve en la
-  // que el <div> ya era contentEditable pero todavía sin foco ni contenido;
-  // si el usuario alcanzaba a hacer otro clic justo en ese instante (muy
-  // fácil en un clic normal, que dispara pointerdown+pointerup+click casi
-  // seguidos), ese clic no encontraba nada enfocable todavía y parecía que
-  // "no dejaba editar" hasta un segundo o tercer intento.
+  // pinte, en el mismo ciclo del clic que entró en edición.
   React.useLayoutEffect(() => {
-    if (!editable || !selected || el.tipo !== 'texto') return;
+    if (!enEdicion) return;
     const node = textRef.current;
     if (!node) return;
     node.innerHTML = el.valor || '';
@@ -162,7 +167,7 @@ function CanvasElemento({ el, editable, selected, onSelect, onChange, replayKey,
     } catch (e) {}
     return () => { if (editRef && editRef.current === node) editRef.current = null; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selected, editable]);
+  }, [enEdicion]);
   // En el editor las animaciones están apagadas; se reproducen SOLO con el
   // botón "Previsualizar" (previewOn). Antes también se activaban con hover,
   // pero eso cambiaba la `key` del nodo en pleno arrastre (el cursor entra y
@@ -191,14 +196,17 @@ function CanvasElemento({ el, editable, selected, onSelect, onChange, replayKey,
   };
 
   const iniciarArrastre = (e) => {
-    if (!editable) return;
+    if (!editable || enEdicion) return; // ya editando: los clics los maneja el propio texto
     e.stopPropagation();
+    const yaSeleccionado = selected;
     onSelect && onSelect(el.id);
     const s = escala();
     if (!s) return;
     const startX = e.clientX, startY = e.clientY;
     const ox = el.x, oy = el.y;
+    let movio = false;
     const move = (ev) => {
+      if (Math.abs(ev.clientX - startX) > 3 || Math.abs(ev.clientY - startY) > 3) movio = true;
       // Acotado a [0, 1920-w] / [0, 1080-h]: el elemento nunca queda fuera
       // del lienzo al arrastrarlo (antes no había límite).
       const nx = clampPos(Math.round(ox + (ev.clientX - startX) / s), 0, 1920 - el.w);
@@ -209,6 +217,10 @@ function CanvasElemento({ el, editable, selected, onSelect, onChange, replayKey,
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
       window.removeEventListener('pointercancel', up);
+      // Segundo clic (sin arrastre) sobre un texto YA seleccionado: entra a
+      // editarlo. El primer clic (el que selecciona) nunca entra directo,
+      // así que nunca compite con el arrastre.
+      if (!movio && yaSeleccionado && el.tipo === 'texto') onEditText && onEditText(el.id);
     };
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);
@@ -267,7 +279,7 @@ function CanvasElemento({ el, editable, selected, onSelect, onChange, replayKey,
       // veía unido en un solo párrafo.
       whiteSpace: 'pre-wrap',
     };
-    if (editable && selected) {
+    if (enEdicion) {
       // contentEditable (antes era un <textarea>): permite seleccionar solo
       // una PARTE del texto y pintarla de otro color (ver "Color de
       // selección" en la barra, editor.jsx), algo imposible con un textarea
@@ -376,7 +388,7 @@ function CanvasElemento({ el, editable, selected, onSelect, onChange, replayKey,
    En modo editable se ven todos.
    `previewOn` (editor): fuerza que TODOS los elementos reproduzcan su animación
    (lo activa el botón "Previsualizar" de la toolbar). */
-function LienzoLibre({ slide, editable, selId, onSelect, onChangeEl, replay, pasoActual, previewOn, editRef }) {
+function LienzoLibre({ slide, editable, selId, editingId, onSelect, onEditText, onChangeEl, replay, pasoActual, previewOn, editRef }) {
   const fondo = slide.fondo || { tipo: 'color', valor: '' };
   const estiloFondo = fondo.tipo === 'url' && fondo.valor
     ? { backgroundImage: `url("${fondo.valor}")`, backgroundSize: 'cover', backgroundPosition: 'center' }
@@ -392,11 +404,13 @@ function LienzoLibre({ slide, editable, selId, onSelect, onChangeEl, replay, pas
         return (
           <CanvasElemento key={el.id} el={el} editable={editable}
             selected={editable && selId === el.id}
+            editing={editable && editingId === el.id}
             onSelect={onSelect}
+            onEditText={onEditText}
             onChange={(next) => onChangeEl && onChangeEl(el.id, next)}
             replayKey={(replay || 0) + '-' + el.id}
             previewOn={previewOn}
-            editRef={editable && selId === el.id ? editRef : undefined} />
+            editRef={editable && editingId === el.id ? editRef : undefined} />
         );
       })}
     </div>

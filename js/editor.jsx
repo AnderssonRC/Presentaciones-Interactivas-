@@ -9,6 +9,11 @@ function Editor({ pres, onChange, onBack, onPresent, theme, setTheme }) {
   const [aulaOpen, setAulaOpen] = React.useState(false);
   const [historialOpen, setHistorialOpen] = React.useState(false);
   const [selEl, setSelEl] = React.useState(null); // id del elemento seleccionado en el lienzo
+  // Id del elemento de texto en modo edición (contentEditable con foco).
+  // Separado de `selEl`: un clic SELECCIONA (permite mover/redimensionar);
+  // un segundo clic, sin arrastrar, sobre un elemento YA seleccionado, entra
+  // a editarlo. Antes un solo clic hacía ambas cosas y competían entre sí.
+  const [editTextId, setEditTextId] = React.useState(null);
   // Nodo DOM del texto que se está editando ahora mismo (contentEditable),
   // para que la barra de herramientas pueda leer/envolver su selección de
   // texto y pintar solo esa parte de otro color (ver LienzoToolbar).
@@ -56,7 +61,17 @@ function Editor({ pres, onChange, onBack, onPresent, theme, setTheme }) {
   }, [teamsOpen, aulaOpen]);
 
   // Al cambiar de diapositiva, soltar la selección de elemento y cortar la previa.
-  React.useEffect(() => { setSelEl(null); setPreviewOn(false); }, [sel]);
+  React.useEffect(() => { setSelEl(null); setEditTextId(null); setPreviewOn(false); }, [sel]);
+
+  // Selecciona un elemento (o lo deselecciona con null). Si es uno distinto
+  // al que se estaba editando, sale del modo edición: seleccionar OTRA cosa
+  // siempre debe cortar la edición en curso.
+  const seleccionarEl = (id) => {
+    setSelEl(id);
+    setEditTextId((prev) => (id === prev ? prev : null));
+  };
+  // Entra a editar un elemento de texto (segundo clic, ver canvas.jsx).
+  const editarTextoEl = (id) => { setSelEl(id); setEditTextId(id); };
   // Migra UNA sola vez la diapositiva de contenido (de titulo/texto/imagen al
   // modelo de elementos) y la persiste, para que los ids no se regeneren en
   // cada render. Sin esto, migrarContenido() crea ids nuevos en cada pintado,
@@ -165,19 +180,21 @@ function Editor({ pres, onChange, onBack, onPresent, theme, setTheme }) {
     const elementos = (base.elementos || []).map((el) => (el.id === id ? next : el));
     updateSlide(curIdx, { ...base, elementos });
   };
-  // Añade un elemento nuevo (texto/imagen/video) y lo deja seleccionado.
+  // Añade un elemento nuevo (texto/imagen/video) y lo deja seleccionado. Si
+  // es texto, entra directo a edición (el docente lo acaba de pedir, seguro
+  // quiere escribir de inmediato, sin un clic extra).
   const agregarElemento = (tipo) => {
     const base = asegurarMigrada();
     const nuevo = nuevoElemento(tipo);
     nuevo.orden = (base.elementos || []).length; // se revela al final por defecto
     updateSlide(curIdx, { ...base, elementos: [...(base.elementos || []), nuevo] });
-    setSelEl(nuevo.id);
+    if (tipo === 'texto') editarTextoEl(nuevo.id); else seleccionarEl(nuevo.id);
   };
   // Borra el elemento seleccionado.
   const borrarElemento = (id) => {
     const base = asegurarMigrada();
     updateSlide(curIdx, { ...base, elementos: (base.elementos || []).filter((el) => el.id !== id) });
-    setSelEl(null);
+    seleccionarEl(null);
   };
   // Cambia el fondo de la diapositiva.
   const setFondo = (fondo) => {
@@ -379,7 +396,7 @@ function Editor({ pres, onChange, onBack, onPresent, theme, setTheme }) {
           <ScaledSlide>
             {current.type === 'contenido' ? (
               <ContenidoSlide slide={migrada} materia={pres.materia || 'Tema'} accent={pres.color} editable
-                selId={selEl} onSelect={setSelEl} onChangeEl={cambiarElemento}
+                selId={selEl} editingId={editTextId} onSelect={seleccionarEl} onEditText={editarTextoEl} onChangeEl={cambiarElemento}
                 previewOn={previewOn} replay={previewTick} editRef={textEditRef} />
             ) : (
               <ActividadSlidePreview slide={current} />
