@@ -30,6 +30,24 @@ window.ACT_EJEMPLOS = {
     },
   },
 
+  ruletaCerrada: {
+    que: 'Como la Ruleta de preguntas, pero de opción múltiple: cada giro decide la pregunta Y quién responde — un estudiante al azar, o un equipo si Modo Equipos está activo (ahí, acertar suma puntos y fallar los resta).',
+    comoVe: 'La ruleta gira y se detiene en una pregunta con sus opciones, a la vez que se sortea quién responde. Al elegir una opción se revela si era correcta (y el equipo suma o pierde puntos).',
+    formato: 'Preguntas (una por línea): Pregunta|Respuesta correcta|Distractor 1|Distractor 2 (2 a 4 opciones; la PRIMERA tras la pregunta es la correcta). Aparte, una lista de nombres (uno por línea) para el sorteo cuando NO hay Modo Equipos.',
+    ejemplo: {
+      titulo: 'Ruleta de repaso',
+      instrucciones: 'Gira la ruleta: decide la pregunta y quién responde.',
+      puntos: 2,
+      items: [
+        '¿Cuál es el planeta más cercano al Sol?|Mercurio|Venus|La Tierra',
+        '¿Cuánto es 8 × 7?|56|54|64',
+        '¿Quién escribió Don Quijote?|Miguel de Cervantes|García Márquez|Borges',
+        '¿Cuál es el océano más grande?|el Pacífico|el Atlántico|el Índico',
+      ],
+      estudiantes: ['Ana', 'Carlos', 'María', 'Juan', 'Sofía'],
+    },
+  },
+
   elige: {
     que: 'Pregunta de opción múltiple: el grupo elige y se revela si acertó.',
     comoVe: 'Una pregunta arriba y cuatro opciones grandes; al tocar una, se pinta de verde o naranja.',
@@ -427,6 +445,51 @@ window.ACT_EJEMPLOS = {
     items: ['Ana María López', 'Carlos Pérez Ruiz', 'Sofía Torres García', 'Juan David Gómez', 'María Fernanda Díaz', 'Pedro Sánchez Mora'],
   },
 },
+
+  tablero: {
+    que: 'Un tablero de números: cada casilla esconde una pregunta distinta, en orden mezclado. Funciona con toda la clase o, si Modo Equipos está activo, repartiendo turnos y puntos entre los equipos.',
+    comoVe: 'Casillas grandes numeradas; al elegir una se revela la pregunta (y la respuesta, si la pides) y la casilla queda marcada. En Modo Equipos se ve además de quién es el turno.',
+    formato: 'Cada línea: Pregunta=Respuesta (la respuesta es opcional, se revela con un botón). Cada línea es una casilla del tablero.',
+    ejemplo: {
+      titulo: 'Tablero de repaso',
+      instrucciones: 'Elige un número del tablero para descubrir la pregunta que esconde.',
+      puntos: 2,
+      items: [
+        '¿Capital de Francia?=París',
+        '¿Cuánto es 9 × 6?=54',
+        '¿Río más largo del mundo?=Amazonas',
+        '¿Autor de Cien años de soledad?=García Márquez',
+        '¿Cuántos huesos tiene el cuerpo humano?=206',
+        '¿Planeta más cercano al Sol?=Mercurio',
+      ],
+    },
+  },
+
+  encuentraIdea: {
+    que: 'El grupo lee un párrafo y toca la oración que creen que es la idea principal. Si se equivocan, ven "Incorrecto, es idea secundaria" y pueden seguir intentando (sin que se revele cuál es la correcta) hasta acertar.',
+    comoVe: 'El párrafo se muestra completo y compacto, como un texto normal. Al tocar una oración equivocada se resalta en naranja con el aviso; al tocar la correcta, se resalta en verde.',
+    formato: 'Escribe el párrafo completo y marca con [corchetes] la oración que es la idea principal (incluye su punto final dentro de los corchetes). Un párrafo por línea.',
+    ejemplo: {
+      titulo: '¿Cuál es la idea principal?',
+      instrucciones: 'Toca la oración que creas que es la idea principal del párrafo.',
+      items: [
+        'Los perros son animales domésticos que existen desde hace miles de años. [Son considerados los mejores amigos del hombre por su lealtad y compañía.] Muchas familias tienen uno como mascota. Existen cientos de razas distintas.',
+        'Los océanos regulan el clima del planeta y producen buena parte del oxígeno que respiramos. [El agua es esencial para la vida porque todos los seres vivos la necesitan para sobrevivir.] Por eso debemos cuidarla y no desperdiciarla.',
+      ],
+    },
+  },
+
+  encuentraElemento: {
+    que: 'Pega una imagen y marca una o varias zonas como correctas (ajustando su posición y tamaño). El grupo toca la imagen intentando dar con esas zonas; si tocan fuera, ven una "✕" y pueden seguir intentando sin que se revele dónde están. Se gana al encontrarlas todas.',
+    comoVe: 'La imagen completa en pantalla; al tocar fuera de una zona correcta aparece una "✕" roja que desaparece sola. Al tocar dentro de una zona, se marca con un recuadro verde y queda encontrada (si hay más de una, se muestra un contador).',
+    formato: 'Pega la URL de la imagen. Luego, en el editor, haz clic sobre la imagen para agregar una zona de tamaño estándar, o arrastra para dibujarla del tamaño que quieras. Puedes agregar varias zonas, y ajustar el ancho/alto de cada una con los campos numéricos.',
+    ejemplo: {
+      titulo: 'Encuentra el elemento',
+      instrucciones: 'Toca las zonas de la imagen que creas correctas.',
+      imagen: '',
+      zonas: [{ x: 40, y: 40, w: 20, h: 20 }],
+    },
+  },
 };
 /* Devuelve la guía de una actividad (o null si no existe ejemplo). */
 window.actEjemplo = function (toolId) {

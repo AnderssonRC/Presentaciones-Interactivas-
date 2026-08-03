@@ -14,6 +14,7 @@
   // ---------- 20 Herramientas de Actividades Interactivas ----------
   const TOOLS = [
     { id: 'ruleta',       nombre: 'Ruleta de preguntas',   desc: 'Gira y responde la pregunta que toque', color: '#11F555', icon: 'ruleta' },
+    { id: 'ruletaCerrada', nombre: 'Ruleta de opción múltiple', desc: 'Gira y decide la pregunta y quién responde', color: '#EC4899', icon: 'ruleta' },
     { id: 'completa',     nombre: 'Completa la palabra',    desc: 'Encuentra la letra que falta',          color: '#F53711', icon: 'letras' },
     { id: 'elige',        nombre: 'Elige la respuesta',     desc: 'Opción múltiple con revelado',          color: '#116CF5', icon: 'check' },
     { id: 'crea',         nombre: 'Crea una pregunta',      desc: 'Los estudiantes formulan preguntas',    color: '#11F555', icon: 'pregunta' },
@@ -44,6 +45,9 @@
     { id: 'apuesta',    nombre: 'Apuesta de puntos',    desc: 'Cada equipo apuesta antes de responder', color: '#116CF5', icon: 'trofeo' },
     { id: 'recuadros',  nombre: 'Recuadros por equipo', desc: 'Cada equipo resuelve su propio tablero', color: '#F5C211', icon: 'memorama' },
     { id: 'grupos', nombre: 'Formar grupos', desc: 'Reparte la lista de estudiantes al azar', color: '#A855F7', icon: 'pares' },
+    { id: 'tablero', nombre: 'Tablero de números', desc: 'Elige un número y descubre la pregunta', color: '#116CF5', icon: 'sopa' },
+    { id: 'encuentraIdea', nombre: 'Encuentra la idea', desc: 'Toca la oración que es la idea principal', color: '#F5C211', icon: 'bulb' },
+    { id: 'encuentraElemento', nombre: 'Encuentra el elemento', desc: 'Toca la zona correcta de la imagen', color: '#A855F7', icon: 'eye' },
   ];
 
   const toolById = (id) => TOOLS.find((t) => t.id === id) || TOOLS[0];
@@ -66,6 +70,8 @@
         { ref: 'organiza' },
         { ref: 'descubre' },
         { ref: 'errores'},
+        { ref: 'encuentraIdea' },
+        { ref: 'encuentraElemento' },
         { ref: 'stop' },
         { ref: 'sopa' },
         { id: 'colorea',    nombre: 'Colorea con números', desc: 'Pinta siguiendo la clave numérica',  color: '#116CF5', icon: 'chart',    soon: true },
@@ -85,7 +91,7 @@
         { ref: 'ruleta' }, { ref: 'elige' }, { ref: 'crea' }, { ref: 'problema' },
         { ref: 'vf' }, { ref: 'pares' }, { ref: 'ordena' }, { ref: 'memorama' },
         { ref: 'encuesta' }, { ref: 'lluvia' }, { ref: 'temporizador' }, { ref: 'selector' },
-        { ref: 'dado' }, { ref: 'marcador' }, { ref: 'debate' },
+        { ref: 'dado' }, { ref: 'marcador' }, { ref: 'debate' }, { ref: 'tablero' }, { ref: 'ruletaCerrada' },
       ],
     },
     {
@@ -218,6 +224,56 @@
         base.items = ['Ana María López', 'Carlos Pérez Ruiz', 'Sofía Torres', 'Juan D. Gómez', 'María Fernanda Díaz', 'Pedro Sánchez M.'];
         base.numGrupos = 3;
         base.instrucciones = 'Estos son los grupos de hoy. ¡A trabajar con tu equipo!';
+        break;
+      case 'tablero':
+        // Funciona con o sin Modo Equipos: sin equipos es un tablero para
+        // toda la clase (sin turnos ni puntaje); con Modo Equipos activo,
+        // reparte turnos entre los equipos y reparte los puntos al acertar.
+        base.items = [
+          '¿Capital de Francia?=París',
+          '¿Cuánto es 9 × 6?=54',
+          '¿Río más largo del mundo?=Amazonas',
+          '¿Autor de Cien años de soledad?=García Márquez',
+          '¿Cuántos huesos tiene el cuerpo humano?=206',
+          '¿Planeta más cercano al Sol?=Mercurio',
+        ];
+        base.instrucciones = 'Elige un número del tablero para descubrir la pregunta que esconde.';
+        base.puntos = 1;
+        break;
+      case 'ruletaCerrada':
+        // Preguntas de opción múltiple (igual formato que "Elige la
+        // respuesta"). Además de la pregunta, cada giro decide quién
+        // responde: un estudiante al azar (lista `estudiantes`, modo
+        // individual) o un equipo (si Modo Equipos está activo, ese equipo
+        // gana o pierde `puntos` según acierte o falle).
+        base.items = [
+          '¿Cuál es el planeta más cercano al Sol?|Mercurio|Venus|La Tierra',
+          '¿Cuánto es 8 × 7?|56|54|64',
+          '¿Quién escribió Don Quijote?|Miguel de Cervantes|García Márquez|Borges',
+          '¿Cuál es el océano más grande?|el Pacífico|el Atlántico|el Índico',
+        ];
+        base.estudiantes = ['Ana', 'Carlos', 'María', 'Juan', 'Sofía'];
+        base.instrucciones = 'Gira la ruleta: decide la pregunta y quién responde.';
+        base.puntos = 2;
+        break;
+      case 'encuentraIdea':
+        // Cada línea es un párrafo; la oración marcada con [corchetes] es la
+        // idea principal. El resto del párrafo se parte en oraciones que
+        // funcionan como opciones "incorrectas".
+        base.items = [
+          'Los perros son animales domésticos que existen desde hace miles de años. [Son considerados los mejores amigos del hombre por su lealtad y compañía.] Muchas familias tienen uno como mascota. Existen cientos de razas distintas.',
+          'Los océanos regulan el clima del planeta y producen buena parte del oxígeno que respiramos. [El agua es esencial para la vida porque todos los seres vivos la necesitan para sobrevivir.] Por eso debemos cuidarla y no desperdiciarla.',
+        ];
+        base.instrucciones = 'Toca la oración que creas que es la idea principal del párrafo.';
+        break;
+      case 'encuentraElemento':
+        // Una sola imagen por diapositiva (igual que "Encuentra las
+        // diferencias"): `zonas` son los rectángulos correctos, en % de la
+        // imagen (x,y = esquina superior izquierda; w,h = ancho/alto). Puede
+        // haber una o varias zonas; hay que encontrarlas todas.
+        base.imagen = '';
+        base.zonas = [{ x: 40, y: 40, w: 20, h: 20 }];
+        base.instrucciones = 'Toca las zonas de la imagen que creas correctas.';
         break;
     }
     return base;

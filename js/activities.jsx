@@ -267,6 +267,242 @@ function RuletaRun({ config, tool, remoteSignal, equiposApi }) {
   );
 }
 
+/* ---------- Ruleta de opción múltiple ----------
+   Como la Ruleta de preguntas, pero de "opción cerrada": cada pregunta trae
+   sus opciones (igual formato que "Elige la respuesta"). Además de la
+   pregunta, cada giro decide quién responde:
+     - Modo Equipos activo: sortea un EQUIPO (sin repetir hasta que a todos
+       les toque). Acertar suma `puntos`; fallar los resta.
+     - Sin Modo Equipos: sortea un ESTUDIANTE de la lista configurada (mismo
+       sorteo sin repetir), solo para elegir quién responde — sin puntaje.
+   `responsables` unifica ambos casos para reusar la misma lógica de turnos. */
+function RuletaCerradaRun({ config, tool, remoteSignal, equiposApi }) {
+  const preguntas = React.useMemo(() =>
+    (config.items || [])
+      .map((l) => l.split('|').map((s) => s.trim()).filter(Boolean))
+      .filter((p) => p.length >= 3)
+      .map((p) => ({ pregunta: p[0], correcta: p[1], distractores: p.slice(2) })),
+    [config.items]);
+  const puntos = Math.max(1, Number(config.puntos) || 2);
+  const n = preguntas.length;
+  const modoEquipos = !!(equiposApi && equiposApi.equipos && equiposApi.equipos.length);
+  const estudiantes = React.useMemo(() =>
+    (config.estudiantes || []).map((s) => (s || '').trim()).filter(Boolean),
+    [config.estudiantes]);
+  // Un solo arreglo de "responsables" para no duplicar la lógica de turnos:
+  // equipos del marcador si Modo Equipos está activo, o la lista de
+  // estudiantes configurada si no.
+  const responsables = React.useMemo(() => {
+    if (modoEquipos) return equiposApi.equipos.map((e) => ({ id: e.id, nombre: e.nombre, color: e.color }));
+    return estudiantes.map((nom, i) => ({ id: i, nombre: nom, color: RULETA_PALETTE[i % RULETA_PALETTE.length] }));
+  }, [modoEquipos, equiposApi, estudiantes]);
+  const coloresRueda = React.useMemo(() => coloresSinRepetirAdyacentes(n, RULETA_PALETTE), [n]);
+
+  const [rot, setRot] = React.useState(0);
+  const [spinning, setSpinning] = React.useState(false);
+  const [result, setResult] = React.useState(null); // índice de pregunta
+  const [opciones, setOpciones] = React.useState([]); // opciones barajadas de la pregunta actual
+  const [chosen, setChosen] = React.useState(null);
+  const [usadas, setUsadas] = React.useState([]);
+  const [turnos, setTurnos] = React.useState([]);
+  const [respActual, setRespActual] = React.useState(null);
+  const [ciclo, setCiclo] = React.useState(null);
+
+  const seg = 360 / Math.max(n, 1);
+  const cx = 330, cy = 330, r = 312;
+  const timeoutRef = React.useRef(null);
+  const cicloRef = React.useRef(null);
+  React.useEffect(() => () => { clearTimeout(timeoutRef.current); clearInterval(cicloRef.current); }, []);
+  React.useEffect(() => { setUsadas([]); }, [config.items]);
+  React.useEffect(() => { setTurnos([]); setRespActual(null); }, [responsables.length, modoEquipos]);
+
+  if (!n) return <FichaRun config={config} tool={tool} />;
+
+  const spin = () => {
+    if (spinning) return;
+    setResult(null); setChosen(null);
+
+    let poolP = preguntas.map((_, i) => i).filter((i) => !usadas.includes(i));
+    const nuevaVueltaP = !poolP.length;
+    if (nuevaVueltaP) poolP = preguntas.map((_, i) => i);
+    const idx = poolP[Math.floor(Math.random() * poolP.length)];
+
+    let respId = null, nuevaVueltaR = false;
+    if (responsables.length) {
+      let poolR = responsables.filter((rp) => !turnos.includes(rp.id));
+      nuevaVueltaR = !poolR.length;
+      if (nuevaVueltaR) poolR = responsables;
+      respId = poolR[Math.floor(Math.random() * poolR.length)].id;
+    }
+
+    // Gira hasta detenerse exactamente sobre el segmento de `idx` (con un
+    // pequeño margen aleatorio para que no caiga siempre justo al centro).
+    const centro = idx * seg + seg / 2;
+    const jitter = (Math.random() - 0.5) * seg * 0.5;
+    const objetivo = ((centro + jitter) % 360 + 360) % 360;
+    const modActual = ((rot % 360) + 360) % 360;
+    const modObjetivo = ((360 - objetivo) % 360 + 360) % 360;
+    const next = (rot - modActual) + 1440 + modObjetivo;
+    setRot(next);
+    setSpinning(true);
+
+    // Mientras gira, pasa rápido por los responsables hasta asentarse.
+    clearInterval(cicloRef.current);
+    if (responsables.length) {
+      let k = 0;
+      cicloRef.current = setInterval(() => {
+        setCiclo(responsables[k % responsables.length].id);
+        k++;
+      }, 110);
+    }
+
+    clearTimeout(timeoutRef.current);
+    timeoutRef.current = setTimeout(() => {
+      clearInterval(cicloRef.current);
+      setUsadas((prev) => (nuevaVueltaP ? [idx] : [...prev, idx]));
+      if (respId != null) setTurnos((prev) => (nuevaVueltaR ? [respId] : [...prev, respId]));
+      const p = preguntas[idx];
+      setOpciones([p.correcta, ...p.distractores].sort(() => Math.random() - 0.5));
+      setResult(idx);
+      setRespActual(respId);
+      setSpinning(false);
+    }, 4200);
+  };
+  useRemoteAction(remoteSignal, { primary: spin, next: spin });
+
+  const arc = (i) => {
+    if (n === 1) return null;
+    const a0 = ((-90 + i * seg) * Math.PI) / 180, a1 = ((-90 + (i + 1) * seg) * Math.PI) / 180;
+    return `M ${cx},${cy} L ${cx + r * Math.cos(a0)},${cy + r * Math.sin(a0)} A ${r},${r} 0 ${seg > 180 ? 1 : 0} 1 ${cx + r * Math.cos(a1)},${cy + r * Math.sin(a1)} Z`;
+  };
+
+  const pregunta = result != null ? preguntas[result] : null;
+  const responsable = responsables.find((rp) => rp.id === (spinning ? ciclo : respActual));
+
+  // Al elegir una opción: si hay un equipo respondiendo (Modo Equipos), le
+  // suma o resta los puntos según acierte o falle. Sin equipos, solo revela.
+  const elegirOpcion = (i) => {
+    if (chosen !== null || !pregunta) return;
+    setChosen(i);
+    if (modoEquipos && respActual != null && equiposApi) {
+      const acerto = opciones[i] === pregunta.correcta;
+      equiposApi.sumar(respActual, acerto ? puntos : -puntos);
+    }
+  };
+
+  return (
+    <div className="act-stage" style={{ flexDirection: 'row', gap: 100, textAlign: 'left', justifyContent: 'center' }}>
+      <div style={{ position: 'relative', flexShrink: 0, filter: 'drop-shadow(0 22px 40px rgba(0,0,0,.55))' }}>
+        <svg width="660" height="660" viewBox="0 0 660 660" style={{ transform: `rotate(${rot}deg)`, transition: spinning ? 'transform 4.2s cubic-bezier(.12,.68,.16,1)' : 'none' }}>
+          <defs>
+            <radialGradient id="rcg-gloss" cx="35%" cy="28%" r="65%">
+              <stop offset="0%" stopColor="#fff" stopOpacity=".38" />
+              <stop offset="45%" stopColor="#fff" stopOpacity=".1" />
+              <stop offset="100%" stopColor="#fff" stopOpacity="0" />
+            </radialGradient>
+            <radialGradient id="rcg-hub" cx="35%" cy="30%" r="75%">
+              <stop offset="0%" stopColor="#454C42" />
+              <stop offset="100%" stopColor="#0B0E0B" />
+            </radialGradient>
+          </defs>
+          {/* aro exterior */}
+          <circle cx={cx} cy={cy} r={r + 12} fill="#0B0E0B" />
+          {n === 1
+            ? <circle cx={cx} cy={cy} r={r} fill={coloresRueda[0]} />
+            : preguntas.map((_, i) => <path key={i} d={arc(i)} fill={coloresRueda[i]} stroke="#0B0E0B" strokeWidth="4" />)}
+          {preguntas.map((_, i) => {
+            const am = ((-90 + (i + 0.5) * seg) * Math.PI) / 180;
+            return <text key={'t' + i} x={cx + r * 0.66 * Math.cos(am)} y={cy + r * 0.66 * Math.sin(am)} textAnchor="middle" dominantBaseline="central"
+              fontFamily="var(--font-display)" fontWeight="800" fontSize="54" fill="#08120B">{i + 1}</text>;
+          })}
+          {/* clavos decorativos en el borde, como una ruleta de concurso real */}
+          {n > 1 && preguntas.map((_, i) => {
+            const am = ((-90 + i * seg) * Math.PI) / 180;
+            return <circle key={'peg' + i} cx={cx + (r - 8) * Math.cos(am)} cy={cy + (r - 8) * Math.sin(am)} r="6.5" fill="#F2F5EF" opacity=".85" />;
+          })}
+          {/* brillo superior, para que no se vea plana */}
+          <circle cx={cx} cy={cy} r={r} fill="url(#rcg-gloss)" />
+          <circle cx={cx} cy={cy} r="58" fill="url(#rcg-hub)" stroke="#F2F5EF" strokeWidth="6" />
+          <circle cx={cx} cy={cy} r="9" fill="#F2F5EF" opacity=".55" />
+        </svg>
+        {/* puntero con forma de gota, más vistoso que un triángulo plano */}
+        <svg width="76" height="86" viewBox="0 0 76 86" style={{ position: 'absolute', top: -30, left: '50%', transform: 'translateX(-50%)', filter: 'drop-shadow(0 6px 10px rgba(0,0,0,.55))' }}>
+          <path d="M38 84 C20 58 8 42 8 27 A30 30 0 0 1 68 27 C68 42 56 58 38 84 Z" fill="#F2F5EF" />
+          <circle cx="38" cy="27" r="11" fill="#0B0E0B" opacity=".18" />
+        </svg>
+      </div>
+      <div style={{ maxWidth: 900 }}>
+        <ActHeader tool={tool} titulo={config.titulo} compact />
+        <div className="act-instr" style={{ marginTop: 14 }}>{config.instrucciones}</div>
+
+        {n > 1 && (
+          <div style={{ marginTop: 12, fontSize: 14, color: '#7B857A' }}>
+            Preguntas sin repetir hasta que salgan todas · quedan {n - usadas.length} de {n}
+          </div>
+        )}
+
+        {/* A quién le toca responder (equipo o estudiante). Mientras gira,
+            pasa rápido por todos; se revela junto con la pregunta. */}
+        {responsables.length > 0 && (
+          <div style={{ marginTop: 16 }}>
+            <div style={{
+              display: 'inline-block', padding: '12px 26px', borderRadius: 16,
+              background: responsable ? responsable.color : '#2A2F29',
+              color: responsable ? '#08120B' : '#9AA396',
+              fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 26,
+              transition: spinning ? 'none' : 'background .15s ease',
+            }}>
+              {spinning
+                ? '🎯 ' + (responsable ? responsable.nombre : '…')
+                : (responsable ? ('Responde: ' + responsable.nombre) : 'El próximo giro elige quién responde')}
+            </div>
+            <div style={{ display: 'flex', gap: 8, marginTop: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+              {responsables.map((rp) => (
+                <span key={rp.id} title={rp.nombre} style={{
+                  width: 13, height: 13, borderRadius: '50%', border: '2px solid ' + rp.color,
+                  background: turnos.includes(rp.id) ? rp.color : 'transparent', display: 'inline-block',
+                }} />
+              ))}
+              <span style={{ fontSize: 12.5, color: '#7B857A', marginLeft: 4 }}>
+                {turnos.length} de {responsables.length} ya {modoEquipos ? 'respondieron' : 'pasaron'} esta vuelta
+              </span>
+            </div>
+          </div>
+        )}
+
+        {pregunta && (
+          <div className="fade-up" style={{ marginTop: 22 }}>
+            <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 38, lineHeight: 1.2 }}>
+              {pregunta.pregunta}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginTop: 18 }}>
+              {opciones.map((o, i) => (
+                <button key={i}
+                  className={'act-option' + (chosen !== null ? (o === pregunta.correcta ? ' correct' : (i === chosen ? ' wrong' : '')) : '')}
+                  style={{ fontSize: 24, padding: '16px 20px' }}
+                  onClick={() => elegirOpcion(i)}>
+                  <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, marginRight: 14, opacity: .65 }}>{String.fromCharCode(65 + i)}</span>{o}
+                </button>
+              ))}
+            </div>
+            {chosen !== null && (
+              <div className="fade-up" style={{ marginTop: 18, fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 28, color: opciones[chosen] === pregunta.correcta ? '#11F555' : '#F53711' }}>
+                {opciones[chosen] === pregunta.correcta
+                  ? '¡Correcto!' + (modoEquipos && respActual != null ? ` (+${puntos})` : '')
+                  : 'Era: ' + pregunta.correcta + (modoEquipos && respActual != null ? ` (−${puntos})` : '')}
+              </div>
+            )}
+          </div>
+        )}
+
+        <button className="act-bigbtn" style={{ background: tool.color, color: '#06140A', marginTop: 26 }} onClick={spin} disabled={spinning}>
+          {spinning ? 'Girando…' : result !== null ? 'Girar de nuevo' : '¡Girar!'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /* ---------- Completa la palabra ---------- */
 function CompletaRun({ config, tool }) {
   const items = (config.items || []).filter((x) => x.includes('=') && x.includes('_'));
@@ -314,6 +550,98 @@ function CompletaRun({ config, tool }) {
       {solved && items.length > 1 && (
         <button className="act-bigbtn fade-up" style={{ background: '#F2F5EF', color: '#08120B', fontSize: 30, padding: '16px 44px' }} onClick={next}>
           Siguiente palabra ({(qi % items.length) + 1}/{items.length})
+        </button>
+      )}
+    </div>
+  );
+}
+
+/* ---------- Encuentra la idea ----------
+   Cada línea es un párrafo; la oración marcada con [corchetes] es la idea
+   principal. Se quitan los corchetes y se separa el párrafo en oraciones
+   (por ., ! o ?), que funcionan como opciones. Tocar una equivocada la
+   marca en naranja y muestra el aviso (sin revelar la correcta); se puede
+   seguir intentando. Mismo patrón de "intento sin revelar" que CompletaRun. */
+function EncuentraIdeaRun({ config, tool }) {
+  const ejercicios = React.useMemo(() =>
+    (config.items || [])
+      .map((linea) => {
+        const m = linea.match(/\[([^\]]+)\]/);
+        if (!m) return null;
+        const correcta = m[1].trim();
+        const plano = linea.replace(/\[|\]/g, '');
+        const oraciones = (plano.match(/[^.!?]+[.!?]*/g) || [plano])
+          .map((s) => s.trim())
+          .filter(Boolean);
+        if (!oraciones.some((o) => o === correcta || o.includes(correcta))) return null;
+        return { oraciones, correcta };
+      })
+      .filter(Boolean),
+    [config.items]);
+
+  const [qi, setQi] = React.useState(0);
+  const [wrong, setWrong] = React.useState([]); // índices de oraciones ya marcadas incorrectas
+  const [solved, setSolved] = React.useState(false);
+
+  if (!ejercicios.length) return <FichaRun config={config} tool={tool} />;
+  const ej = ejercicios[qi % ejercicios.length];
+  const esCorrecta = (o) => o === ej.correcta || o.includes(ej.correcta);
+
+  const elegir = (i, o) => {
+    if (solved) return;
+    if (esCorrecta(o)) setSolved(true);
+    else if (!wrong.includes(i)) setWrong([...wrong, i]);
+  };
+  const siguiente = () => { setQi((qi + 1) % ejercicios.length); setWrong([]); setSolved(false); };
+
+  return (
+    <div className="act-stage" style={{ justifyContent: 'flex-start', paddingTop: 60 }}>
+      <ActHeader tool={tool} titulo={config.titulo} instrucciones={config.instrucciones} compact />
+      {ejercicios.length > 1 && (
+        <div style={{ marginTop: 6, fontSize: 16, color: 'var(--muted)' }}>
+          Párrafo {(qi % ejercicios.length) + 1} de {ejercicios.length}
+        </div>
+      )}
+      {/* Un párrafo compacto y continuo (no una lista de botones separados):
+          cada oración es un <span> en línea, sin borde ni caja propia hasta
+          que se toca — así se lee como un párrafo normal, no como un menú
+          de opciones. Al tocar, se resalta esa porción del texto (como un
+          marcador), en vez de convertirla en una tarjeta aparte. */}
+      <div style={{
+        marginTop: 34, maxWidth: 1500, width: '100%', textAlign: 'left',
+        fontFamily: 'var(--font-body)', fontSize: 34, fontWeight: 600, lineHeight: 1.7,
+      }}>
+        {ej.oraciones.map((o, i) => {
+          const marcada = solved && esCorrecta(o);
+          const fallada = wrong.includes(i);
+          return (
+            <span key={i} onClick={() => elegir(i, o)}
+              style={{
+                cursor: solved ? 'default' : 'pointer',
+                borderRadius: 8, padding: '3px 7px', margin: '-3px -7px',
+                boxDecorationBreak: 'clone', WebkitBoxDecorationBreak: 'clone',
+                background: marcada ? '#11F555' : (fallada ? 'rgba(245,55,17,.32)' : 'transparent'),
+                color: marcada ? '#06140A' : (fallada ? '#FF9D85' : '#F2F5EF'),
+                transition: 'background .15s ease, color .15s ease',
+              }}>
+              {o}{' '}
+            </span>
+          );
+        })}
+      </div>
+      {wrong.length > 0 && !solved && (
+        <div className="fade-up" style={{ marginTop: 26, fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 32, color: '#F53711' }}>
+          Incorrecto, es idea secundaria. ¡Sigue intentando!
+        </div>
+      )}
+      {solved && (
+        <div className="fade-up" style={{ marginTop: 26, fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 36, color: '#11F555' }}>
+          🎉 ¡Correcto! Esa es la idea principal.
+        </div>
+      )}
+      {solved && ejercicios.length > 1 && (
+        <button className="act-bigbtn fade-up" style={{ background: '#F2F5EF', color: '#08120B', fontSize: 30, padding: '16px 44px' }} onClick={siguiente}>
+          Siguiente párrafo ({(qi % ejercicios.length) + 1}/{ejercicios.length})
         </button>
       )}
     </div>
@@ -536,7 +864,11 @@ function TemporizadorRun({ config, tool }) {
   );
 }
 /* ---------- Ahorcado: Profe vs. Curso ---------- */
-function AhorcadoRun({ config, tool }) {
+function AhorcadoRun({ config, tool, equiposApi }) {
+  // Dos modos de texto: presentación normal es "Profe vs. Curso" (el profe
+  // "gana" si se acaban las vidas); en Modo Equipos no hay un profe rival,
+  // así que en su lugar se anuncia que ganó el grupo.
+  const esEquipos = !!equiposApi;
   const VIDAS = 6;
   const items = (config.items || [])
     .map((l) => {
@@ -651,7 +983,7 @@ function AhorcadoRun({ config, tool }) {
           marginTop: 36, fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 52,
           color: ganoCurso ? '#11F555' : '#F53711',
         }}>
-          {ganoCurso ? '🎉 ¡Ganó el Curso!' : '😎 Ganó el Profe'}
+          {ganoCurso ? '🎉 ¡Ganó el Curso!' : (esEquipos ? '🏆 ¡Ganó el grupo!' : '😎 Ganó el Profe')}
         </div>
       )}
 
@@ -1690,6 +2022,102 @@ function DiferenciasRun({ config, tool }) {
 
       <button className="act-bigbtn" style={{ background:'transparent', color:'#9AA396', border:'2px solid #2A2F29', fontSize:20, padding:'8px 24px', marginTop:8, flexShrink:0 }}
         onClick={() => setEncontradas([])}>
+        Reiniciar
+      </button>
+    </div>
+  );
+}
+/* ---------- Encuentra el elemento ----------
+   Una imagen con una o varias zonas correctas (rectángulos en % de la
+   imagen, definidos en el editor). Tocar dentro de una zona aún no
+   encontrada = acierto (se marca en verde y queda encontrada); tocar fuera
+   muestra una "✕" que parpadea (igual que en "Encuentra las diferencias") y
+   se puede seguir intentando, sin revelar dónde están las zonas. Se gana al
+   encontrar todas. */
+function EncuentraElementoRun({ config, tool }) {
+  const imagen = config.imagen || '';
+  const zonas = Array.isArray(config.zonas) ? config.zonas : (config.zona ? [config.zona] : []);
+  const [encontradas, setEncontradas] = React.useState([]); // índices de zonas ya encontradas
+  const [fallo, setFallo] = React.useState(null); // {x,y} del último clic fallido (parpadea)
+  const falloRef = React.useRef(null);
+  React.useEffect(() => () => clearTimeout(falloRef.current), []);
+
+  if (!imagen || !zonas.length) return <FichaRun config={config} tool={tool} />;
+
+  const total = zonas.length;
+  const gano = encontradas.length >= total;
+
+  const clic = (e) => {
+    if (gano) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    let acierto = -1;
+    zonas.forEach((z, i) => {
+      if (acierto !== -1 || encontradas.includes(i)) return;
+      if (x >= z.x && x <= z.x + z.w && y >= z.y && y <= z.y + z.h) acierto = i;
+    });
+    if (acierto !== -1) {
+      clearTimeout(falloRef.current);
+      setEncontradas((arr) => [...arr, acierto]);
+      setFallo(null);
+    } else {
+      clearTimeout(falloRef.current);
+      setFallo({ x, y });
+      falloRef.current = setTimeout(() => setFallo(null), 600);
+    }
+  };
+  const reiniciar = () => { clearTimeout(falloRef.current); setEncontradas([]); setFallo(null); };
+
+  return (
+    <div className="act-stage" style={{ justifyContent: 'flex-start', paddingTop: 8, height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+      <ActHeader tool={tool} titulo={config.titulo} instrucciones={config.instrucciones} compact />
+
+      {total > 1 && (
+        <div style={{ marginTop: 6, fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 20, color: '#9AA396', flexShrink: 0 }}>
+          Encontrados: {encontradas.length}/{total}
+        </div>
+      )}
+
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: 14, width: '100%', overflow: 'hidden' }}>
+        <div onClick={clic} style={{
+          position: 'relative', maxWidth: '100%', maxHeight: '100%',
+          cursor: gano ? 'default' : 'crosshair', borderRadius: 14, overflow: 'hidden', border: '2px solid #2A2F29',
+        }}>
+          <img src={imagen} style={{ display: 'block', width: '100%', height: '100%', objectFit: 'contain', userSelect: 'none', pointerEvents: 'none' }} alt="" />
+          {encontradas.map((i) => {
+            const z = zonas[i];
+            return (
+              <div key={i} style={{
+                position: 'absolute', left: z.x + '%', top: z.y + '%', width: z.w + '%', height: z.h + '%',
+                border: '5px solid #11F555', borderRadius: 10, boxShadow: '0 0 22px rgba(17,245,85,.7)', pointerEvents: 'none',
+              }} />
+            );
+          })}
+          {fallo && !gano && (
+            <div style={{
+              position: 'absolute', left: fallo.x + '%', top: fallo.y + '%', width: 44, height: 44, marginLeft: -22, marginTop: -22,
+              borderRadius: '50%', border: '4px solid #F53711', pointerEvents: 'none', animation: 'fadeUp .3s',
+            }}>
+              <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', color: '#F53711', fontSize: 28, fontWeight: 800 }}>✕</div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {fallo && !gano && (
+        <div className="fade-up" style={{ marginTop: 14, fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 28, color: '#F53711', flexShrink: 0 }}>
+          Incorrecto, sigue intentando.
+        </div>
+      )}
+      {gano && (
+        <div className="fade-up" style={{ marginTop: 14, fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 32, color: '#11F555', flexShrink: 0 }}>
+          {total > 1 ? '🎉 ¡Todos encontrados!' : '🎉 ¡Correcto!'}
+        </div>
+      )}
+
+      <button className="act-bigbtn" style={{ background: 'transparent', color: '#9AA396', border: '2px solid #2A2F29', fontSize: 20, padding: '8px 24px', marginTop: 8, flexShrink: 0 }}
+        onClick={reiniciar}>
         Reiniciar
       </button>
     </div>
@@ -2869,6 +3297,212 @@ function RecuadrosRun({ config, tool, equiposApi }) {
     </div>
   );
 }
+
+/* ---------- Tablero de números ----------
+   Un tablero de casillas numeradas (una por pregunta), en orden mezclado:
+   elegir un número revela la pregunta que esconde. Funciona en cualquier
+   presentación (uso individual/grupal con toda la clase) y, si Modo Equipos
+   está activo, además reparte turnos entre los equipos (sin repetir uno
+   hasta que les toque a todos) y puntos al acertar. */
+function TableroRun({ config, tool, equiposApi }) {
+  const preguntas = React.useMemo(() =>
+    (config.items || [])
+      .map((l) => { const [p, r] = l.split('=').map((s) => (s || '').trim()); return { pregunta: p || '', respuesta: r || '' }; })
+      .filter((x) => x.pregunta),
+    [config.items]);
+  const puntos = Math.max(1, Number(config.puntos) || 1);
+  const n = preguntas.length;
+  const equiposDef = equiposApi ? equiposApi.equipos : null;
+
+  // Orden de las casillas: se mezcla una sola vez por diapositiva (no en
+  // cada render), para que el número 1 no sea siempre la primera pregunta.
+  const orden = React.useMemo(() => {
+    const idx = preguntas.map((_, i) => i);
+    for (let i = idx.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [idx[i], idx[j]] = [idx[j], idx[i]];
+    }
+    return idx;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [n]);
+
+  const [abiertas, setAbiertas] = React.useState([]); // posiciones ya reveladas
+  const [activa, setActiva] = React.useState(null);   // posición mostrada en grande
+  const [verResp, setVerResp] = React.useState(false);
+
+  // Turno del equipo (solo Modo Equipos): rota entre equipos sin repetir
+  // uno hasta que a todos les haya tocado (misma regla que en la Ruleta).
+  const [turnos, setTurnos] = React.useState([]);
+  const [turnoId, setTurnoId] = React.useState(null);
+  React.useEffect(() => {
+    setTurnos([]);
+    setTurnoId(equiposDef && equiposDef.length ? equiposDef[0].id : null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [equiposDef ? equiposDef.length : 0]);
+  // Un color distinto por casilla (paleta de la ruleta), sin que dos vecinas
+  // en la cuadrícula queden con el mismo color.
+  const coloresTablero = React.useMemo(() => coloresSinRepetirAdyacentes(n, RULETA_PALETTE), [n]);
+
+  if (!n) return <FichaRun config={config} tool={tool} />;
+
+  const elegir = (pos) => {
+    if (activa !== null || abiertas.includes(pos)) return;
+    setActiva(pos);
+    setVerResp(false);
+  };
+
+  const cerrar = () => {
+    setAbiertas((prev) => [...prev, activa]);
+    setActiva(null);
+    setVerResp(false);
+    if (equiposDef && equiposDef.length) {
+      let pool = equiposDef.filter((e) => e.id !== turnoId && !turnos.includes(e.id));
+      if (!pool.length) { pool = equiposDef.filter((e) => e.id !== turnoId); setTurnos([turnoId]); }
+      else setTurnos((prev) => [...prev, turnoId]);
+      setTurnoId((pool[0] || equiposDef[0]).id);
+    }
+  };
+  const acerto = (equipoId) => { if (equiposApi) equiposApi.sumar(equipoId, puntos); cerrar(); };
+
+  const reiniciar = () => { setAbiertas([]); setActiva(null); setVerResp(false); };
+
+  const pregunta = activa != null ? preguntas[orden[activa]] : null;
+  const equipoTurno = equiposDef && equiposDef.find((e) => e.id === turnoId);
+  const terminado = abiertas.length >= n;
+
+  // Casillas grandes, ocupando casi todo el ancho/alto disponible bajo el
+  // encabezado (antes eran 120px fijos y sobraba media pantalla vacía).
+  // Se calcula el tamaño de celda a partir del espacio real, no un valor fijo.
+  const cols = n <= 4 ? n : n <= 8 ? 4 : n <= 15 ? 5 : 6;
+  const rows = Math.ceil(n / cols);
+  const gap = 24;
+  const anchoDisp = 1680, altoDisp = equipoTurno ? 560 : 620;
+  // Con pocas preguntas, deja crecer más las casillas (si no, sobra media
+  // pantalla vacía); con muchas, el tope bajo evita casillas gigantes.
+  const maxCelda = n <= 4 ? 340 : n <= 6 ? 300 : n <= 9 ? 260 : n <= 15 ? 220 : 180;
+  const celda = Math.max(110, Math.min(
+    maxCelda,
+    Math.floor((anchoDisp - gap * (cols - 1)) / cols),
+    Math.floor((altoDisp - gap * (rows - 1)) / rows),
+  ));
+  const fzNum = Math.round(celda * 0.4);
+
+  return (
+    <div className="act-stage" style={{ justifyContent: 'flex-start', paddingTop: 20 }}>
+      <ActHeader tool={tool} titulo={config.titulo} instrucciones={config.instrucciones} compact />
+
+      {equipoTurno && !pregunta && (
+        <div style={{
+          marginTop: 14, padding: '10px 28px', borderRadius: 14, background: equipoTurno.color, color: '#06140A',
+          fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 26,
+        }}>
+          Turno: {equipoTurno.nombre}
+        </div>
+      )}
+
+      {!pregunta ? (
+        <React.Fragment>
+          <div style={{
+            display: 'grid', gridTemplateColumns: `repeat(${cols}, ${celda}px)`, gap,
+            marginTop: 22, justifyContent: 'center',
+          }}>
+            {orden.map((_, pos) => {
+              const usada = abiertas.includes(pos);
+              const color = coloresTablero[pos];
+              return (
+                <button key={pos} onClick={() => elegir(pos)} disabled={usada}
+                  style={{
+                    width: celda, height: celda, borderRadius: celda * 0.16, border: 'none',
+                    cursor: usada ? 'default' : 'pointer', position: 'relative', overflow: 'hidden',
+                    background: usada ? '#20251F' : color,
+                    color: usada ? '#485044' : '#08120B',
+                    fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: fzNum,
+                    // Botón "de concurso": un reborde inferior que da volumen, y
+                    // que se hunde (sin reborde + trasladado) al quedar usada.
+                    boxShadow: usada
+                      ? 'inset 0 6px 12px rgba(0,0,0,.5)'
+                      : `0 ${Math.round(celda * 0.07)}px 0 rgba(0,0,0,.32), 0 ${Math.round(celda * 0.1)}px ${Math.round(celda * 0.22)}px -${Math.round(celda * 0.08)}px rgba(0,0,0,.55)`,
+                    transform: usada ? `translateY(${Math.round(celda * 0.05)}px)` : 'none',
+                    transition: 'transform .15s ease, filter .15s ease',
+                  }}
+                  onMouseEnter={(e) => { if (!usada) e.currentTarget.style.filter = 'brightness(1.08)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.filter = 'none'; }}>
+                  {usada ? (
+                    <span style={{ fontSize: fzNum * 0.9 }}>✓</span>
+                  ) : (
+                    <React.Fragment>
+                      <span aria-hidden="true" style={{
+                        position: 'absolute', top: celda * 0.06, right: celda * 0.1,
+                        fontSize: fzNum * 0.42, fontWeight: 800, opacity: .3,
+                      }}>?</span>
+                      {pos + 1}
+                    </React.Fragment>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+          {terminado && (
+            <button className="act-bigbtn" style={{ background: 'transparent', color: '#9AA396', border: '3px solid #2A2F29', fontSize: 22, padding: '12px 30px', marginTop: 26 }}
+              onClick={reiniciar}>
+              🔄 Reiniciar tablero
+            </button>
+          )}
+        </React.Fragment>
+      ) : (
+        <div className="fade-up" style={{ marginTop: 26, maxWidth: 1400, width: '100%' }}>
+          <div style={{
+            padding: '46px 56px', borderRadius: 28, background: '#161A15',
+            border: '4px solid ' + (coloresTablero[activa] || tool.color),
+            boxShadow: `0 24px 60px -20px ${coloresTablero[activa] || tool.color}55`,
+          }}>
+            <div style={{
+              display: 'inline-block', padding: '6px 18px', borderRadius: 999,
+              background: coloresTablero[activa] || tool.color, color: '#08120B',
+              fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 22, letterSpacing: '.1em',
+            }}>
+              NÚMERO {activa + 1}
+            </div>
+            <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 50, lineHeight: 1.25, marginTop: 18 }}>
+              {pregunta.pregunta}
+            </div>
+            {pregunta.respuesta && (
+              verResp ? (
+                <div className="fade-up" style={{ marginTop: 22, fontSize: 34, fontWeight: 700, color: '#11F555' }}>Respuesta: {pregunta.respuesta}</div>
+              ) : (
+                <button className="act-bigbtn" style={{ background: 'transparent', color: '#9AA396', border: '3px solid #2A2F29', fontSize: 22, padding: '10px 28px', marginTop: 22 }}
+                  onClick={() => setVerResp(true)}>
+                  👁 Ver respuesta
+                </button>
+              )
+            )}
+          </div>
+
+          {/* Modo Equipos: un botón por equipo para dar el punto a quien acertó. */}
+          {equiposDef && equiposDef.length > 0 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, marginTop: 24 }}>
+              {equiposDef.map((e) => (
+                <button key={e.id} onClick={() => acerto(e.id)}
+                  style={{
+                    padding: '14px 26px', borderRadius: 16, border: 'none', cursor: 'pointer',
+                    background: e.color, color: '#06140A', fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 20,
+                    boxShadow: '0 8px 20px -8px rgba(0,0,0,.5)',
+                  }}>
+                  ✓ {e.nombre} (+{puntos})
+                </button>
+              ))}
+            </div>
+          )}
+
+          <button className="act-bigbtn" style={{ background: tool.color, color: '#06140A', marginTop: 28 }} onClick={cerrar}>
+            Cerrar y volver al tablero →
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ---------- Formar grupos (sorteo aleatorio de la lista) ---------- */
 function GruposRun({ config, tool, remoteSignal, equiposApi, gruposGuardados, onGrupos }) {
   const GCOLS = ['#11F555', '#F53711', '#116CF5', '#F5C211', '#A855F7', '#EC4899', '#38BDF8', '#FB923C'];
@@ -3001,17 +3635,18 @@ function GruposRun({ config, tool, remoteSignal, equiposApi, gruposGuardados, on
 }
 /* ===== Reemplaza tu objeto window.ActivityRuntimes por este (añade las 4) ===== */
 window.ActivityRuntimes = {
-  ruleta: RuletaRun, completa: CompletaRun, elige: EligeRun, vf: VFRun,
+  ruleta: RuletaRun, ruletaCerrada: RuletaCerradaRun, completa: CompletaRun, elige: EligeRun, vf: VFRun,
   selector: SelectorRun, dado: DadoRun, marcador: MarcadorRun,
   problema: ProblemaRun, crea: FichaRun, temporizador: TemporizadorRun,
   ahorcado: AhorcadoRun, sopa: SopaRun, crucigrama: CrucigramaRun, reto: RetoRun,
-  organiza: OrganizaRun, descubre: DescubreRun, default: FichaRun,
+  organiza: OrganizaRun, descubre: DescubreRun, encuentraIdea: EncuentraIdeaRun, encuentraElemento: EncuentraElementoRun, default: FichaRun,
   stop: StopRun, errores: DiferenciasRun, acertijo: AcertijoRun,
   lluvia: LluviaRun, pares: ParesRun,
   encuesta: EncuestaRun, debate: DebateRun, memorama: MemoramaRun,
   ordena: OrdenaRun, 
   // --- actividades de equipo (Entrega 2) ---
   retaEquipo: RetaEquipoRun, pulsador: PulsadorRun, apuesta: ApuestaRun, recuadros: RecuadrosRun, grupos: GruposRun,
+  tablero: TableroRun,
 
 };
-Object.assign(window, { FichaRun, SinEquipos, RetaEquipoRun, PulsadorRun, ApuestaRun, RecuadrosRun });
+Object.assign(window, { FichaRun, SinEquipos, RetaEquipoRun, PulsadorRun, ApuestaRun, RecuadrosRun, TableroRun });
