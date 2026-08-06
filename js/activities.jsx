@@ -927,10 +927,17 @@ function AhorcadoRun({ config, tool, equiposApi }) {
   const filas = ['QWERTYUIOP', 'ASDFGHJKLÑ', 'ZXCVBNM'];
 
   // Tamaño de casillas adaptable: palabras largas -> casillas más pequeñas,
-  // para que la palabra completa quepa en una línea sin partirse.
+  // para que la palabra completa quepa en una línea sin partirse. Se usan
+  // casillas grandes y líneas gruesas para que se vea bien desde lejos
+  // (la actividad se proyecta en pantalla).
   const nLetras = palabra.split('').filter(esLetra).length;
-  const box = nLetras <= 8 ? 88 : nLetras <= 11 ? 70 : nLetras <= 14 ? 56 : 46;
-  const fontBox = Math.round(box * 0.66);
+  const box = nLetras <= 8 ? 118 : nLetras <= 11 ? 96 : nLetras <= 14 ? 78 : 64;
+  const fontBox = Math.round(box * 0.72);
+  const lineaGrosor = Math.max(8, Math.round(box * 0.11));
+  // Líneas en rojo/verde/azul (alternadas), mucho más visibles que un tono
+  // apagado único, en vez del color de la herramienta.
+  const LINEA_COLORES = ['#F53711', '#11F555', '#116CF5'];
+  let contadorLetra = -1;
 
   return (
     <div className="act-stage">
@@ -948,7 +955,7 @@ function AhorcadoRun({ config, tool, equiposApi }) {
           }}>{i < vidas ? '❤️' : '🤍'}</span>
         ))}
         <span style={{ marginLeft: 22, fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 60, color: 'var(--muted)' }}>
-          Curso · {vidas}/{VIDAS}
+          {esEquipos ? 'Grupo' : 'Curso'} · {vidas}/{VIDAS}
         </span>
       </div>
 
@@ -960,17 +967,21 @@ function AhorcadoRun({ config, tool, equiposApi }) {
       )}
 
       {/* La palabra con guiones (no se parte: nowrap + casillas adaptables) */}
-      <div style={{ display: 'flex', gap: 12, marginTop: 40, flexWrap: 'nowrap', justifyContent: 'center', maxWidth: '95%' }}>
+      <div style={{ display: 'flex', gap: 16, marginTop: 40, flexWrap: 'nowrap', justifyContent: 'center', maxWidth: '95%' }}>
         {palabra.split('').map((ch, i) => {
           if (!esLetra(ch)) return <div key={i} style={{ width: box * 0.4 }} />;
+          contadorLetra++;
           const visible = acertadas.has(ch) || ganoProfe;
           const fallada = ganoProfe && !acertadas.has(ch);
+          const colorLinea = LINEA_COLORES[contadorLetra % LINEA_COLORES.length];
           return (
             <div key={i} style={{
-              width: box, minWidth: box, height: box * 1.15, borderRadius: 12, display: 'grid', placeItems: 'center',
+              width: box, minWidth: box, height: box * 1.15, borderRadius: 14, display: 'grid', placeItems: 'center',
               fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: fontBox,
-              borderBottom: '6px solid ' + (visible ? tool.color : '#5A6157'),
+              borderBottom: lineaGrosor + 'px solid ' + colorLinea,
+              boxShadow: '0 ' + lineaGrosor + 'px 16px -6px ' + colorLinea,
               color: fallada ? '#F53711' : (visible ? '#F2F5EF' : 'transparent'),
+              textShadow: visible && !fallada ? '0 0 14px rgba(242,245,239,.35)' : 'none',
               transition: 'all .25s ease',
             }}>{visible ? ch : '?'}</div>
           );
@@ -983,7 +994,9 @@ function AhorcadoRun({ config, tool, equiposApi }) {
           marginTop: 36, fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 52,
           color: ganoCurso ? '#11F555' : '#F53711',
         }}>
-          {ganoCurso ? '🎉 ¡Ganó el Curso!' : (esEquipos ? '🏆 ¡Ganó el grupo!' : '😎 Ganó el Profe')}
+          {ganoCurso
+            ? (esEquipos ? '🏆 ¡Ganó el Grupo!' : '🎉 ¡Ganó el Curso!')
+            : (esEquipos ? '💀 ¡Perdió el Grupo!' : '😎 Ganó el Profe')}
         </div>
       )}
 
@@ -1526,6 +1539,18 @@ function OrganizaRun({ config, tool }) {
   if (!ejercicios.length) return <FichaRun config={config} tool={tool} />;
   const ej = ejercicios[qi % ejercicios.length];
 
+  // Tamaño de letra de la frase proporcional a su longitud (en palabras):
+  // frases cortas se ven grandes y llamativas; frases largas se reducen para
+  // que quepan cómodamente dentro del marco.
+  const totalPalabras = ej.segmentos.reduce((acc, s) => {
+    if (s.tipo === 'hueco') return acc + 1;
+    return acc + s.valor.trim().split(/\s+/).filter(Boolean).length;
+  }, 0);
+  const fontFrase = totalPalabras <= 6 ? 64 : totalPalabras <= 10 ? 52 : totalPalabras <= 14 ? 44 : totalPalabras <= 20 ? 38 : 32;
+  const huecoAncho = Math.round(fontFrase * 3.4);
+  // Color del marco: cambia con cada frase nueva, para que se note el cambio de ejercicio.
+  const colorMarco = RULETA_PALETTE[(qi % ejercicios.length) % RULETA_PALETTE.length];
+
   // banco de palabras desordenadas (las correctas, mezcladas) — fijo por ejercicio
   const banco = React.useMemo(() => {
     return ej.huecos.map((p, i) => ({ id: i, palabra: p })).sort(() => Math.random() - 0.5);
@@ -1578,9 +1603,13 @@ function OrganizaRun({ config, tool }) {
       )}
 
       {/* Zona scrollable: párrafo + banco */}
-      <div style={{ flex:1, overflowY:'auto', width:'100%', maxWidth:1500, display:'flex', flexDirection:'column', alignItems:'flex-start', paddingRight:10 }}>
-      {/* Párrafo con huecos (texto fluido, no flex) */}
-      <div style={{ marginTop:28, maxWidth:1500, fontSize:36, lineHeight:2.1, textAlign:'left' }}>
+      <div style={{ flex:1, overflowY:'auto', width:'100%', maxWidth:1600, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', paddingRight:10 }}>
+      {/* Párrafo con huecos, centrado y con marco para que resalte */}
+      <div style={{
+        marginTop:20, maxWidth:1500, width:'100%', boxSizing:'border-box', fontSize:fontFrase, lineHeight:1.75, textAlign:'center',
+        padding:'38px 50px', borderRadius:26, border:'3px solid ' + colorMarco,
+        background:'rgba(255,255,255,.045)', boxShadow:'0 0 46px -12px ' + colorMarco, transition:'border-color .3s ease, box-shadow .3s ease',
+      }}>
         {ej.segmentos.map((s, i) => {
           if (s.tipo === 'texto') return <span key={i}>{s.valor}</span>;
           const f = fichaEnHueco(s.idx);
@@ -1592,7 +1621,7 @@ function OrganizaRun({ config, tool }) {
               onDrop={() => soltarEn(s.idx)}
               onClick={() => f && quitarDeHueco(s.idx)}
               style={{
-                display:'inline-block', textAlign:'center', minWidth:130, padding:'4px 14px', margin:'0 4px',
+                display:'inline-block', textAlign:'center', minWidth:huecoAncho, padding:'4px 14px', margin:'0 6px',
                 borderRadius:10, cursor: f ? 'pointer' : 'default',
                 border:'2px dashed ' + (ok ? '#11F555' : mal ? '#F53711' : (f ? tool.color : '#5A6157')),
                 background: ok ? 'rgba(17,245,85,.15)' : mal ? 'rgba(245,55,17,.15)' : (f ? 'rgba(255,255,255,.06)' : 'transparent'),

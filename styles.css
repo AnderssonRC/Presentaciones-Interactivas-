@@ -216,7 +216,7 @@ input, textarea, select { font-family: var(--font-body); color: inherit; }
   padding: 12px 20px; border-bottom: 1px solid var(--line); background: var(--surface);
 }
 .editor-body {
-  flex: 1; display: grid; grid-template-columns: 210px minmax(0, 1fr) 312px;
+  flex: 1; display: grid; grid-template-columns: 210px minmax(0, 1fr) 270px;
   min-height: 0;
 }
 .editor-list {

@@ -74,10 +74,11 @@ function ThemeToggle({ theme, setTheme }) {
 }
 
 /* Escala un lienzo 1920x1080 al espacio disponible: se ajusta al ANCHO del
-   contenedor y, además, limita la escala para que la diapositiva quepa
+   contenedor (dejando un margen a los lados para que no ocupe toda la
+   columna) y, además, limita la escala para que la diapositiva quepa
    COMPLETA en el ALTO visible de la columna (sin quedar cortada por el pie
-   de página). Cuando el alto es el que limita, el lienzo se centra
-   horizontalmente. */
+   de página). Queda alineado a la izquierda (no centrado), para no dejar
+   espacio "perdido" de forma pareja a ambos lados. */
 function ScaledSlide({ children, maxH }) {
   const boxRef = useRef(null);
   const [fit, setFit] = useState({ scale: 0.3, off: 0 });
@@ -92,11 +93,14 @@ function ScaledSlide({ children, maxH }) {
     // Espacio reservado bajo el lienzo: padding inferior de la columna (~24px)
     // + el pie de página fijo de Res Cogitans (~34px) que se superpone abajo.
     const RESERVA = 60;
+    // Margen horizontal: deja aire a los lados en vez de estirar el lienzo
+    // borde a borde en la columna (se veía "muy grande").
+    const MARGEN_H = 70;
     let rafId = 0;
     let ultimoS = -1, ultimoOff = -1;
     const aplicar = () => {
       rafId = 0;
-      let s = medible.clientWidth / 1920;
+      let s = Math.max(0.05, medible.clientWidth - MARGEN_H) / 1920;
       if (maxH) s = Math.min(s, maxH / 1080);
       // Ajuste al ALTO: posición del stagebox dentro de la columna (usando
       // scrollTop para que sea independiente del scroll) y alto que queda
@@ -108,9 +112,7 @@ function ScaledSlide({ children, maxH }) {
       // Solo limitamos por alto si el espacio es razonable (ventanas muy
       // bajas caen al ajuste por ancho para no dejar un lienzo diminuto).
       if (disponible > 240) s = Math.min(s, disponible / 1080);
-      // Centrado horizontal cuando el alto limitó la escala y el lienzo
-      // quedó más angosto que la columna.
-      const off = Math.max(0, Math.round((medible.clientWidth - 1920 * s) / 2));
+      const off = 0; // alineado a la izquierda, no centrado
       // Ignora cambios sub-pixel: evita re-renders por ruido de redondeo.
       if (Math.abs(s - ultimoS) < 0.0005 && off === ultimoOff) return;
       ultimoS = s; ultimoOff = off;
@@ -135,9 +137,10 @@ function ScaledSlide({ children, maxH }) {
   const { scale, off } = fit;
   return (
     <div className="slide-stagebox" ref={boxRef} style={{ height: Math.round(1080 * scale) }}>
-      {/* translateX va ANTES de scale: el desplazamiento se aplica en píxeles
-          de pantalla (post-escala) y centra el lienzo ya reducido. */}
-      <div className="slide" style={{ transform: `translateX(${off}px) scale(${scale})`, borderRadius: 12 / scale > 60 ? 0 : 12, boxShadow: 'var(--shadow)' }}>
+      <div className="slide" style={{
+        transform: `translateX(${off}px) scale(${scale})`, borderRadius: 12 / scale > 60 ? 0 : 12, boxShadow: 'var(--shadow)',
+        outline: Math.max(1, Math.round(2 / scale)) + 'px solid #FB923C', outlineOffset: -Math.max(1, Math.round(2 / scale)),
+      }}>
         {children}
       </div>
     </div>
