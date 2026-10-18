@@ -1,9 +1,14 @@
 /* presentar-pdf.jsx — Presentar un documento PDF (Modo Vigía).
-   El PDF ocupa la pantalla con sus activadores numerados (rectángulo de color
-   traslúcido sobre el texto). Al tocar uno, o con "Siguiente activador"
-   (→ / espacio), irrumpe una frase al azar y aparece la tarjeta central.
-   Los activadores ya abiertos quedan marcados como vistos.
+   El PDF ocupa TODA la pantalla con sus activadores numerados (rectángulo de
+   color traslúcido sobre el texto). Sin barra superior: solo una pastilla de
+   controles abajo a la derecha (acercar/alejar, siguiente activador, salir)
+   que se oculta sola cuando no se mueve el mouse.
+   Al tocar un activador, o con "Siguiente" (→ / espacio), irrumpe una frase al
+   azar y aparece la tarjeta central. Los ya abiertos quedan atenuados.
    Lo que se escribe en vivo (definición del Glosario) se guarda con onChange. */
+
+// Niveles de acercamiento (1 = el PDF ocupa el ancho de la pantalla, hasta 1150 px).
+const ZOOM_PASOS = [0.6, 0.75, 0.9, 1, 1.15, 1.3, 1.5, 1.75, 2, 2.5];
 
 function VigiaPresentarPdf({ act, onExit, onChange }) {
   const { ordenLectura, fraseAlAzar } = VigiaTipos;
@@ -17,10 +22,13 @@ function VigiaPresentarPdf({ act, onExit, onChange }) {
   const [activaId, setActivaId] = React.useState(null);
   const [vistos, setVistos] = React.useState([]);
   const [frase, setFrase] = React.useState('¡Alto!');
+  const [zoom, setZoom] = React.useState(1);
+  const [controles, setControles] = React.useState(true);
   const [usados, marcarUsado] = useUsadosRuleta(act.estudiantes);
   const scroll = React.useRef(null);
   const refPaginas = React.useRef({});
-  const ancho = useAnchoDe(scroll, 80, 1150);
+  const anchoBase = useAnchoDe(scroll, 80, 1150);
+  const ancho = Math.round(anchoBase * zoom);
   const activa = lista.find((a) => a.id === activaId) || null;
 
   usePantallaCompleta(onExit);
@@ -36,6 +44,34 @@ function VigiaPresentarPdf({ act, onExit, onChange }) {
     return () => { vivo = false; if (doc) doc.destroy(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [recarga]);
+
+  // --- Acercar / alejar, conservando la parte del texto que se estaba leyendo ---
+  const proporcionScroll = React.useRef(null);
+  const cambiarZoom = (dir) => {
+    const col = scroll.current;
+    if (col && col.scrollHeight) proporcionScroll.current = (col.scrollTop + col.clientHeight / 2) / col.scrollHeight;
+    setZoom((z) => {
+      const i = ZOOM_PASOS.indexOf(z);
+      if (dir === 0) return 1;
+      return ZOOM_PASOS[Math.max(0, Math.min(ZOOM_PASOS.length - 1, (i < 0 ? 3 : i) + dir))];
+    });
+  };
+  React.useLayoutEffect(() => {
+    const col = scroll.current, p = proporcionScroll.current;
+    if (!col || p === null) return;
+    proporcionScroll.current = null;
+    col.scrollTop = Math.max(0, p * col.scrollHeight - col.clientHeight / 2);
+    col.scrollLeft = Math.max(0, (col.scrollWidth - col.clientWidth) / 2);
+  }, [zoom]);
+
+  // --- Controles que se ocultan solos ---
+  const ocultarRef = React.useRef(null);
+  const mostrarControles = () => {
+    setControles(true);
+    clearTimeout(ocultarRef.current);
+    ocultarRef.current = setTimeout(() => setControles(false), 2800);
+  };
+  React.useEffect(() => { mostrarControles(); return () => clearTimeout(ocultarRef.current); }, []);
 
   const abrir = (a) => { setFrase((f) => fraseAlAzar(f)); setActivaId(a.id); };
   const cerrar = () => {
@@ -57,11 +93,14 @@ function VigiaPresentarPdf({ act, onExit, onChange }) {
     irA(pendiente, () => abrir(pendiente));
   };
 
-  // Teclado: → / espacio = siguiente o cerrar tarjeta; Esc = salir.
+  // Teclado: → / espacio = siguiente o cerrar tarjeta; + / − / 0 = acercar, alejar, restablecer; Esc = salir.
   React.useEffect(() => {
     const onKey = (e) => {
       if (e.target && /input|textarea/i.test(e.target.tagName)) return;
       if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'Enter') { e.preventDefault(); activa ? cerrar() : siguiente(); }
+      else if (!activa && (e.key === '+' || e.key === '=')) { e.preventDefault(); cambiarZoom(1); }
+      else if (!activa && (e.key === '-' || e.key === '_')) { e.preventDefault(); cambiarZoom(-1); }
+      else if (!activa && e.key === '0') { e.preventDefault(); cambiarZoom(0); }
       else if (e.key === 'Escape') { activa ? cerrar() : onExit(); }
     };
     window.addEventListener('keydown', onKey);
@@ -77,28 +116,12 @@ function VigiaPresentarPdf({ act, onExit, onChange }) {
   const pendientes = lista.filter((a) => !vistos.includes(a.id)).length;
   // Los vistos se muestran atenuados (PaginaPdf les pone la clase "visto").
   const marcas = lista.map((a) => (vistos.includes(a.id) ? { ...a, _visto: true } : a));
+  const zoomMin = zoom <= ZOOM_PASOS[0], zoomMax = zoom >= ZOOM_PASOS[ZOOM_PASOS.length - 1];
 
   return (
-    <div className="vigia vg-presentar vg-presentar-pdf" data-screen-label="Modo Vigía · Presentar PDF">
-      {/* Barra superior */}
-      <div className="vg-pdf-barra">
-        <img src={VIGIA_LOGO} alt="" style={{ width: 34, height: 34, borderRadius: 9 }} />
-        <div style={{ minWidth: 0, flex: 1 }}>
-          <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 17, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{act.titulo || 'Documento'}</div>
-          <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>
-            {lista.length ? (pendientes ? pendientes + ' de ' + lista.length + ' activadores por descubrir' : '¡Todos los activadores descubiertos!') : 'Sin activadores'}
-          </div>
-        </div>
-        {lista.length > 0 && (
-          <button className="vg-btn" onClick={siguiente} title="Siguiente activador (→ o espacio)">
-            Siguiente activador <Icon name="flecha" size={16} />
-          </button>
-        )}
-        <DriveSesion compacto />
-        <button className="hud-btn" onClick={onExit} title="Salir (Esc)">✕ Salir</button>
-      </div>
-
-      {/* Documento */}
+    <div className="vigia vg-presentar vg-presentar-pdf" data-screen-label="Modo Vigía · Presentar PDF"
+      onMouseMove={mostrarControles} onWheel={mostrarControles}>
+      {/* Documento a pantalla completa */}
       <div className="vg-pdf-scroll" ref={scroll}>
         {error ? (
           <ErrorPdf error={error} act={act}
@@ -111,6 +134,26 @@ function VigiaPresentarPdf({ act, onExit, onChange }) {
             onClickMarca={(a) => abrir(a)} refPaginas={refPaginas} />
         )}
       </div>
+
+      {/* Controles flotantes (se ocultan solos) */}
+      {!activa && (
+        <div className={'vg-pdf-controles' + (controles ? '' : ' oculto')} onMouseEnter={mostrarControles}>
+          <button className="vg-ctrl" onClick={() => cambiarZoom(-1)} disabled={zoomMin} title="Alejar (−)" aria-label="Alejar">−</button>
+          <button className="vg-ctrl vg-ctrl-zoom" onClick={() => cambiarZoom(0)} title="Tamaño normal (0)">{Math.round(zoom * 100)}%</button>
+          <button className="vg-ctrl" onClick={() => cambiarZoom(1)} disabled={zoomMax} title="Acercar (+)" aria-label="Acercar">+</button>
+          {lista.length > 0 && (
+            <React.Fragment>
+              <span className="vg-ctrl-sep"></span>
+              <button className="vg-ctrl vg-ctrl-sig" onClick={siguiente}
+                title={(pendientes ? pendientes + ' de ' + lista.length + ' por descubrir' : 'Todos descubiertos') + ' · → o espacio'}>
+                {pendientes ? pendientes + '/' + lista.length : '✓'} <Icon name="flecha" size={16} />
+              </button>
+            </React.Fragment>
+          )}
+          <span className="vg-ctrl-sep"></span>
+          <button className="vg-ctrl" onClick={onExit} title="Salir (Esc)" aria-label="Salir">✕</button>
+        </div>
+      )}
 
       {activa && (
         <TarjetaActivacion key={activa.id} a={activa} frase={frase} estudiantes={act.estudiantes || []}

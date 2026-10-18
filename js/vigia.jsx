@@ -19,14 +19,14 @@ const VIGIA_MODULOS = [
   ['js/vigia/tipos.js', '20261019b'],
   ['js/vigia/youtube.jsx', '20261018a'],
   ['js/vigia/drive.jsx', '20261019b'],
-  ['js/vigia/pdf.jsx', '20261019c'],
+  ['js/vigia/pdf.jsx', '20261019d'],
   ['js/vigia/ruleta.jsx', '20261018c'],
   ['js/vigia/editor.jsx', '20261019c'],
   ['js/vigia/editor-pdf.jsx', '20261019c'],
   ['js/vigia/presentar.jsx', '20261019a'],
-  ['js/vigia/presentar-pdf.jsx', '20261019b'],
+  ['js/vigia/presentar-pdf.jsx', '20261019d'],
 ];
-const VIGIA_ESTILOS = ['js/vigia/estilos.css', '20261019c'];
+const VIGIA_ESTILOS = ['js/vigia/estilos.css', '20261019d'];
 let promesaVigia = null;
 function cargarEstilosVigia() {
   if (document.getElementById('vigia-estilos')) return Promise.resolve();

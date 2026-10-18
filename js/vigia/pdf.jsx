@@ -152,6 +152,22 @@ function VisorPdf(props) {
 const redondea4 = (v) => Math.round(v * 10000) / 10000;
 const MIN_W = 0.015, MIN_H = 0.01;
 
+/* Dónde va la tarjeta flotante (en px dentro de la página), por orden:
+   a la derecha de la marca si cabe; si no, a la izquierda; si no (marcas
+   anchas), debajo; y si debajo no queda espacio, encima. */
+const FLOTANTE_W = 380, FLOTANTE_SEP = 12;
+function posicionFlotante(a, ancho, alto) {
+  const x = (a.x || 0) * ancho, y = (a.y || 0) * alto, w = (a.w || 0) * ancho, h = (a.h || 0) * alto;
+  const cw = Math.min(FLOTANTE_W, ancho - 2 * FLOTANTE_SEP);
+  if (ancho - (x + w) >= cw + 2 * FLOTANTE_SEP) return { left: x + w + FLOTANTE_SEP, top: y, width: cw };
+  if (x >= cw + 2 * FLOTANTE_SEP) return { left: x - cw - FLOTANTE_SEP, top: y, width: cw };
+  // Debajo / encima: alineada con la marca, sin salirse por los lados.
+  const left = Math.max(FLOTANTE_SEP, Math.min(x, ancho - cw - FLOTANTE_SEP));
+  const espacioAbajo = alto - (y + h);
+  if (espacioAbajo >= 260 || espacioAbajo >= y) return { left, top: y + h + FLOTANTE_SEP, width: cw };
+  return { left, bottom: alto - y + FLOTANTE_SEP, width: cw };
+}
+
 function PaginaPdf({ pdf, numero, ancho, proporcionInicial, marcas, numeros, selId, modoMarcar, colorMarcar,
   onMarcar, onClickMarca, refNodo, editable, capaTexto, onCambiarMarca, editorId, renderEditor, onClickFondo }) {
   const caja = React.useRef(null);
@@ -313,13 +329,10 @@ function PaginaPdf({ pdf, numero, ancho, proporcionInicial, marcas, numeros, sel
       {dibujo && (
         <div className="vg-pdf-dibujo" style={{ left: pct(dibujo.x), top: pct(dibujo.y), width: pct(dibujo.w), height: pct(dibujo.h), '--tipo': colorMarcar || '#FF8A00' }} />
       )}
-      {/* Tarjeta de edición flotante junto a la marca (a la derecha, o a la
-          izquierda si la marca está pegada al borde derecho). */}
+      {/* Tarjeta de edición flotante junto a la marca, siempre DENTRO de la
+          página (fuera de ella quedaría tapada por las columnas del editor). */}
       {editada && renderEditor && (
-        <div className={'vg-pdf-flotante' + ((editada.x || 0) + (editada.w || 0) > 0.55 ? ' izquierda' : '')}
-          style={(editada.x || 0) + (editada.w || 0) > 0.55
-            ? { right: pct(1 - (editada.x || 0)), top: pct(editada.y || 0) }
-            : { left: pct((editada.x || 0) + (editada.w || 0)), top: pct(editada.y || 0) }}
+        <div className="vg-pdf-flotante" style={posicionFlotante(editada, ancho, alto)}
           onPointerDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
           {renderEditor(editada)}
         </div>
