@@ -2,8 +2,11 @@
    Mismo esquema de 3 columnas que el editor de video:
      [activadores en orden de lectura] [PDF con sus marcas] [tipos + configuración]
    Para agregar: se elige un tipo a la derecha y se arrastra sobre el texto del
-   PDF. Queda un rectángulo de color traslúcido con su número, y el texto que
-   quedó debajo se guarda como `fragmento` (se cita en la tarjeta).
+   PDF. Queda un rectángulo de color traslúcido con su número y se abre encima
+   del PDF una tarjeta flotante para editarlo. La marca se mueve arrastrándola
+   y cambia de tamaño con las asas de sus esquinas.
+   El texto del PDF no se lee solo: el PDF tiene una capa de texto
+   seleccionable; el docente lo selecciona, lo copia y lo pega (`fragmento`).
 
    Datos propios del documento:
      pdf: { driveId, jsonId, nombre }   (PDF y JSON de marcas en tu Google Drive, ver drive.jsx;
@@ -47,32 +50,64 @@ function VigiaEditorPdf({ act, onChange, onBack, onPresent }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hayPdf, pdf.driveId, pdf.url, pdf.local, recarga]);
 
-  // Esc cancela el modo "marcar".
+  // Tarjeta de edición flotante encima del PDF (id del activador abierto).
+  const [editorId, setEditorId] = React.useState(null);
+
+  // Esc cancela el modo "marcar" o cierra la tarjeta flotante.
   React.useEffect(() => {
-    if (!tipoMarcar) return;
-    const esc = (e) => { if (e.key === 'Escape') setTipoMarcar(null); };
+    if (!tipoMarcar && !editorId) return;
+    const esc = (e) => {
+      if (e.key !== 'Escape' || (e.target && /input|textarea/i.test(e.target.tagName))) return;
+      if (tipoMarcar) setTipoMarcar(null); else setEditorId(null);
+    };
     window.addEventListener('keydown', esc);
     return () => window.removeEventListener('keydown', esc);
-  }, [tipoMarcar]);
+  }, [tipoMarcar, editorId]);
 
   const setActivaciones = (arr) => update({ activaciones: arr });
   const sel = lista.find((a) => a.id === selId) || null;
 
-  const marcar = (pagina, rect, page) => {
+  // Marca nueva: el texto NO se lee del PDF (quedaba con letras separadas);
+  // el docente lo selecciona en el PDF, lo copia y lo pega en la tarjeta.
+  const marcar = (pagina, rect) => {
     const tipoId = tipoMarcar;
     if (!tipoId) return;
     setTipoMarcar(null);
-    textoEnRect(page, rect).then((fragmento) => {
-      const a = nuevaActivacion(tipoId, Object.assign({ pagina, fragmento }, rect));
-      onChange({ ...act, activaciones: [...(act.activaciones || []), a] });
-      setSelId(a.id);
-    });
+    const a = nuevaActivacion(tipoId, Object.assign({ pagina, fragmento: '' }, rect));
+    onChange({ ...act, activaciones: [...(act.activaciones || []), a] });
+    setSelId(a.id);
+    setEditorId(a.id);
   };
   const cambiar = (a) => setActivaciones((act.activaciones || []).map((x) => (x.id === a.id ? a : x)));
+  // Mover / cambiar de tamaño una marca (arrastre o asas en el PDF).
+  const cambiarMarca = (id, rect) => setActivaciones((act.activaciones || []).map((x) => (x.id === id ? { ...x, ...rect } : x)));
   const borrar = (id) => {
     if (!window.confirm('¿Eliminar este activador?')) return;
     setActivaciones((act.activaciones || []).filter((x) => x.id !== id));
     if (selId === id) setSelId(null);
+    if (editorId === id) setEditorId(null);
+  };
+
+  // Contenido de la tarjeta flotante: la misma configuración, compacta.
+  const renderEditor = (a) => {
+    const ti = tipo(a.tipo);
+    return (
+      <div className="vg-flotante-card" style={{ '--tipo': ti.color }}>
+        <div className="vg-flotante-cab">
+          <span className="vg-num-mini" style={{ background: ti.color }}>{numeros[a.id]}</span>
+          <strong>{ti.nombre}</strong>
+          <span style={{ color: 'var(--muted)', fontSize: 12 }}>· pág. {a.pagina || 1}</span>
+          <span style={{ flex: 1 }}></span>
+          <button className="vg-flotante-cerrar" onClick={() => setEditorId(null)} title="Cerrar (Esc)">✕</button>
+        </div>
+        <div className="vg-flotante-ayuda">
+          Arrastra la marca para moverla; usa las esquinas para cambiar su tamaño.
+        </div>
+        <ConfigActivacion a={a} onCambiar={cambiar} onBorrar={() => borrar(a.id)} compacto
+          conTiempo={false} ubicacion={'Página ' + (a.pagina || 1) + ' · N.º ' + numeros[a.id]}
+          onIr={() => irA(a)} hayEstudiantes={estudiantes.length > 0} onAbrirEstudiantes={() => setEstOpen(true)} />
+      </div>
+    );
   };
   // Desplaza el PDF hasta el activador.
   const irA = (a) => {
@@ -81,7 +116,8 @@ function VigiaEditorPdf({ act, onChange, onBack, onPresent }) {
     const rc = col.getBoundingClientRect(), rn = nodo.getBoundingClientRect();
     col.scrollTo({ top: col.scrollTop + (rn.top - rc.top) + (a.y || 0) * rn.height - 140, behavior: 'smooth' });
   };
-  const seleccionar = (a) => { setSelId(a.id); irA(a); };
+  // Desde la lista: lleva el PDF hasta la marca y abre su tarjeta.
+  const seleccionar = (a) => { setSelId(a.id); setEditorId(a.id); irA(a); };
 
   const tipoM = tipoMarcar ? tipo(tipoMarcar) : null;
 
@@ -166,7 +202,9 @@ function VigiaEditorPdf({ act, onChange, onBack, onPresent }) {
             ) : (
               <VisorPdf pdf={pdfDoc} ancho={ancho} marcas={lista} numeros={numeros} selId={selId}
                 modoMarcar={!!tipoMarcar} colorMarcar={tipoM && tipoM.color}
-                onMarcar={marcar} onClickMarca={(a) => setSelId(a.id)} refPaginas={refPaginas} />
+                onMarcar={marcar} onClickMarca={(a) => { setSelId(a.id); setEditorId(a.id); }} refPaginas={refPaginas}
+                editable capaTexto onCambiarMarca={cambiarMarca}
+                editorId={editorId} renderEditor={renderEditor} onClickFondo={() => setEditorId(null)} />
             )}
           </div>
 

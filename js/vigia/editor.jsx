@@ -316,8 +316,10 @@ function LineaTiempo({ duracion, tiempo, activaciones, selId, onSeek, onSelect }
 /* Configuración de una activación. Sirve para los dos recursos:
      · Video (conTiempo): minuto en que aparece.
      · Documento (conTiempo={false}): `ubicacion` ("Página 2 · N.º 3") y el
-       texto marcado en el PDF (`fragmento`), que se cita en la tarjeta. */
-function ConfigActivacion({ a, onCambiar, onBorrar, tiempoActual, duracion, hayEstudiantes, onAbrirEstudiantes, onIr, conTiempo = true, ubicacion }) {
+       texto del PDF (`fragmento`, pegado por el docente), que se cita en la tarjeta.
+   `compacto`: versión para la tarjeta flotante sobre el PDF (sin encabezado
+   ni ubicación, que la tarjeta ya muestra). */
+function ConfigActivacion({ a, onCambiar, onBorrar, tiempoActual, duracion, hayEstudiantes, onAbrirEstudiantes, onIr, conTiempo = true, ubicacion, compacto }) {
   const { tipo, fmtT, parseT } = VigiaTipos;
   const ti = tipo(a.tipo);
   const set = (patch) => onCambiar({ ...a, ...patch });
@@ -338,17 +340,19 @@ function ConfigActivacion({ a, onCambiar, onBorrar, tiempoActual, duracion, hayE
   };
 
   return (
-    <div className="config-card vg-config" style={{ borderColor: ti.color + '66' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <div className="tool-ico" style={{ background: ti.color }}><Icon name={ti.icon} size={20} /></div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 15.5 }}>{ti.nombre}</div>
-          <div style={{ fontSize: 13, color: 'var(--muted)' }}>{ti.proposito}</div>
+    <div className={'config-card vg-config' + (compacto ? ' compacto' : '')} style={{ borderColor: ti.color + '66' }}>
+      {!compacto && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div className="tool-ico" style={{ background: ti.color }}><Icon name={ti.icon} size={20} /></div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 15.5 }}>{ti.nombre}</div>
+            <div style={{ fontSize: 13, color: 'var(--muted)' }}>{ti.proposito}</div>
+          </div>
+          <button className="btn btn-sm" onClick={onBorrar}>Eliminar</button>
         </div>
-        <button className="btn btn-sm" onClick={onBorrar}>Eliminar</button>
-      </div>
+      )}
 
-      {conTiempo ? (
+      {compacto ? null : conTiempo ? (
         <div className="field">
           <label>Aparece en el minuto</label>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -371,9 +375,9 @@ function ConfigActivacion({ a, onCambiar, onBorrar, tiempoActual, duracion, hayE
 
       {!conTiempo && (
         <div className="field">
-          <label>Texto marcado en el PDF</label>
+          <label>Texto del PDF (opcional)</label>
           <textarea rows={2} value={a.fragmento || ''} onChange={(e) => set({ fragmento: e.target.value })}
-            placeholder="(Se toma solo al marcar; puedes corregirlo)"></textarea>
+            placeholder="Selecciona el texto en el PDF, cópialo (Ctrl+C) y pégalo aquí (Ctrl+V)"></textarea>
           <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 5 }}>
             Se cita en la tarjeta al presentar. Si queda vacío, no se muestra.
           </div>
@@ -451,6 +455,10 @@ function ConfigActivacion({ a, onCambiar, onBorrar, tiempoActual, duracion, hayE
             </div>
           )}
         </div>
+      )}
+
+      {compacto && (
+        <button className="btn btn-sm" style={{ alignSelf: 'flex-start' }} onClick={onBorrar}>Eliminar activador</button>
       )}
     </div>
   );

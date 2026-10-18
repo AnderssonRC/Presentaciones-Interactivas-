@@ -114,45 +114,23 @@ function abrirPdfDrive(lib, driveId) {
   });
 }
 
-// Texto del PDF que queda dentro del rectángulo r (fracciones 0–1 de la
-// página). Aproximado por letras: sirve para precargar el fragmento marcado.
-function textoEnRect(page, r) {
-  const vp = page.getViewport({ scale: 1 });
-  return page.getTextContent().then((tc) => {
-    const lib = window.pdfjsLib;
-    const trozos = [];
-    tc.items.forEach((it) => {
-      if (!it.str || !it.str.trim()) return;
-      const tx = lib.Util.transform(vp.transform, it.transform);
-      const alto = Math.hypot(tx[2], tx[3]) || 10;
-      const x0 = tx[4] / vp.width, y1 = tx[5] / vp.height, y0 = (tx[5] - alto) / vp.height;
-      const ancho = (it.width * vp.scale) / vp.width;
-      // ¿La línea cruza el rectángulo en vertical (al menos a la mitad)?
-      const cruceY = Math.min(y1, r.y + r.h) - Math.max(y0, r.y);
-      if (cruceY < (y1 - y0) * 0.5) return;
-      const n = it.str.length, porLetra = ancho / n;
-      let txt = '';
-      for (let i = 0; i < n; i++) {
-        const cx = x0 + porLetra * (i + 0.5);
-        if (cx >= r.x && cx <= r.x + r.w) txt += it.str[i];
-      }
-      if (txt.trim()) trozos.push({ y: y0, x: x0, txt });
-    });
-    trozos.sort((p, q) => (Math.abs(p.y - q.y) > 0.005 ? p.y - q.y : p.x - q.x));
-    return trozos.map((t) => t.txt).join(' ').replace(/\s+/g, ' ').trim();
-  }).catch(() => '');
-}
-
 /* ---------- Visor ----------
-   <VisorPdf pdf ancho marcas numeros selId modoMarcar colorMarcar onMarcar onClickMarca refPaginas />
+   <VisorPdf pdf ancho marcas numeros selId modoMarcar colorMarcar onMarcar onClickMarca refPaginas
+             editable capaTexto onCambiarMarca editorId renderEditor onClickFondo />
      · pdf          : PDFDocumentProxy
      · ancho        : ancho en px de cada página
      · marcas       : activaciones con { id, tipo, pagina, x, y, w, h }
      · numeros      : { [id]: número a mostrar }
      · modoMarcar   : true = arrastrar sobre una página crea un rectángulo
-     · onMarcar(pagina, rect, page) / onClickMarca(a)
+     · onMarcar(pagina, rect) / onClickMarca(a)
+     · editable     : la marca seleccionada se puede mover (arrastrándola) y
+                      cambiar de tamaño (asas en las esquinas) -> onCambiarMarca(id, rect)
+     · capaTexto    : texto seleccionable encima del PDF (para copiarlo y pegarlo)
+     · editorId / renderEditor(a): tarjeta flotante junto a esa marca
+     · onClickFondo : clic en la página fuera de las marcas
      · refPaginas   : ref donde se guardan los nodos de cada página (para desplazarse) */
-function VisorPdf({ pdf, ancho, marcas, numeros, selId, modoMarcar, colorMarcar, onMarcar, onClickMarca, refPaginas }) {
+function VisorPdf(props) {
+  const { pdf, marcas, refPaginas } = props;
   const [proporcion, setProporcion] = React.useState(1.294); // alto/ancho de la 1ª página (carta por defecto)
   React.useEffect(() => {
     let vivo = true;
@@ -163,22 +141,26 @@ function VisorPdf({ pdf, ancho, marcas, numeros, selId, modoMarcar, colorMarcar,
   return (
     <div className="vg-pdf-visor">
       {paginas.map((n) => (
-        <PaginaPdf key={n} pdf={pdf} numero={n} ancho={ancho} proporcionInicial={proporcion}
-          marcas={(marcas || []).filter((a) => (a.pagina || 1) === n)} numeros={numeros || {}} selId={selId}
-          modoMarcar={modoMarcar} colorMarcar={colorMarcar} onMarcar={onMarcar} onClickMarca={onClickMarca}
+        <PaginaPdf key={n} {...props} numero={n} proporcionInicial={proporcion}
+          marcas={(marcas || []).filter((a) => (a.pagina || 1) === n)} numeros={props.numeros || {}}
           refNodo={(el) => { if (refPaginas) refPaginas.current[n] = el; }} />
       ))}
     </div>
   );
 }
 
-function PaginaPdf({ pdf, numero, ancho, proporcionInicial, marcas, numeros, selId, modoMarcar, colorMarcar, onMarcar, onClickMarca, refNodo }) {
+const redondea4 = (v) => Math.round(v * 10000) / 10000;
+const MIN_W = 0.015, MIN_H = 0.01;
+
+function PaginaPdf({ pdf, numero, ancho, proporcionInicial, marcas, numeros, selId, modoMarcar, colorMarcar,
+  onMarcar, onClickMarca, refNodo, editable, capaTexto, onCambiarMarca, editorId, renderEditor, onClickFondo }) {
   const caja = React.useRef(null);
   const lienzo = React.useRef(null);
-  const pagina = React.useRef(null);
+  const capa = React.useRef(null);
   const [visible, setVisible] = React.useState(numero <= 2);
   const [proporcion, setProporcion] = React.useState(null);
-  const [dibujo, setDibujo] = React.useState(null);  // rectángulo en vivo mientras se arrastra
+  const [dibujo, setDibujo] = React.useState(null);    // rectángulo nuevo mientras se arrastra
+  const [arrastre, setArrastre] = React.useState(null); // { id, rect } mientras se mueve o redimensiona una marca
   const alto = Math.round(ancho * (proporcion || proporcionInicial));
 
   // Solo se dibuja cuando la página se acerca a la pantalla (documentos largos).
@@ -192,24 +174,41 @@ function PaginaPdf({ pdf, numero, ancho, proporcionInicial, marcas, numeros, sel
 
   React.useEffect(() => {
     if (!visible || !ancho) return;
-    let vivo = true, tarea = null;
+    let vivo = true, tarea = null, tareaTexto = null;
     const t = setTimeout(() => {
       pdf.getPage(numero).then((page) => {
         if (!vivo) return;
-        pagina.current = page;
         const base = page.getViewport({ scale: 1 });
         setProporcion(base.height / base.width);
+        const escala = ancho / base.width;
         const dpr = Math.min(window.devicePixelRatio || 1, 2);
-        const vp = page.getViewport({ scale: (ancho / base.width) * dpr });
+        const vp = page.getViewport({ scale: escala * dpr });
         const c = lienzo.current;
         if (!c) return;
         c.width = Math.floor(vp.width); c.height = Math.floor(vp.height);
         tarea = page.render({ canvasContext: c.getContext('2d'), viewport: vp });
         tarea.promise.catch(() => {});
+        // Capa de texto seleccionable (transparente, encima del dibujo).
+        const div = capa.current;
+        if (capaTexto && div && window.pdfjsLib.renderTextLayer) {
+          div.innerHTML = '';
+          div.style.setProperty('--scale-factor', escala);
+          page.getTextContent().then((tc) => {
+            if (!vivo) return;
+            tareaTexto = window.pdfjsLib.renderTextLayer({
+              textContentSource: tc, container: div, viewport: page.getViewport({ scale: escala }), textDivs: [],
+            });
+            if (tareaTexto && tareaTexto.promise) tareaTexto.promise.catch(() => {});
+          }).catch(() => {});
+        }
       });
     }, 120); // espera a que el ancho deje de cambiar (redimensionar ventana)
-    return () => { vivo = false; clearTimeout(t); if (tarea) tarea.cancel(); };
-  }, [visible, ancho, pdf, numero]);
+    return () => {
+      vivo = false; clearTimeout(t);
+      if (tarea) tarea.cancel();
+      if (tareaTexto && tareaTexto.cancel) tareaTexto.cancel();
+    };
+  }, [visible, ancho, pdf, numero, capaTexto]);
 
   const fraccion = (e) => {
     const r = caja.current.getBoundingClientRect();
@@ -218,6 +217,8 @@ function PaginaPdf({ pdf, numero, ancho, proporcionInicial, marcas, numeros, sel
       y: Math.min(1, Math.max(0, (e.clientY - r.top) / r.height)),
     };
   };
+
+  // Arrastre sobre la página: en modo marcar dibuja una marca nueva.
   const iniciar = (e) => {
     if (!modoMarcar) return;
     e.preventDefault();
@@ -232,36 +233,96 @@ function PaginaPdf({ pdf, numero, ancho, proporcionInicial, marcas, numeros, sel
       setDibujo(null);
       const p = fraccion(ev);
       const r = { x: Math.min(ini.x, p.x), y: Math.min(ini.y, p.y), w: Math.abs(p.x - ini.x), h: Math.abs(p.y - ini.y) };
-      if (r.w < 0.01 || r.h < 0.008) return;   // clic sin arrastrar: se ignora
-      const redondea = (v) => Math.round(v * 10000) / 10000;
-      const rect = { x: redondea(r.x), y: redondea(r.y), w: redondea(r.w), h: redondea(r.h) };
-      const usar = (page) => onMarcar && onMarcar(numero, rect, page);
-      if (pagina.current) usar(pagina.current); else pdf.getPage(numero).then(usar);
+      if (r.w < MIN_W || r.h < MIN_H) return;   // clic sin arrastrar: se ignora
+      if (onMarcar) onMarcar(numero, { x: redondea4(r.x), y: redondea4(r.y), w: redondea4(r.w), h: redondea4(r.h) });
+    };
+    window.addEventListener('pointermove', mover);
+    window.addEventListener('pointerup', soltar);
+  };
+
+  /* Marca existente:
+       · clic (sin moverse)            -> onClickMarca
+       · arrastrar (si es editable)    -> mover
+       · arrastrar un asa de esquina   -> cambiar tamaño (la esquina opuesta queda fija) */
+  const tocarMarca = (e, a, esquina) => {
+    e.stopPropagation();
+    if (!editable || modoMarcar) return;   // en Presentar: solo el clic
+    e.preventDefault();
+    const ini = fraccion(e);
+    const r0 = { x: a.x || 0, y: a.y || 0, w: a.w || 0.1, h: a.h || 0.03 };
+    let movido = false, ultimo = r0;
+    const mover = (ev) => {
+      const p = fraccion(ev);
+      const dx = p.x - ini.x, dy = p.y - ini.y;
+      if (!movido && Math.abs(dx) < 0.004 && Math.abs(dy) < 0.004) return;
+      movido = true;
+      let r;
+      if (!esquina) {
+        r = { ...r0, x: Math.min(1 - r0.w, Math.max(0, r0.x + dx)), y: Math.min(1 - r0.h, Math.max(0, r0.y + dy)) };
+      } else {
+        // Esquina opuesta fija; la que se arrastra sigue al puntero.
+        const fx = esquina.includes('w') ? r0.x + r0.w : r0.x;
+        const fy = esquina.includes('n') ? r0.y + r0.h : r0.y;
+        const px = esquina.includes('w') ? Math.min(p.x, fx - MIN_W) : Math.max(p.x, fx + MIN_W);
+        const py = esquina.includes('n') ? Math.min(p.y, fy - MIN_H) : Math.max(p.y, fy + MIN_H);
+        r = { x: Math.min(fx, px), y: Math.min(fy, py), w: Math.abs(px - fx), h: Math.abs(py - fy) };
+      }
+      ultimo = r;
+      setArrastre({ id: a.id, rect: r });
+    };
+    const soltar = () => {
+      window.removeEventListener('pointermove', mover);
+      window.removeEventListener('pointerup', soltar);
+      setArrastre(null);
+      if (movido) {
+        if (onCambiarMarca) onCambiarMarca(a.id, { x: redondea4(ultimo.x), y: redondea4(ultimo.y), w: redondea4(ultimo.w), h: redondea4(ultimo.h) });
+      } else if (onClickMarca) onClickMarca(a);
     };
     window.addEventListener('pointermove', mover);
     window.addEventListener('pointerup', soltar);
   };
 
   const pct = (v) => (v * 100) + '%';
+  const editada = editorId && marcas.find((a) => a.id === editorId);
   return (
     <div className={'vg-pdf-pagina' + (modoMarcar ? ' marcando' : '')} style={{ width: ancho, height: alto }}
-      ref={(el) => { caja.current = el; if (refNodo) refNodo(el); }} onPointerDown={iniciar}>
+      ref={(el) => { caja.current = el; if (refNodo) refNodo(el); }} onPointerDown={iniciar}
+      onClick={(e) => { if (onClickFondo && !modoMarcar && e.target === e.currentTarget) onClickFondo(); }}>
       <canvas ref={lienzo} className="vg-pdf-lienzo" style={{ width: ancho, height: alto }} />
+      {capaTexto && <div ref={capa} className="textLayer vg-pdf-texto" onClick={(e) => { if (onClickFondo && !modoMarcar && !String(window.getSelection())) onClickFondo(); e.stopPropagation(); }}></div>}
       {!visible && <div className="vg-pdf-cargando">Página {numero}</div>}
       {marcas.map((a) => {
         const ti = VigiaTipos.tipo(a.tipo);
+        const r = arrastre && arrastre.id === a.id ? arrastre.rect : a;
+        const sel = a.id === selId;
         return (
-          <button key={a.id} className={'vg-pdf-marca' + (a.id === selId ? ' sel' : '') + (a._visto ? ' visto' : '')}
-            style={{ left: pct(a.x || 0), top: pct(a.y || 0), width: pct(a.w || 0.1), height: pct(a.h || 0.03), '--tipo': ti.color }}
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={(e) => { e.stopPropagation(); if (onClickMarca) onClickMarca(a); }}
-            title={ti.nombre + (a.termino ? ': ' + a.termino : a.texto ? ': ' + a.texto : '')}>
+          <div key={a.id} role="button" tabIndex={0}
+            className={'vg-pdf-marca' + (sel ? ' sel' : '') + (a._visto ? ' visto' : '') + (editable ? ' editable' : '')}
+            style={{ left: pct(r.x || 0), top: pct(r.y || 0), width: pct(r.w || 0.1), height: pct(r.h || 0.03), '--tipo': ti.color }}
+            onPointerDown={(e) => tocarMarca(e, a, null)}
+            onClick={(e) => { e.stopPropagation(); if (!editable && onClickMarca) onClickMarca(a); }}
+            onKeyDown={(e) => { if ((e.key === 'Enter' || e.key === ' ') && onClickMarca) { e.preventDefault(); onClickMarca(a); } }}
+            title={ti.nombre + (a.termino ? ': ' + a.termino : a.texto ? ': ' + a.texto : '') + (editable ? ' · arrastra para mover' : '')}>
             <span className="vg-pdf-num">{numeros[a.id] || '•'}</span>
-          </button>
+            {editable && sel && ['nw', 'ne', 'sw', 'se'].map((q) => (
+              <span key={q} className={'vg-asa ' + q} onPointerDown={(e) => tocarMarca(e, a, q)} title="Arrastra para cambiar el tamaño"></span>
+            ))}
+          </div>
         );
       })}
       {dibujo && (
         <div className="vg-pdf-dibujo" style={{ left: pct(dibujo.x), top: pct(dibujo.y), width: pct(dibujo.w), height: pct(dibujo.h), '--tipo': colorMarcar || '#FF8A00' }} />
+      )}
+      {/* Tarjeta de edición flotante junto a la marca (a la derecha, o a la
+          izquierda si la marca está pegada al borde derecho). */}
+      {editada && renderEditor && (
+        <div className={'vg-pdf-flotante' + ((editada.x || 0) + (editada.w || 0) > 0.55 ? ' izquierda' : '')}
+          style={(editada.x || 0) + (editada.w || 0) > 0.55
+            ? { right: pct(1 - (editada.x || 0)), top: pct(editada.y || 0) }
+            : { left: pct((editada.x || 0) + (editada.w || 0)), top: pct(editada.y || 0) }}
+          onPointerDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
+          {renderEditor(editada)}
+        </div>
       )}
       <span className="vg-pdf-pie">{numero} / {pdf.numPages}</span>
     </div>
@@ -283,4 +344,4 @@ function useAnchoDe(ref, margen, maximo) {
   return ancho;
 }
 
-Object.assign(window, { cargarPdfJs, abrirPdf, guardarPdfLocal, leerPdfLocal, borrarPdfLocal, claveCacheDrive, textoEnRect, VisorPdf, PaginaPdf, useAnchoDe });
+Object.assign(window, { cargarPdfJs, abrirPdf, guardarPdfLocal, leerPdfLocal, borrarPdfLocal, claveCacheDrive, VisorPdf, PaginaPdf, useAnchoDe });

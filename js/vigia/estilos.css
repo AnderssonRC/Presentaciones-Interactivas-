@@ -461,6 +461,56 @@
   .vg-editor-pdf { grid-template-columns: 190px minmax(0, 1fr) 300px; }
 }
 
+/* ============ Capa de texto seleccionable del PDF (editor) ============
+   Mismas reglas básicas que usa PDF.js en su visor: el texto es transparente
+   y se ubica exactamente encima del dibujo; solo se ve al seleccionarlo. */
+.textLayer {
+  position: absolute; inset: 0; overflow: hidden; z-index: 1; opacity: .3;
+  line-height: 1; text-align: initial; transform-origin: 0 0;
+  -webkit-text-size-adjust: none; text-size-adjust: none; forced-color-adjust: none;
+}
+.textLayer span, .textLayer br {
+  color: transparent; position: absolute; white-space: pre; cursor: text; transform-origin: 0% 0%;
+}
+.textLayer span.markedContent { top: 0; height: 0; }
+.textLayer ::selection { background: #1E5BFF; }
+.textLayer br::selection { background: transparent; }
+.textLayer .endOfContent { display: block; position: absolute; inset: 100% 0 0; z-index: -1; cursor: default; user-select: none; }
+.textLayer .endOfContent.active { top: 0; }
+/* Al marcar, el arrastre dibuja la marca (no selecciona texto). */
+.vg-pdf-pagina.marcando .textLayer { pointer-events: none; }
+
+/* ============ Marcas editables: mover y cambiar tamaño ============ */
+.vg-pdf-marca { z-index: 2; }
+.vg-pdf-marca.editable { cursor: move; touch-action: none; }
+.vg-pdf-marca.sel { z-index: 3; }
+.vg-asa {
+  position: absolute; width: 14px; height: 14px; border-radius: 4px; z-index: 2;
+  background: #fff; border: 2px solid var(--tipo); box-shadow: 0 1px 4px rgba(0,0,0,.45);
+}
+.vg-asa.nw { left: -8px; top: -8px; cursor: nwse-resize; }
+.vg-asa.se { right: -8px; bottom: -8px; cursor: nwse-resize; }
+.vg-asa.ne { right: -8px; top: -8px; cursor: nesw-resize; }
+.vg-asa.sw { left: -8px; bottom: -8px; cursor: nesw-resize; }
+/* El número no debe tapar el asa de arriba a la izquierda de la marca seleccionada. */
+.vg-pdf-marca.sel .vg-pdf-num { left: -13px; top: -36px; }
+
+/* ============ Tarjeta de edición flotante sobre el PDF ============ */
+.vg-pdf-flotante { position: absolute; z-index: 20; width: min(380px, 46%); margin: 0 12px; }
+.vg-flotante-card {
+  background: var(--surface); border: 1.5px solid var(--tipo); border-radius: 16px; padding: 12px 14px 14px;
+  box-shadow: 0 0 0 1px rgba(0,0,0,.4), 0 24px 60px -18px rgba(0,0,0,.85), 0 0 26px -10px var(--tipo);
+  max-height: 70vh; overflow-y: auto; animation: vgAparece .15s ease both;
+  cursor: auto;
+}
+.vg-flotante-cab { display: flex; align-items: center; gap: 8px; font-family: var(--font-display); font-size: 15px; }
+.vg-flotante-cerrar {
+  width: 28px; height: 28px; border-radius: 999px; border: none; cursor: pointer;
+  background: var(--surface2); color: var(--muted); font-weight: 800;
+}
+.vg-flotante-ayuda { font-size: 12px; color: var(--muted); margin: 6px 0 4px; }
+.vg-config.compacto { border: none; box-shadow: none; padding: 6px 0 0; gap: 12px; background: transparent; }
+
 /* ============ Google Drive (sesión, lista de PDF, estado de marcas) ============ */
 .vg-drive-btn { gap: 8px; white-space: nowrap; }
 .vg-drive-btn.on { border-color: rgba(61,220,151,.55); color: #BDF5DC; }
