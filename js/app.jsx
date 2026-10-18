@@ -148,8 +148,11 @@ React.useEffect(() => {
     const nueva = {
       id: AIP.uid(), clase: 'vigia', recurso: recurso || 'video',
       titulo: 'Nueva activación', objetivo: '', usos: 0,
-      video: { url: '', id: '' }, estudiantes: [], activaciones: [],
+      estudiantes: [], activaciones: [],
     };
+    // Cada recurso guarda su origen: el video de YouTube o el PDF.
+    if (nueva.recurso === 'documento') nueva.pdf = { url: '', nombre: '', local: false };
+    else nueva.video = { url: '', id: '' };
     persist(nueva);
     setEditingId(nueva.id);
   };
@@ -163,6 +166,8 @@ React.useEffect(() => {
       : '¿Eliminar esta presentación? Esta acción no se puede deshacer.')) {
       setPresentations((prev) => prev.filter((p) => p.id !== id));
       AIP.deletePresentation(id).catch((e) => console.error('No se pudo eliminar:', e));
+      // PDF subido de una activación: también se borra su copia en este navegador.
+      if (esVigia && window.borrarPdfLocal) window.borrarPdfLocal(id);
     }
   };
 
@@ -256,7 +261,7 @@ if (adminOpen && AIP.esAdmin()) {
       );
     }
     if (presenting) {
-      return <VigiaPresentar act={presenting} onExit={() => setPresentingId(null)} />;
+      return <VigiaPresentar act={presenting} onExit={() => setPresentingId(null)} onChange={changePres} />;
     }
     return (
       <React.Fragment>

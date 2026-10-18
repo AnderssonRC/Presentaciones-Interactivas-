@@ -8,17 +8,14 @@
    activación quedó en medio (y no fue un salto manual de más de 1,5 s), se
    dispara. Volver atrás y pasar de nuevo la vuelve a mostrar. */
 
-function VigiaPresentar({ act, onExit }) {
-  const { tipo, fmtT } = VigiaTipos;
-  const lista = (act.activaciones || []).slice().sort((x, y) => x.t - y.t);
-  const yt = useYouTube(act.video && act.video.id, { controls: 0, disablekb: 1, fs: 0, iv_load_policy: 3 });
+/* Elige el modo Presentar según el recurso. */
+function VigiaPresentar(props) {
+  return props.act.recurso === 'documento' ? <VigiaPresentarPdf {...props} /> : <VigiaPresentarVideo {...props} />;
+}
 
-  const [empezado, setEmpezado] = React.useState(false);
-  const [activa, setActiva] = React.useState(null);        // activación en pantalla
-  const [usados, setUsados] = React.useState([]);          // estudiantes que ya salieron en la ruleta
-  const [hudVisible, setHudVisible] = React.useState(true);
-
-  // --- Pantalla completa del navegador (igual que el Presenter) ---
+/* Pantalla completa del navegador mientras se presenta; si el docente sale
+   de ella (Esc del navegador, F11), se cierra el modo Presentar. */
+function usePantallaCompleta(onExit) {
   React.useEffect(() => {
     const el = document.documentElement;
     const pedir = el.requestFullscreen || el.webkitRequestFullscreen;
@@ -36,6 +33,32 @@ function VigiaPresentar({ act, onExit }) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+}
+
+/* Estudiantes ya elegidos por la ruleta en esta presentación (sin repetir
+   hasta que salgan todos; luego empieza otra vuelta). */
+function useUsadosRuleta(estudiantes) {
+  const [usados, setUsados] = React.useState([]);
+  const marcarUsado = (n) => setUsados((u) => {
+    const total = (estudiantes || []).filter((s) => (s || '').trim()).length;
+    const nuevos = u.includes(n) ? u : [...u, n];
+    return nuevos.length >= total ? [n] : nuevos;
+  });
+  return [usados, marcarUsado];
+}
+
+function VigiaPresentarVideo({ act, onExit }) {
+  const { tipo, fmtT } = VigiaTipos;
+  const lista = (act.activaciones || []).slice().sort((x, y) => x.t - y.t);
+  const yt = useYouTube(act.video && act.video.id, { controls: 0, disablekb: 1, fs: 0, iv_load_policy: 3 });
+
+  const [empezado, setEmpezado] = React.useState(false);
+  const [activa, setActiva] = React.useState(null);        // activación en pantalla
+  const [frase, setFrase] = React.useState('¡Alto!');      // frase que irrumpe antes de la tarjeta
+  const [usados, marcarUsado] = useUsadosRuleta(act.estudiantes);
+  const [hudVisible, setHudVisible] = React.useState(true);
+
+  usePantallaCompleta(onExit);
 
   // --- Disparo de activaciones ---
   const prevT = React.useRef(0);
@@ -49,6 +72,7 @@ function VigiaPresentar({ act, onExit }) {
     if (alcanzada) {
       yt.pause();
       yt.seek(alcanzada.t);
+      setFrase((f) => VigiaTipos.fraseAlAzar(f));
       setActiva(alcanzada);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -122,12 +146,8 @@ function VigiaPresentar({ act, onExit }) {
 
       {/* Tarjeta de la activación */}
       {activa && (
-        <TarjetaActivacion key={activa.id} a={activa} estudiantes={act.estudiantes || []}
-          usados={usados} onUsado={(n) => setUsados((u) => {
-            const lista2 = (act.estudiantes || []).filter((s) => (s || '').trim());
-            const nuevos = u.includes(n) ? u : [...u, n];
-            return nuevos.length >= lista2.length ? [n] : nuevos;   // vuelta completa: empieza otra
-          })}
+        <TarjetaActivacion key={activa.id} a={activa} frase={frase} estudiantes={act.estudiantes || []} orden={act.ordenNombres || 'apellidos'}
+          usados={usados} onUsado={marcarUsado}
           onContinuar={continuar} />
       )}
 
@@ -151,14 +171,23 @@ function VigiaPresentar({ act, onExit }) {
   );
 }
 
-/* Tarjeta central con borde de luz giratoria. */
-function TarjetaActivacion({ a, estudiantes, usados, onUsado, onContinuar }) {
+/* Tarjeta central con borde de luz giratoria. "Continuar el video" va fuera
+   de la tarjeta, en la esquina inferior derecha, para dejarle todo el espacio. */
+function TarjetaActivacion({ a, frase, estudiantes, orden, usados, onUsado, onContinuar, textoContinuar, onCambiarActivacion }) {
   const ti = VigiaTipos.tipo(a.tipo);
   const nombres = (estudiantes || []).map((s) => (s || '').trim()).filter(Boolean);
   const conRuleta = ti.ruleta && a.ruleta && nombres.length > 0;
+  // "Girar otra vez" va debajo del texto: la ruleta avisa su estado y gira
+  // cuando cambia `giro`.
+  const [giro, setGiro] = React.useState(0);
+  const [ruleta, setRuleta] = React.useState({ girando: false, elegido: null });
   return (
     <div className="vg-velo">
-      <div className="vg-alto" aria-hidden="true">¡ALTO!</div>
+      {/* La letra se ajusta al largo de la frase para que siempre quepa. */}
+      <div className="vg-alto" aria-hidden="true"
+        style={{ fontSize: 'min(14vw, 240px, ' + (150 / Math.max((frase || '').length, 1)).toFixed(2) + 'vw)' }}>
+        {frase || '¡Alto!'}
+      </div>
       <div className={'vg-tarjeta-marco' + (conRuleta ? ' con-ruleta' : '')} style={{ '--tipo': ti.color }}>
         <div className="vg-tarjeta">
           <div className="vg-tarjeta-kicker" style={{ color: ti.color }}>
@@ -167,23 +196,55 @@ function TarjetaActivacion({ a, estudiantes, usados, onUsado, onContinuar }) {
           </div>
           <div className="vg-tarjeta-cuerpo">
             <div className="vg-tarjeta-contenido">
-              <ContenidoActivacion a={a} />
+              <ContenidoActivacion a={a} onCambiar={onCambiarActivacion} />
+              {conRuleta && (
+                <button className="vg-girar-otra" onClick={() => setGiro((g) => g + 1)}
+                  style={{ visibility: ruleta.elegido && !ruleta.girando ? 'visible' : 'hidden' }}>
+                  ↻ Girar otra vez
+                </button>
+              )}
             </div>
             {conRuleta && (
-              <RuletaEstudiantes nombres={nombres} usados={usados} onElegido={onUsado} titulo={ti.preguntaRuleta} />
+              <RuletaEstudiantes nombres={nombres} usados={usados} onElegido={onUsado} titulo={ti.preguntaRuleta} orden={orden}
+                giroExterno={giro} onEstado={setRuleta} girarOtraFuera />
             )}
           </div>
-          <div className="vg-tarjeta-pie">
-            <button className="vg-btn" onClick={onContinuar}>Continuar el video <Icon name="play" size={16} /></button>
-          </div>
         </div>
+      </div>
+      <button className="vg-btn vg-continuar" onClick={onContinuar}>{textoContinuar || 'Continuar el video'} <Icon name="play" size={16} /></button>
+    </div>
+  );
+}
+
+/* Contenido según el tipo de activación. `onCambiar` (opcional) guarda
+   cambios hechos en vivo, como la definición del Glosario. En documentos, el
+   texto marcado en el PDF (`fragmento`) se cita arriba. */
+function ContenidoActivacion({ a, onCambiar }) {
+  const cita = a.fragmento && a.tipo !== 'glosario' && a.tipo !== 'escritura'
+    ? <div className="vg-cita">«{a.fragmento}»</div> : null;
+  if (a.tipo === 'glosario') return <ContenidoGlosario a={a} onCambiar={onCambiar} />;
+  return <React.Fragment>{cita}<ContenidoBase a={a} /></React.Fragment>;
+}
+
+/* Glosario: la palabra señalada y una hoja donde el docente escribe en vivo
+   la definición que construye el grupo (grande, para que todos la copien). */
+function ContenidoGlosario({ a, onCambiar }) {
+  const [definicion, setDefinicion] = React.useState(a.definicion || '');
+  const escribir = (v) => { setDefinicion(v); if (onCambiar) onCambiar({ ...a, definicion: v }); };
+  return (
+    <div className="vg-glosario">
+      <div className="vg-glosario-termino">{a.termino || a.fragmento || 'Palabra'}</div>
+      {a.texto && <div className="vg-glosario-pista">{a.texto}</div>}
+      <div className="vg-glosario-etiqueta">Definición entre todos</div>
+      <div className="vg-hoja vg-hoja-editable">
+        <textarea value={definicion} onChange={(e) => escribir(e.target.value)} rows={3}
+          placeholder="Escribe aquí lo que propone el grupo…" spellCheck="true" />
       </div>
     </div>
   );
 }
 
-/* Contenido según el tipo de activación. */
-function ContenidoActivacion({ a }) {
+function ContenidoBase({ a }) {
   const [elegida, setElegida] = React.useState(null);
   const [revelada, setRevelada] = React.useState(false);
   const texto = a.texto || '';
@@ -207,9 +268,9 @@ function ContenidoActivacion({ a }) {
                 );
               })}
             </div>
-            {!revelada && (
-              <button className="vg-btn-texto vg-revelar" onClick={() => setRevelada(true)}>Revelar respuesta</button>
-            )}
+            {/* Se oculta sin quitarse, para no cambiar la altura de la tarjeta. */}
+            <button className="vg-btn-texto vg-revelar" onClick={() => setRevelada(true)}
+              style={{ visibility: revelada ? 'hidden' : 'visible' }}>Revelar respuesta</button>
           </React.Fragment>
         )}
       </div>
@@ -225,4 +286,4 @@ function ContenidoActivacion({ a }) {
   return <div className="vg-texto-grande">{texto}</div>;
 }
 
-Object.assign(window, { VigiaPresentar, TarjetaActivacion, ContenidoActivacion });
+Object.assign(window, { VigiaPresentar, VigiaPresentarVideo, usePantallaCompleta, useUsadosRuleta, TarjetaActivacion, ContenidoActivacion });

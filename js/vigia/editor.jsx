@@ -9,8 +9,83 @@
        video: { url, id }, estudiantes: [..],
        activaciones: [{ id, tipo, t, texto, ruleta?, modo?, opciones?, correcta? }] } */
 
-function VigiaEditor({ act, onChange, onBack, onPresent }) {
-  const { TIPOS, RECURSOS, recurso, tipo, nuevaActivacion, fmtT } = VigiaTipos;
+/* Elige el editor según el recurso (cada uno con sus propios hooks). */
+function VigiaEditor(props) {
+  return props.act.recurso === 'documento' ? <VigiaEditorPdf {...props} /> : <VigiaEditorVideo {...props} />;
+}
+
+/* Selector de recurso de la barra superior. Solo deja cambiarlo mientras la
+   activación está vacía (sin recurso ni activadores), porque cada recurso
+   guarda sus datos de forma distinta. */
+function RecursoChips({ act, update }) {
+  const { RECURSOS, recurso, recursoListo } = VigiaTipos;
+  const rec = recurso(act.recurso);
+  const vacia = !recursoListo(act) && !(act.activaciones || []).length;
+  return (
+    <div className="vg-recursos" role="radiogroup" aria-label="Recurso">
+      {RECURSOS.map((r) => {
+        const bloqueado = r.pronto || (!vacia && r.id !== rec.id);
+        return (
+          <button key={r.id} role="radio" aria-checked={r.id === rec.id} disabled={bloqueado}
+            className={'vg-recurso-chip' + (r.id === rec.id ? ' on' : '')}
+            title={r.pronto ? r.nombre + ' · Próximamente' : (bloqueado ? 'Para cambiar de recurso, crea una activación nueva' : r.desc)}
+            onClick={() => !bloqueado && update({ recurso: r.id })}>
+            <Icon name={r.icon} size={14} /> {r.nombre}{r.pronto ? <span className="soon-tag">Pronto</span> : null}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/* Lista de estudiantes de la ruleta + orden de los nombres (barra superior). */
+function EstudiantesPopover({ act, update, abierto, setAbierto }) {
+  const ref = React.useRef(null);
+  const estudiantes = (act.estudiantes || []).map((s) => (s || '').trim()).filter(Boolean);
+  React.useEffect(() => {
+    if (!abierto) return;
+    const fuera = (e) => { if (ref.current && !ref.current.contains(e.target)) setAbierto(false); };
+    const esc = (e) => { if (e.key === 'Escape') setAbierto(false); };
+    document.addEventListener('mousedown', fuera);
+    document.addEventListener('keydown', esc);
+    return () => { document.removeEventListener('mousedown', fuera); document.removeEventListener('keydown', esc); };
+  }, [abierto]);
+  const orden = act.ordenNombres || 'apellidos';
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      <button className="btn" onClick={() => setAbierto((o) => !o)} title="Lista de estudiantes para la ruleta">
+        <Icon name="user" size={15} /> Estudiantes · {estudiantes.length}
+      </button>
+      {abierto && (
+        <div className="vg-popover">
+          <div style={{ fontWeight: 800, marginBottom: 4 }}>Estudiantes para la ruleta</div>
+          <div style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 10 }}>
+            Uno por línea (puedes pegarlos desde Excel). La ruleta no repite a nadie hasta que todos hayan pasado.
+          </div>
+          <textarea rows={9} value={(act.estudiantes || []).join('\n')}
+            onChange={(e) => update({ estudiantes: e.target.value.split('\n').map((s) => s.replace(/^\s*\d+[.)-]?\s+/, '').replace(/\t/g, ' ')) })}
+            placeholder={'Ana María López\nCarlos Pérez\n…'} className="vg-textarea" />
+          <div style={{ fontWeight: 700, fontSize: 13, margin: '12px 0 6px' }}>Mi lista está escrita como</div>
+          <div className="vg-segmento" role="radiogroup">
+            {[['apellidos', 'Apellidos Nombres'], ['nombres', 'Nombres Apellidos']].map(([v, t]) => (
+              <button key={v} role="radio" aria-checked={orden === v}
+                className={orden === v ? 'on' : ''} onClick={() => update({ ordenNombres: v })}>{t}</button>
+            ))}
+          </div>
+          {estudiantes[0] && (
+            <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 8 }}>
+              En la ruleta: <strong style={{ color: 'var(--ink)' }}>{etiquetasRuleta(estudiantes, orden)[0]}</strong>
+              {' '}· Al salir: <strong style={{ color: 'var(--ink)' }}>{nombreAnuncio(estudiantes[0], orden)}</strong>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function VigiaEditorVideo({ act, onChange, onBack, onPresent }) {
+  const { TIPOS, recurso, tipo, nuevaActivacion, fmtT } = VigiaTipos;
   const rec = recurso(act.recurso);
   const lista = (act.activaciones || []).slice().sort((x, y) => x.t - y.t);
   const estudiantes = (act.estudiantes || []).map((s) => (s || '').trim()).filter(Boolean);
@@ -18,7 +93,6 @@ function VigiaEditor({ act, onChange, onBack, onPresent }) {
   const [selId, setSelId] = React.useState(lista[0] ? lista[0].id : null);
   const [estOpen, setEstOpen] = React.useState(false);
   const [cambiandoVideo, setCambiandoVideo] = React.useState(false);
-  const estRef = React.useRef(null);
 
   // Con el paso del enlace abierto no hay reproductor: el id va en null para
   // que, al volver, el reproductor se monte de nuevo en su contenedor.
@@ -41,15 +115,6 @@ function VigiaEditor({ act, onChange, onBack, onPresent }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [yt.tiempo]);
 
-  // Popover de estudiantes: se cierra con clic fuera o Escape.
-  React.useEffect(() => {
-    if (!estOpen) return;
-    const fuera = (e) => { if (estRef.current && !estRef.current.contains(e.target)) setEstOpen(false); };
-    const esc = (e) => { if (e.key === 'Escape') setEstOpen(false); };
-    document.addEventListener('mousedown', fuera);
-    document.addEventListener('keydown', esc);
-    return () => { document.removeEventListener('mousedown', fuera); document.removeEventListener('keydown', esc); };
-  }, [estOpen]);
 
   const agregar = (tipoId) => {
     yt.pause();
@@ -78,35 +143,9 @@ function VigiaEditor({ act, onChange, onBack, onPresent }) {
             style={{ border: 'none', background: 'transparent', outline: 'none', fontSize: 13, color: 'var(--muted)', width: '100%' }} />
         </div>
 
-        {/* Recurso: decide qué tipos de activación se habilitan */}
-        <div className="vg-recursos" role="radiogroup" aria-label="Recurso">
-          {RECURSOS.map((r) => (
-            <button key={r.id} role="radio" aria-checked={r.id === rec.id} disabled={r.pronto}
-              className={'vg-recurso-chip' + (r.id === rec.id ? ' on' : '')}
-              title={r.pronto ? r.nombre + ' · Próximamente' : r.desc}
-              onClick={() => !r.pronto && update({ recurso: r.id })}>
-              <Icon name={r.icon} size={14} /> {r.nombre}{r.pronto ? <span className="soon-tag">Pronto</span> : null}
-            </button>
-          ))}
-        </div>
-
-        {/* Estudiantes de la ruleta */}
-        <div ref={estRef} style={{ position: 'relative' }}>
-          <button className="btn" onClick={() => setEstOpen((o) => !o)} title="Lista de estudiantes para la ruleta">
-            <Icon name="user" size={15} /> Estudiantes · {estudiantes.length}
-          </button>
-          {estOpen && (
-            <div className="vg-popover">
-              <div style={{ fontWeight: 800, marginBottom: 4 }}>Estudiantes para la ruleta</div>
-              <div style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 10 }}>
-                Uno por línea (puedes pegarlos desde Excel). La ruleta los usa en Preguntas, Creaciones y Notas de contexto, sin repetir hasta que todos hayan pasado.
-              </div>
-              <textarea rows={9} value={(act.estudiantes || []).join('\n')}
-                onChange={(e) => update({ estudiantes: e.target.value.split('\n').map((s) => s.replace(/^\s*\d+[.)-]?\s+/, '').replace(/\t/g, ' ')) })}
-                placeholder={'Ana María López\nCarlos Pérez\n…'} className="vg-textarea" />
-            </div>
-          )}
-        </div>
+        {/* Recurso (decide qué tipos se habilitan) y estudiantes de la ruleta */}
+        <RecursoChips act={act} update={update} />
+        <EstudiantesPopover act={act} update={update} abierto={estOpen} setAbierto={setEstOpen} />
 
         <button className="btn vigia-btn-crear" onClick={() => { yt.pause(); onPresent(); }} disabled={!(act.video && act.video.id)}
           title={act.video && act.video.id ? 'Presentar el video con sus activaciones' : 'Primero añade el enlace del video'}>
@@ -274,7 +313,11 @@ function LineaTiempo({ duracion, tiempo, activaciones, selId, onSeek, onSelect }
 }
 
 /* Configuración de la activación seleccionada. */
-function ConfigActivacion({ a, onCambiar, onBorrar, tiempoActual, duracion, hayEstudiantes, onAbrirEstudiantes, onIr }) {
+/* Configuración de una activación. Sirve para los dos recursos:
+     · Video (conTiempo): minuto en que aparece.
+     · Documento (conTiempo={false}): `ubicacion` ("Página 2 · N.º 3") y el
+       texto marcado en el PDF (`fragmento`), que se cita en la tarjeta. */
+function ConfigActivacion({ a, onCambiar, onBorrar, tiempoActual, duracion, hayEstudiantes, onAbrirEstudiantes, onIr, conTiempo = true, ubicacion }) {
   const { tipo, fmtT, parseT } = VigiaTipos;
   const ti = tipo(a.tipo);
   const set = (patch) => onCambiar({ ...a, ...patch });
@@ -305,16 +348,44 @@ function ConfigActivacion({ a, onCambiar, onBorrar, tiempoActual, duracion, hayE
         <button className="btn btn-sm" onClick={onBorrar}>Eliminar</button>
       </div>
 
-      <div className="field">
-        <label>Aparece en el minuto</label>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-          <input type="text" value={tTexto} style={{ maxWidth: 110 }}
-            onChange={(e) => setTTexto(e.target.value)} onBlur={(e) => fijarT(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') fijarT(e.target.value); }} />
-          <button className="btn btn-sm" onClick={() => set({ t: Math.round(tiempoActual) })}>Usar el momento actual ({fmtT(tiempoActual)})</button>
-          <button className="btn btn-sm" onClick={onIr}>Ir a {fmtT(a.t)}</button>
+      {conTiempo ? (
+        <div className="field">
+          <label>Aparece en el minuto</label>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            <input type="text" value={tTexto} style={{ maxWidth: 110 }}
+              onChange={(e) => setTTexto(e.target.value)} onBlur={(e) => fijarT(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') fijarT(e.target.value); }} />
+            <button className="btn btn-sm" onClick={() => set({ t: Math.round(tiempoActual) })}>Usar el momento actual ({fmtT(tiempoActual)})</button>
+            <button className="btn btn-sm" onClick={onIr}>Ir a {fmtT(a.t)}</button>
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="field">
+          <label>Ubicación en el documento</label>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', fontSize: 14 }}>
+            <strong>{ubicacion}</strong>
+            <button className="btn btn-sm" onClick={onIr}>Ver en el PDF</button>
+          </div>
+        </div>
+      )}
+
+      {!conTiempo && (
+        <div className="field">
+          <label>Texto marcado en el PDF</label>
+          <textarea rows={2} value={a.fragmento || ''} onChange={(e) => set({ fragmento: e.target.value })}
+            placeholder="(Se toma solo al marcar; puedes corregirlo)"></textarea>
+          <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 5 }}>
+            Se cita en la tarjeta al presentar. Si queda vacío, no se muestra.
+          </div>
+        </div>
+      )}
+
+      {a.tipo === 'glosario' && (
+        <div className="field">
+          <label>Palabra o término</label>
+          <input type="text" value={a.termino || ''} onChange={(e) => set({ termino: e.target.value })} placeholder="Ej.: fotosíntesis" />
+        </div>
+      )}
 
       {a.tipo === 'pregunta' && (
         <div className="field">
@@ -338,6 +409,14 @@ function ConfigActivacion({ a, onCambiar, onBorrar, tiempoActual, duracion, hayE
           </div>
         )}
       </div>
+
+      {a.tipo === 'glosario' && (
+        <div className="field">
+          <label>Definición construida en clase</label>
+          <textarea rows={3} value={a.definicion || ''} onChange={(e) => set({ definicion: e.target.value })}
+            placeholder="Se escribe en vivo al presentar, con los aportes del grupo. Queda guardada aquí."></textarea>
+        </div>
+      )}
 
       {a.tipo === 'pregunta' && a.modo === 'cerrada' && (
         <div className="field">
@@ -377,4 +456,4 @@ function ConfigActivacion({ a, onCambiar, onBorrar, tiempoActual, duracion, hayE
   );
 }
 
-Object.assign(window, { VigiaEditor, PasoEnlace, LineaTiempo, ConfigActivacion });
+Object.assign(window, { VigiaEditor, VigiaEditorVideo, RecursoChips, EstudiantesPopover, PasoEnlace, LineaTiempo, ConfigActivacion });

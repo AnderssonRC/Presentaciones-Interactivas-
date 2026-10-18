@@ -16,13 +16,17 @@ const VIGIA_LOGO = 'condor-vigia-icono.png';
 // Módulos del Modo Vigía, en orden. Al editar uno, sube su versión aquí
 // (y la de este archivo en index.html) para que el navegador no use la vieja.
 const VIGIA_MODULOS = [
-  ['js/vigia/tipos.js', '20261018a'],
+  ['js/vigia/tipos.js', '20261019b'],
   ['js/vigia/youtube.jsx', '20261018a'],
-  ['js/vigia/ruleta.jsx', '20261018a'],
-  ['js/vigia/editor.jsx', '20261018a'],
-  ['js/vigia/presentar.jsx', '20261018a'],
+  ['js/vigia/drive.jsx', '20261019b'],
+  ['js/vigia/pdf.jsx', '20261019b'],
+  ['js/vigia/ruleta.jsx', '20261018c'],
+  ['js/vigia/editor.jsx', '20261019a'],
+  ['js/vigia/editor-pdf.jsx', '20261019b'],
+  ['js/vigia/presentar.jsx', '20261019a'],
+  ['js/vigia/presentar-pdf.jsx', '20261019b'],
 ];
-const VIGIA_ESTILOS = ['js/vigia/estilos.css', '20261018a'];
+const VIGIA_ESTILOS = ['js/vigia/estilos.css', '20261019b'];
 let promesaVigia = null;
 function cargarEstilosVigia() {
   if (document.getElementById('vigia-estilos')) return Promise.resolve();
@@ -123,6 +127,8 @@ function VigiaDashboard({ profile, esAdmin, onAdmin, onLogout, onSalir, activaci
           <img src="logo-192.png" alt="" /> <span>Actividades Interactivas</span>
         </button>
         <div style={{ flex: 1 }}></div>
+        {/* Sesión de Google Drive (PDF y marcas en «Res Cogitans/PDFs»). */}
+        <DriveSesion compacto />
         <button className="btn vigia-btn-crear" onClick={crear} style={{ borderRadius: 999 }}>
           <Icon name="mas" size={16} /> Crear Activaciones
         </button>
@@ -180,7 +186,8 @@ function VigiaDashboard({ profile, esAdmin, onAdmin, onLogout, onSalir, activaci
           {docs.map((d) => {
             const r = VigiaTipos.recurso(d.recurso);
             const n = (d.activaciones || []).length;
-            const vid = d.video && d.video.id;
+            const vid = d.recurso !== 'documento' && d.video && d.video.id;
+            const listo = VigiaTipos.recursoListo(d);
             return (
               <div key={d.id} className="pres-card2 vg-card">
                 <div className="pres-card2-head vg-card-head" style={vid ? { backgroundImage: 'url(https://img.youtube.com/vi/' + vid + '/mqdefault.jpg)' } : null}>
@@ -190,7 +197,7 @@ function VigiaDashboard({ profile, esAdmin, onAdmin, onLogout, onSalir, activaci
                 </div>
                 <div style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
                   <h3 style={{ fontSize: 18, fontWeight: 800 }}>{d.titulo || 'Sin nombre'}</h3>
-                  <p style={{ margin: 0, color: 'var(--muted)', fontSize: 13.5, flex: 1 }}>{d.objetivo || (vid ? '' : 'Falta añadir el video.')}</p>
+                  <p style={{ margin: 0, color: 'var(--muted)', fontSize: 13.5, flex: 1 }}>{d.objetivo || (listo ? (d.recurso === 'documento' && d.pdf ? d.pdf.nombre : '') : (d.recurso === 'documento' ? 'Falta añadir el PDF.' : 'Falta añadir el video.'))}</p>
                   <div className="vg-card-tipos">
                     {VigiaTipos.TIPOS.map((t) => {
                       const c = (d.activaciones || []).filter((x) => x.tipo === t.id).length;
@@ -200,7 +207,7 @@ function VigiaDashboard({ profile, esAdmin, onAdmin, onLogout, onSalir, activaci
                   </div>
                   <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
                     <button className="btn btn-sm" style={{ flex: 1, justifyContent: 'center' }} onClick={() => onAbrir(d.id)}>Editar</button>
-                    <button className="btn btn-sm vigia-btn-crear" style={{ flex: 1, justifyContent: 'center' }} disabled={!vid}
+                    <button className="btn btn-sm vigia-btn-crear" style={{ flex: 1, justifyContent: 'center' }} disabled={!listo}
                       onClick={() => onPresentar(d.id)}><Icon name="play" size={13} /> Presentar</button>
                   </div>
                 </div>

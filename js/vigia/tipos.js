@@ -17,7 +17,7 @@
 (function () {
   const RECURSOS = [
     { id: 'video',     nombre: 'Video',     desc: 'YouTube: documentales, clases, videos', icon: 'play',     tipos: ['pregunta', 'instruccion', 'creacion', 'escritura', 'contexto'] },
-    { id: 'documento', nombre: 'Documento', desc: 'Lecturas, artículos y PDF',             icon: 'memorama', tipos: ['pregunta', 'instruccion', 'creacion', 'contexto'], pronto: true },
+    { id: 'documento', nombre: 'Documento', desc: 'PDF: lecturas, artículos, guías',       icon: 'memorama', tipos: ['pregunta', 'instruccion', 'creacion', 'escritura', 'glosario'] },
     { id: 'podcast',   nombre: 'Podcast',   desc: 'Audios y entrevistas',                   icon: 'debate',   tipos: ['pregunta', 'instruccion', 'creacion', 'escritura', 'contexto'], pronto: true },
     { id: 'imagenes',  nombre: 'Imágenes',  desc: 'Mapas, infografías y fotos',            icon: 'eye',      tipos: ['pregunta', 'instruccion', 'creacion', 'escritura'], pronto: true },
   ];
@@ -58,18 +58,74 @@
       ruleta: true, ruletaPorDefecto: true,
       titular: 'Nota de contexto', preguntaRuleta: '¿Quién lee?',
     },
+    {
+      id: 'glosario', nombre: 'Glosario', color: '#FF5FA2', icon: 'debate',
+      proposito: 'Se señala una palabra y entre todos construyen su definición (el docente la escribe en vivo).',
+      etiqueta: 'Pista o pregunta guía (opcional)', placeholder: '¿Qué crees que significa esta palabra en el texto?',
+      ruleta: true, ruletaPorDefecto: false,
+      titular: 'Glosario', preguntaRuleta: '¿Quién propone?',
+    },
   ];
+
+  /* Frases que irrumpen en pantalla (al azar) justo antes de cada activación.
+     Para agregar más, basta con sumarlas aquí. */
+  const FRASES_ALTO = [
+    '¡Alto!',
+    '¡Despierta!',
+    '¡Activa ese cerebro!',
+    'Anímate a…',
+    'Ey, ¿sigues atento?',
+    'Sí, ustedes, ¿listos?',
+    '¡Pausa mental!',
+    '¿Me sigues?',
+    '¡Ojo aquí!',
+    '¡Momento clave!',
+    '¡Mente encendida!',
+    '¡A pensar!',
+    '¿Quién se atreve?',
+    '¡Que no se te escape!',
+    '¡Atención, vigías!',
+    '¡Abre bien los ojos!',
+    '¡Rikchariy!',
+    '¡Llegó tu turno!',
+    '¿Estás conectado?',
+    '¡Prepárate!',
+    '¡El cóndor te observa!',
+    '¡No te duermas!',
+    '¡Despierta esa curiosidad!',
+    '¡Hora de activarse!',
+    '¡Enciende la chispa!',
+    '¿Listos para el reto?',
+  ];
+  // Una frase al azar, distinta de la anterior (para que no se repita seguida).
+  function fraseAlAzar(anterior) {
+    const opciones = FRASES_ALTO.filter((f) => f !== anterior);
+    return opciones[Math.floor(Math.random() * opciones.length)];
+  }
 
   const recurso = (id) => RECURSOS.find((r) => r.id === id) || RECURSOS[0];
   const tipo = (id) => TIPOS.find((t) => t.id === id) || TIPOS[0];
 
-  // Activación nueva de un tipo, en el segundo `t` del recurso.
-  function nuevaActivacion(tipoId, t) {
+  // Activación nueva de un tipo. `donde`: en video, el segundo (número); en
+  // documento, { pagina, x, y, w, h, fragmento } (rectángulo en fracciones 0–1
+  // de la página y el texto que quedó debajo).
+  function nuevaActivacion(tipoId, donde) {
     const ti = tipo(tipoId);
-    const a = { id: AIP.uid(), tipo: ti.id, t: Math.max(0, Math.round(t || 0)), texto: '' };
+    const a = { id: AIP.uid(), tipo: ti.id, texto: '' };
+    if (donde && typeof donde === 'object') Object.assign(a, donde);
+    else a.t = Math.max(0, Math.round(donde || 0));
     if (ti.ruleta) a.ruleta = !!ti.ruletaPorDefecto;
     if (ti.id === 'pregunta') { a.modo = 'abierta'; a.opciones = ['', '']; a.correcta = 0; }
+    if (ti.id === 'glosario') { a.termino = (a.fragmento || '').trim(); a.definicion = ''; }
+    if (ti.id === 'escritura' && a.fragmento) a.texto = a.fragmento;
     return a;
+  }
+
+  // Documento: orden de lectura (página, luego de arriba abajo, luego izquierda).
+  // El número de cada activador es su posición en este orden.
+  function ordenLectura(lista) {
+    return (lista || []).slice().sort((p, q) =>
+      (p.pagina || 1) - (q.pagina || 1) || (p.y || 0) - (q.y || 0) || (p.x || 0) - (q.x || 0));
   }
 
   // 83 -> "1:23"; 3725 -> "1:02:05"
@@ -86,5 +142,12 @@
     return p.reduce((acc, x) => acc * 60 + Number(x), 0);
   }
 
-  window.VigiaTipos = { RECURSOS, TIPOS, recurso, tipo, nuevaActivacion, fmtT, parseT };
+  // ¿El documento ya tiene su recurso listo para presentar?
+  function recursoListo(d) {
+    if (!d) return false;
+    if (d.recurso === 'documento') return !!(d.pdf && (d.pdf.driveId || d.pdf.url || d.pdf.local));
+    return !!(d.video && d.video.id);
+  }
+
+  window.VigiaTipos = { RECURSOS, TIPOS, FRASES_ALTO, fraseAlAzar, recurso, tipo, nuevaActivacion, ordenLectura, recursoListo, fmtT, parseT };
 })();

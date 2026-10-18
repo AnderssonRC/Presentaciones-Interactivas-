@@ -164,6 +164,18 @@
   animation: vgPop .55s cubic-bezier(.2,1.6,.4,1) both;
 }
 .vg-btn-ruleta { min-width: 220px; }
+/* Alto fijo para el botón / nombre elegido: al turnarse no cambia la altura. */
+.vg-ruleta-resultado { min-height: 110px; display: grid; place-items: center; width: 100%; }
+
+/* "Girar otra vez", debajo de la pregunta (columna del texto). */
+.vg-girar-otra {
+  display: inline-flex; align-items: center; gap: 8px; margin-top: clamp(16px, 2.6vh, 30px);
+  padding: 10px 20px; border-radius: 999px; cursor: pointer;
+  background: rgba(77,148,255,.12); color: #CFE2FF; font-weight: 700; font-size: clamp(15px, 1.2vw, 18px);
+  border: 1.5px solid rgba(77,148,255,.6); box-shadow: 0 0 18px -6px rgba(77,148,255,.9);
+  transition: background .15s ease;
+}
+.vg-girar-otra:hover { background: rgba(77,148,255,.24); }
 
 /* ============ Presentar ============ */
 .vg-presentar { position: fixed; inset: 0; z-index: 70; background: #000; overflow: hidden; }
@@ -208,22 +220,24 @@
 
 /* Velo + "¡ALTO!" + tarjeta */
 .vg-velo {
-  position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; padding: 3vh 3vw;
+  position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; padding: 24px 3vw 96px;
   background: radial-gradient(circle at 50% 50%, rgba(10,5,2,.55), rgba(0,0,0,.88));
   backdrop-filter: blur(6px); animation: vgAparece .35s ease both;
 }
 .vg-alto {
   position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
-  font-family: var(--font-display); font-weight: 800; font-size: clamp(90px, 14vw, 240px); letter-spacing: .04em;
+  /* El tamaño lo calcula presentar.jsx según el largo de la frase. */
+  width: 92vw; text-align: center; line-height: 1.05;
+  font-family: var(--font-display); font-weight: 800; letter-spacing: .02em;
   color: var(--vigia-naranja); text-shadow: 0 0 40px rgba(255,138,0,.9), 0 0 90px rgba(77,148,255,.6);
-  pointer-events: none; animation: vgAlto 1.1s cubic-bezier(.2,.9,.3,1) both;
+  pointer-events: none; animation: vgAlto 1.6s cubic-bezier(.2,.9,.3,1) both;
 }
 .vg-tarjeta-marco {
   --tipo: #FF8A00;
-  position: relative; width: min(1180px, 94vw); max-height: 92vh; padding: 4px; border-radius: 30px;
+  position: relative; width: min(1180px, 94vw); max-height: calc(100vh - 130px); padding: 4px; border-radius: 30px;
   overflow: hidden; display: flex;
   box-shadow: 0 0 70px -12px var(--tipo), 0 0 140px -40px #4D94FF;
-  animation: vgEntra .7s cubic-bezier(.2,1.2,.35,1) .55s both;
+  animation: vgEntra .7s cubic-bezier(.2,1.2,.35,1) .85s both;
 }
 /* Luz que recorre el borde: un degradado cónico girando detrás de la tarjeta. */
 .vg-tarjeta-marco::before {
@@ -232,12 +246,15 @@
     transparent 0 14%, var(--tipo) 22%, #FFFFFF 25%, var(--tipo) 28%, transparent 38% 64%,
     #4D94FF 72%, #FFFFFF 75%, #4D94FF 78%, transparent 88%);
   animation: vgGira 3.4s linear infinite;
+  /* Capa propia en la GPU: el giro no repinta la tarjeta (sin temblores). */
+  will-change: transform; pointer-events: none;
 }
 .vg-tarjeta-marco:not(.con-ruleta) { width: min(1040px, 94vw); }
 .vg-tarjeta {
   position: relative; flex: 1; min-width: 0; border-radius: 26px; overflow-y: auto;
   padding: clamp(24px, 3.2vw, 48px);
   display: flex; flex-direction: column; gap: clamp(16px, 2.2vh, 28px);
+  min-height: min(62vh, 620px); text-align: center;
   background:
     radial-gradient(700px 260px at 0% 0%, color-mix(in oklch, var(--tipo) 18%, transparent), transparent 60%),
     radial-gradient(700px 260px at 100% 100%, rgba(77,148,255,.14), transparent 60%),
@@ -245,7 +262,7 @@
   color: #FFF3E6;
 }
 .vg-tarjeta-kicker {
-  display: flex; align-items: center; gap: 14px;
+  display: flex; align-items: center; justify-content: center; gap: 14px;
   font-family: var(--font-display); font-weight: 800; font-size: clamp(20px, 1.8vw, 28px);
   letter-spacing: .14em; text-transform: uppercase;
 }
@@ -253,9 +270,17 @@
   width: 48px; height: 48px; border-radius: 14px; display: grid; place-items: center; color: #140800;
   box-shadow: 0 0 22px -2px var(--tipo); animation: vgLatido 1.6s ease-in-out infinite;
 }
-.vg-tarjeta-cuerpo { display: block; }
-.con-ruleta .vg-tarjeta-cuerpo { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: clamp(20px, 3vw, 48px); align-items: center; }
-.vg-tarjeta-pie { display: flex; justify-content: flex-end; }
+/* El contenido ocupa todo el alto restante y queda centrado en ambos ejes. */
+.vg-tarjeta-cuerpo { flex: 1; display: grid; place-items: center; }
+.vg-tarjeta-contenido { width: 100%; max-width: 900px; }
+.con-ruleta .vg-tarjeta-cuerpo { grid-template-columns: minmax(0, 1fr) auto; gap: clamp(20px, 3vw, 48px); }
+
+/* "Continuar el video": fuera de la tarjeta, en la esquina inferior derecha.
+   Aparece un poco después que la tarjeta, para no robarle el protagonismo. */
+.vg-continuar {
+  position: fixed; right: clamp(16px, 2.4vw, 36px); bottom: clamp(16px, 3vh, 32px); z-index: 2;
+  animation: vgAparece .4s ease 1.6s both;
+}
 
 .vg-texto-pregunta, .vg-texto-grande {
   font-family: var(--font-display); font-weight: 800; line-height: 1.2;
@@ -263,11 +288,15 @@
 }
 .vg-texto-contexto {
   font-family: Georgia, 'Times New Roman', serif; font-size: clamp(21px, 2vw, 32px); line-height: 1.6;
-  color: #F6E9DA; white-space: pre-wrap; border-left: 4px solid #3DDC97; padding-left: clamp(16px, 2vw, 28px);
+  color: #F6E9DA; white-space: pre-wrap;
+}
+/* Comillas decorativas arriba del párrafo de contexto (centrado). */
+.vg-texto-contexto::before {
+  content: "“"; display: block; font-size: 2.6em; line-height: .6; margin-bottom: .15em; color: #3DDC97;
 }
 /* Escritura: hoja rayada, alto contraste, para copiar desde el fondo del salón. */
 .vg-hoja {
-  position: relative; border-radius: 16px; padding: 30px 36px 30px clamp(64px, 6vw, 92px);
+  position: relative; border-radius: 16px; padding: 30px clamp(36px, 4vw, 64px) 30px clamp(64px, 6vw, 92px); text-align: center;
   background:
     linear-gradient(90deg, transparent calc(clamp(64px, 6vw, 92px) - 18px), rgba(245,55,17,.55) calc(clamp(64px, 6vw, 92px) - 18px), rgba(245,55,17,.55) calc(clamp(64px, 6vw, 92px) - 15px), transparent calc(clamp(64px, 6vw, 92px) - 15px)),
     repeating-linear-gradient(#FFF8EC 0, #FFF8EC calc(1.7em - 2px), #BFD3F2 calc(1.7em - 2px), #BFD3F2 1.7em);
@@ -278,7 +307,7 @@
   line-height: 1.7em; letter-spacing: .01em; white-space: pre-wrap;
 }
 
-.vg-opciones { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: clamp(16px, 2.4vh, 28px); }
+.vg-opciones { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: clamp(16px, 2.4vh, 28px); text-align: left; }
 .vg-opcion {
   display: flex; align-items: center; gap: 14px; text-align: left; cursor: pointer;
   padding: 16px 18px; border-radius: 16px; border: 2px solid rgba(255,255,255,.14);
@@ -305,8 +334,8 @@
 }
 @keyframes vgAlto {
   0%   { opacity: 0; transform: translate(-50%, -50%) scale(1.6); }
-  25%  { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-  60%  { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  18%  { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  62%  { opacity: 1; transform: translate(-50%, -50%) scale(1); }
   100% { opacity: 0; transform: translate(-50%, -50%) scale(.7); }
 }
 @keyframes vgPop { from { opacity: 0; transform: scale(.6); } to { opacity: 1; transform: scale(1); } }
@@ -322,3 +351,135 @@
   .vg-opciones { grid-template-columns: 1fr; }
   .vg-recursos { display: none; }
 }
+
+/* ============================================================
+   Recurso DOCUMENTO (PDF): visor, marcas, editor y presentar
+   ============================================================ */
+/* Editor: la columna derecha es más ancha (tipos + configuración). */
+.vg-editor-pdf { grid-template-columns: 230px minmax(0, 1fr) 360px; }
+.vg-pdf-col { align-items: center; padding: 18px 24px 60px; }
+.vg-tipo.on { border-color: var(--vigia-naranja); box-shadow: 0 0 0 3px rgba(255,138,0,.25); }
+.vg-num-mini {
+  min-width: 18px; height: 18px; padding: 0 4px; border-radius: 6px; display: inline-grid; place-items: center;
+  color: #140800; font-size: 10.5px; font-weight: 800; letter-spacing: 0;
+}
+.vg-marcar-aviso {
+  position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  width: 100%; max-width: 1100px; padding: 10px 14px; border-radius: 12px; font-size: 14px;
+  background: rgba(15,10,7,.95); border: 1.5px solid var(--tipo); box-shadow: 0 0 20px -6px var(--tipo);
+}
+.vg-pdf-estado { color: var(--muted); padding: 60px 20px; text-align: center; font-weight: 600; }
+.vg-o { display: flex; align-items: center; gap: 12px; margin: 18px 0; color: var(--muted); font-size: 13px; }
+.vg-o::before, .vg-o::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+
+/* Visor: páginas una debajo de otra, con sombra de hoja. */
+.vg-pdf-visor { display: flex; flex-direction: column; align-items: center; gap: 18px; }
+.vg-pdf-pagina {
+  position: relative; background: #fff; border-radius: 4px; flex-shrink: 0;
+  box-shadow: 0 2px 6px rgba(0,0,0,.5), 0 18px 40px -20px rgba(0,0,0,.8);
+  touch-action: pan-y;
+}
+.vg-pdf-pagina.marcando { cursor: crosshair; touch-action: none; user-select: none; }
+.vg-pdf-lienzo { display: block; border-radius: 4px; }
+.vg-pdf-cargando { position: absolute; inset: 0; display: grid; place-items: center; color: #9AA396; font-weight: 700; }
+.vg-pdf-pie {
+  position: absolute; right: 8px; bottom: 6px; font-size: 11px; font-weight: 700; color: #6B6B6B;
+  background: rgba(255,255,255,.85); padding: 1px 6px; border-radius: 6px; pointer-events: none;
+}
+
+/* Activador: color traslúcido encima del texto + número arriba a la izquierda. */
+.vg-pdf-marca {
+  --tipo: #FF8A00;
+  position: absolute; padding: 0; cursor: pointer; border-radius: 4px; background: transparent;
+  border: 2px solid color-mix(in srgb, var(--tipo) 85%, transparent);
+  transition: box-shadow .15s ease;
+}
+/* El color va en una capa aparte con "multiply": tiñe el texto como un
+   resaltador sin taparlo (y sin afectar al número). */
+.vg-pdf-marca::before {
+  content: ""; position: absolute; inset: 0; border-radius: 2px; mix-blend-mode: multiply;
+  background: color-mix(in srgb, var(--tipo) 38%, transparent); transition: background .15s ease;
+}
+.vg-pdf-marca:hover::before { background: color-mix(in srgb, var(--tipo) 52%, transparent); }
+.vg-pdf-marca.sel { box-shadow: 0 0 0 3px #fff, 0 0 0 5px var(--tipo); }
+.vg-pdf-num {
+  position: absolute; left: -13px; top: -13px; min-width: 26px; height: 26px; padding: 0 6px;
+  border-radius: 999px; display: grid; place-items: center; z-index: 1;
+  background: var(--tipo); color: #140800; font-family: var(--font-display); font-weight: 800; font-size: 13px;
+  border: 2px solid #fff; box-shadow: 0 2px 8px rgba(0,0,0,.45);
+}
+.vg-pdf-dibujo {
+  position: absolute; pointer-events: none; border-radius: 4px;
+  background: color-mix(in srgb, var(--tipo) 25%, transparent); border: 2px dashed var(--tipo);
+}
+
+/* Presentar el PDF */
+.vg-presentar-pdf { display: flex; flex-direction: column; background: #050302; }
+.vg-pdf-barra {
+  display: flex; align-items: center; gap: 14px; padding: 12px 20px; flex-shrink: 0;
+  background: rgba(10,6,4,.95); border-bottom: 1px solid var(--line);
+}
+.vg-pdf-barra .vg-btn { padding: 11px 20px; font-size: 15px; }
+.vg-pdf-scroll { flex: 1; overflow-y: auto; padding: 30px 20px 80px; display: flex; flex-direction: column; align-items: center; }
+/* Los activadores por descubrir laten suavemente para invitar a tocarlos. */
+.vg-presentar-pdf .vg-pdf-marca:not(.visto) { animation: vgMarcaLate 2.2s ease-in-out infinite; }
+.vg-presentar-pdf .vg-pdf-marca.visto { opacity: .45; }
+.vg-presentar-pdf .vg-pdf-num { width: 34px; height: 34px; font-size: 16px; left: -17px; top: -17px; }
+@keyframes vgMarcaLate {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--tipo) 55%, transparent); }
+  50% { box-shadow: 0 0 0 8px color-mix(in srgb, var(--tipo) 0%, transparent); }
+}
+
+/* Tarjeta: cita del texto marcado */
+.vg-cita {
+  font-family: Georgia, 'Times New Roman', serif; font-style: italic; color: #D9C3AD;
+  font-size: clamp(17px, 1.5vw, 24px); line-height: 1.5; margin-bottom: clamp(14px, 2vh, 24px);
+  padding: 10px 18px; border-radius: 12px; background: rgba(255,255,255,.04);
+}
+
+/* Glosario: palabra + definición escrita en vivo por el docente */
+.vg-glosario { display: flex; flex-direction: column; align-items: center; gap: clamp(10px, 1.6vh, 18px); }
+.vg-glosario-termino {
+  font-family: var(--font-display); font-weight: 800; font-size: clamp(38px, 4.6vw, 80px); line-height: 1.1;
+  color: #fff; padding: 0 .25em;
+  background: linear-gradient(transparent 58%, rgba(255,95,162,.55) 58%, rgba(255,95,162,.55) 92%, transparent 92%);
+}
+.vg-glosario-pista { color: #F3DCC6; font-size: clamp(18px, 1.6vw, 26px); }
+.vg-glosario-etiqueta {
+  font-family: var(--font-display); font-weight: 800; font-size: 14px; letter-spacing: .18em;
+  text-transform: uppercase; color: #FF5FA2; margin-top: 6px;
+}
+.vg-hoja-editable { width: 100%; font-size: clamp(24px, 2.5vw, 42px); padding-top: 16px; padding-bottom: 16px; }
+.vg-hoja-editable textarea {
+  display: block; width: 100%; min-height: 5.1em; resize: none; border: none; outline: none; background: transparent;
+  color: #1B1408; font: inherit; font-family: 'Outfit', sans-serif; font-weight: 600;
+  line-height: 1.7em; text-align: center; padding: 0;
+}
+.vg-hoja-editable textarea::placeholder { color: rgba(27,20,8,.35); }
+
+@media (max-width: 1100px) {
+  .vg-editor-pdf { grid-template-columns: 190px minmax(0, 1fr) 300px; }
+}
+
+/* ============ Google Drive (sesión, lista de PDF, estado de marcas) ============ */
+.vg-drive-btn { gap: 8px; white-space: nowrap; }
+.vg-drive-btn.on { border-color: rgba(61,220,151,.55); color: #BDF5DC; }
+/* Logo de Drive simplificado: triángulo de tres colores. */
+.vg-drive-logo {
+  width: 16px; height: 14px; flex-shrink: 0; display: inline-block;
+  background: conic-gradient(from 210deg at 50% 62%, #FFC107 0 120deg, #4285F4 0 240deg, #0F9D58 0);
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+}
+.vg-drive-pedir { padding: 16px; border-radius: 14px; background: var(--surface2); border: 1px dashed var(--line); }
+.vg-drive-estado { font-size: 12.5px; font-weight: 700; color: var(--muted); white-space: nowrap; }
+.vg-drive-estado.guardado { color: #3DDC97; }
+.vg-drive-estado.sin-sesion, .vg-drive-estado.error { color: var(--naranja-ink); }
+.vg-drive-lista { display: flex; flex-direction: column; gap: 6px; max-height: 240px; overflow-y: auto; }
+.vg-drive-item {
+  display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; cursor: pointer;
+  padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface2); color: var(--ink);
+}
+.vg-drive-item:hover { border-color: var(--vigia-naranja); }
+.vg-drive-item.on { border-color: #3DDC97; }
+.vg-drive-nombre { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; font-size: 13.5px; }
+.vg-drive-tam { font-size: 12px; color: var(--muted); }
