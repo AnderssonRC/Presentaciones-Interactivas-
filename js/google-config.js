@@ -14,4 +14,4 @@
         y, si pruebas en tu equipo, http://localhost:5500).
      4. Copia el "ID de cliente" (termina en .apps.googleusercontent.com) y
         pégalo abajo. No es una contraseña: puede estar en el código. */
-window.GOOGLE_CLIENT_ID = '';
+window.GOOGLE_CLIENT_ID = '1011471685927-6bvfl5grci8j5cjt35lhhj0avjfs9ckd.apps.googleusercontent.com';
