@@ -16,17 +16,21 @@ const VIGIA_LOGO = 'condor-vigia-icono.png';
 // Módulos del Modo Vigía, en orden. Al editar uno, sube su versión aquí
 // (y la de este archivo en index.html) para que el navegador no use la vieja.
 const VIGIA_MODULOS = [
-  ['js/vigia/tipos.js', '20261019b'],
+  ['js/vigia/tipos.js', '20261020a'],
   ['js/vigia/youtube.jsx', '20261018a'],
-  ['js/vigia/drive.jsx', '20261019b'],
-  ['js/vigia/pdf.jsx', '20261019d'],
+  ['js/vigia/drive.jsx', '20261020a'],
+  ['js/vigia/pdf.jsx', '20261020c'],
+  ['js/vigia/epub.jsx', '20261020b'],
+  ['js/vigia/respaldo.jsx', '20261020b'],
   ['js/vigia/ruleta.jsx', '20261018c'],
-  ['js/vigia/editor.jsx', '20261019c'],
-  ['js/vigia/editor-pdf.jsx', '20261019c'],
-  ['js/vigia/presentar.jsx', '20261019a'],
-  ['js/vigia/presentar-pdf.jsx', '20261019d'],
+  ['js/vigia/editor.jsx', '20261020e'],
+  ['js/vigia/editor-pdf.jsx', '20261020d'],
+  ['js/vigia/editor-epub.jsx', '20261020d'],
+  ['js/vigia/presentar.jsx', '20261020e'],
+  ['js/vigia/presentar-pdf.jsx', '20261020e'],
+  ['js/vigia/presentar-epub.jsx', '20261020e'],
 ];
-const VIGIA_ESTILOS = ['js/vigia/estilos.css', '20261019d'];
+const VIGIA_ESTILOS = ['js/vigia/estilos.css', '20261020e'];
 let promesaVigia = null;
 function cargarEstilosVigia() {
   if (document.getElementById('vigia-estilos')) return Promise.resolve();
@@ -100,8 +104,13 @@ function ElegirRecurso({ onElegir, onCerrar }) {
   );
 }
 
-function VigiaDashboard({ profile, esAdmin, onAdmin, onLogout, onSalir, activaciones, onCrear, onAbrir, onPresentar, onEliminar }) {
+function VigiaDashboard({ profile, esAdmin, onAdmin, onLogout, onSalir, activaciones, onCrear, onAbrir, onPresentar, onEliminar, onImportar }) {
   const [eligiendo, setEligiendo] = React.useState(false);
+  // Aviso breve (p. ej. "Respaldo importado").
+  const [aviso, setAviso] = React.useState('');
+  const avisoRef = React.useRef(null);
+  const avisar = (txt) => { setAviso(txt); clearTimeout(avisoRef.current); avisoRef.current = setTimeout(() => setAviso(''), 4500); };
+  React.useEffect(() => () => clearTimeout(avisoRef.current), []);
   const docs = (activaciones || []).slice().sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
   const items = docs.reduce((acc, d) => acc.concat(d.activaciones || []), []);
 
@@ -170,7 +179,11 @@ function VigiaDashboard({ profile, esAdmin, onAdmin, onLogout, onSalir, activaci
         </div>
 
         {/* -------- listado -------- */}
-        <h2 style={{ fontSize: 22, fontWeight: 800, margin: '40px 0 18px' }}>Mis activaciones</h2>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, margin: '40px 0 18px', flexWrap: 'wrap' }}>
+          <h2 style={{ fontSize: 22, fontWeight: 800, margin: 0, flex: 1 }}>Mis activaciones</h2>
+          {/* Traer una activación (con su documento) desde un .vigia.zip de otro computador. */}
+          <BotonImportarRespaldo existentes={activaciones} onImportado={onImportar} onAviso={avisar} />
+        </div>
         <div className="pres-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(262px, 1fr))', gap: 18 }}>
           <button className="create-card vigia-create" onClick={crear}>
             <img src={VIGIA_LOGO} alt="" style={{ width: 64, height: 64, borderRadius: 14 }} />
@@ -209,6 +222,7 @@ function VigiaDashboard({ profile, esAdmin, onAdmin, onLogout, onSalir, activaci
                     <button className="btn btn-sm" style={{ flex: 1, justifyContent: 'center' }} onClick={() => onAbrir(d.id)}>Editar</button>
                     <button className="btn btn-sm vigia-btn-crear" style={{ flex: 1, justifyContent: 'center' }} disabled={!listo}
                       onClick={() => onPresentar(d.id)}><Icon name="play" size={13} /> Presentar</button>
+                    <BotonRespaldo act={d} compacto />
                   </div>
                 </div>
               </div>
@@ -221,6 +235,7 @@ function VigiaDashboard({ profile, esAdmin, onAdmin, onLogout, onSalir, activaci
         <ElegirRecurso onCerrar={() => setEligiendo(false)}
           onElegir={(rid) => { setEligiendo(false); onCrear(rid); }} />
       )}
+      {aviso && <div className="vigia-aviso" role="status">{aviso}</div>}
     </div>
   );
 }

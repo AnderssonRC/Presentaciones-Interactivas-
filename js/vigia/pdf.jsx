@@ -69,26 +69,45 @@ function borrarPdfLocal(docId) {
   return operacionLocal('readwrite', (st) => st.delete(docId)).catch(() => null);
 }
 
+/* ---------- Copia del documento en ESTE computador ----------
+   "Guardar solo en este computador" o un respaldo importado quedan con la
+   clave local:<id de la activación>. Antes se usaba el id solo (se sigue
+   leyendo). Los de Drive, además, tienen su caché drive:<id de Drive>. */
+const claveLocal = (docId) => 'local:' + docId;
+function guardarCopiaLocal(docId, buf) { return guardarBufferLocal(claveLocal(docId), buf); }
+function borrarCopiaLocal(docId) { return Promise.all([borrarPdfLocal(claveLocal(docId)), borrarPdfLocal(docId)]); }
+// La copia que haya en este computador (caché de Drive, copia local o la clave antigua), o null.
+function leerCopiaLocal(docId, info) {
+  const claves = [];
+  if (info && info.driveId) claves.push(claveCacheDrive(info.driveId));
+  claves.push(claveLocal(docId), docId);
+  return claves.reduce((p, k) => p.then((buf) => buf || leerPdfLocal(k)), Promise.resolve(null));
+}
+// Error de "no está en este computador" (ofrece elegir el archivo o importar el respaldo).
+function errorSinArchivo(tipo) {
+  const e = new Error('Este ' + tipo + ' no está guardado en este computador. Elige el archivo o importa su respaldo (.vigia.zip).');
+  e.motivo = 'sin-archivo';
+  return e;
+}
+
 /* Abre el PDF del documento. Lanza un Error con `motivo`:
    'drive-sesion' | 'drive-error' | 'sin-archivo' | 'enlace' | 'lector'.
-     · PDF en Google Drive (pdf.driveId): primero la copia en caché de este
-       navegador; si no está, PDF.js lo descarga con files.get?alt=media y el
-       token de acceso, y se guarda en caché para la próxima vez.
-     · Activaciones anteriores (sin Drive): archivo subido a este navegador
-       (clave = id de la activación) o enlace directo. */
+   Orden: 1) la copia de ESTE computador (caché de Drive o copia local: así
+   abre aunque no haya Drive o la sesión venció); 2) Google Drive (PDF.js lo
+   descarga con files.get?alt=media y el token, y queda en caché);
+   3) enlace directo (activaciones antiguas). */
 function abrirPdf(docId, pdf) {
   const info = pdf || {};
-  return cargarPdfJs().catch((e) => { e.motivo = 'lector'; throw e; }).then((lib) => {
-    if (info.driveId) return abrirPdfDrive(lib, info.driveId);
-    return leerPdfLocal(docId).then((buf) => {
+  return cargarPdfJs().catch((e) => { e.motivo = 'lector'; throw e; }).then((lib) =>
+    leerCopiaLocal(docId, info).then((buf) => {
       if (buf) return lib.getDocument({ data: new Uint8Array(buf) }).promise;
-      if (!info.url) { const e = new Error('Este PDF se subió desde otro computador.'); e.motivo = 'sin-archivo'; throw e; }
+      if (info.driveId) return abrirPdfDrive(lib, info.driveId);
+      if (!info.url) throw errorSinArchivo('PDF');
       return lib.getDocument({ url: info.url }).promise.catch(() => {
         const e = new Error('El sitio donde está el PDF no permite abrirlo desde otra página.');
         e.motivo = 'enlace'; throw e;
       });
-    });
-  });
+    }));
 }
 
 function abrirPdfDrive(lib, driveId) {
@@ -112,6 +131,83 @@ function abrirPdfDrive(lib, driveId) {
         throw e;
       });
   });
+}
+
+/* ---------- Texto debajo de una marca ----------
+   textoEnRect(page, r) -> Promise<string>  (r en fracciones 0–1 de la página)
+   PDF.js entrega el texto en trozos con su posición, no en palabras. Para que
+   el resultado se lea bien:
+     · se agrupan los trozos por LÍNEA (misma altura) y se ordenan de izquierda a derecha;
+     · entre dos trozos solo se pone espacio si hay una separación visible;
+     · si la marca corta una palabra por la mitad, se toma la palabra completa;
+     · las palabras partidas con guion al final de la línea se unen;
+     · se quitan los espacios repetidos y los que quedan antes de , . ; : ) ? !
+   Es una ayuda: el docente puede corregirlo, borrarlo o volver a leerlo. */
+function textoEnRect(page, r) {
+  const lib = window.pdfjsLib;
+  const vp = page.getViewport({ scale: 1 });
+  return page.getTextContent().then((tc) => {
+    const trozos = [];
+    tc.items.forEach((it) => {
+      if (!it.str) return;
+      const tx = lib.Util.transform(vp.transform, it.transform);
+      const alto = Math.hypot(tx[2], tx[3]) || 10;              // alto de la letra (px)
+      const x0 = tx[4], base = tx[5], y0 = base - alto;          // px en la página
+      const ancho = it.width * vp.scale || it.str.length * alto * 0.5;
+      // ¿La línea cruza la marca en vertical (al menos a la mitad de su alto)?
+      const cruce = Math.min(base, (r.y + r.h) * vp.height) - Math.max(y0, r.y * vp.height);
+      if (cruce < alto * 0.5) return;
+      // Parte del trozo que cae dentro de la marca (por posición de letras)…
+      const n = it.str.length, porLetra = ancho / n;
+      const izq = r.x * vp.width, der = (r.x + r.w) * vp.width;
+      let i = 0, j = n;
+      while (i < n && x0 + porLetra * (i + 0.5) < izq) i++;
+      while (j > i && x0 + porLetra * (j - 0.5) > der) j--;
+      if (i >= j) return;
+      // …ampliada a palabras completas (la marca no deja palabras a medias).
+      while (i > 0 && /\S/.test(it.str[i - 1])) i--;
+      while (j < n && /\S/.test(it.str[j])) j++;
+      trozos.push({ txt: it.str.slice(i, j), x: x0 + porLetra * i, fin: x0 + porLetra * j, y: base, alto, eol: !!it.hasEOL });
+    });
+    if (!trozos.length) return '';
+
+    // Agrupar por línea: misma línea base (con tolerancia de media letra).
+    trozos.sort((p, q) => p.y - q.y || p.x - q.x);
+    const lineas = [];
+    trozos.forEach((t) => {
+      const ultima = lineas[lineas.length - 1];
+      if (ultima && Math.abs(ultima.y - t.y) < Math.min(ultima.alto, t.alto) * 0.5) ultima.trozos.push(t);
+      else lineas.push({ y: t.y, alto: t.alto, trozos: [t] });
+    });
+
+    const textoLinea = (l) => {
+      l.trozos.sort((p, q) => p.x - q.x);
+      let s = '', fin = null;
+      l.trozos.forEach((t) => {
+        if (fin !== null) {
+          const hueco = t.x - fin;
+          const yaHayEspacio = /\s$/.test(s) || /^\s/.test(t.txt);
+          if (!yaHayEspacio && hueco > t.alto * 0.18) s += ' ';
+        }
+        s += t.txt;
+        fin = Math.max(fin === null ? t.fin : fin, t.fin);
+      });
+      return s.replace(/\s+/g, ' ').trim();
+    };
+
+    let texto = '';
+    lineas.map(textoLinea).filter(Boolean).forEach((l) => {
+      if (!texto) { texto = l; return; }
+      // Palabra partida con guion al final de la línea: "conoci-" + "miento" -> "conocimiento".
+      if (/[a-záéíóúñü]-$/i.test(texto) && /^[a-záéíóúñü]/.test(l)) texto = texto.slice(0, -1) + l;
+      else texto += ' ' + l;
+    });
+    return texto
+      .replace(/\s+/g, ' ')
+      .replace(/\s+([,.;:!?)\]»”])/g, '$1')
+      .replace(/([(\[«“¿¡])\s+/g, '$1')
+      .trim();
+  }).catch(() => '');
 }
 
 /* ---------- Visor ----------
@@ -357,4 +453,7 @@ function useAnchoDe(ref, margen, maximo) {
   return ancho;
 }
 
-Object.assign(window, { cargarPdfJs, abrirPdf, guardarPdfLocal, leerPdfLocal, borrarPdfLocal, claveCacheDrive, VisorPdf, PaginaPdf, useAnchoDe });
+Object.assign(window, {
+  cargarPdfJs, abrirPdf, guardarPdfLocal, guardarBufferLocal, leerPdfLocal, borrarPdfLocal, claveCacheDrive,
+  guardarCopiaLocal, borrarCopiaLocal, leerCopiaLocal, errorSinArchivo, textoEnRect, VisorPdf, PaginaPdf, useAnchoDe,
+});

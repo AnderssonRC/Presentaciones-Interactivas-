@@ -166,8 +166,8 @@ React.useEffect(() => {
       : '¿Eliminar esta presentación? Esta acción no se puede deshacer.')) {
       setPresentations((prev) => prev.filter((p) => p.id !== id));
       AIP.deletePresentation(id).catch((e) => console.error('No se pudo eliminar:', e));
-      // PDF subido de una activación: también se borra su copia en este navegador.
-      if (esVigia && window.borrarPdfLocal) window.borrarPdfLocal(id);
+      // Documento guardado en este computador para esa activación: también se borra.
+      if (esVigia && window.borrarCopiaLocal) window.borrarCopiaLocal(id);
     }
   };
 
@@ -272,7 +272,7 @@ if (adminOpen && AIP.esAdmin()) {
           <VigiaDashboard profile={profile} esAdmin={AIP.esAdmin()} onAdmin={() => setAdminOpen(true)}
             onLogout={logout} onSalir={() => setModo('interactivas')}
             activaciones={activaciones} onCrear={createActivacion} onAbrir={setEditingId}
-            onPresentar={present} onEliminar={deletePres} />
+            onPresentar={present} onEliminar={deletePres} onImportar={persist} />
         )}
         <ResCogitasFooter />
         <AppTweaks t={t} setTweak={setTweak} />

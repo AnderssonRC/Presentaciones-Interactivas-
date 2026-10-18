@@ -25,6 +25,7 @@ function VigiaPresentarPdf({ act, onExit, onChange }) {
   const [zoom, setZoom] = React.useState(1);
   const [controles, setControles] = React.useState(true);
   const [usados, marcarUsado] = useUsadosRuleta(act.estudiantes);
+  const [tono, setTono] = useTonoPresentar();
   const scroll = React.useRef(null);
   const refPaginas = React.useRef({});
   const anchoBase = useAnchoDe(scroll, 80, 1150);
@@ -119,7 +120,7 @@ function VigiaPresentarPdf({ act, onExit, onChange }) {
   const zoomMin = zoom <= ZOOM_PASOS[0], zoomMax = zoom >= ZOOM_PASOS[ZOOM_PASOS.length - 1];
 
   return (
-    <div className="vigia vg-presentar vg-presentar-pdf" data-screen-label="Modo Vigía · Presentar PDF"
+    <div className={'vigia vg-presentar vg-presentar-pdf tono-' + tono} data-screen-label="Modo Vigía · Presentar PDF"
       onMouseMove={mostrarControles} onWheel={mostrarControles}>
       {/* Documento a pantalla completa */}
       <div className="vg-pdf-scroll" ref={scroll}>
@@ -141,6 +142,8 @@ function VigiaPresentarPdf({ act, onExit, onChange }) {
           <button className="vg-ctrl" onClick={() => cambiarZoom(-1)} disabled={zoomMin} title="Alejar (−)" aria-label="Alejar">−</button>
           <button className="vg-ctrl vg-ctrl-zoom" onClick={() => cambiarZoom(0)} title="Tamaño normal (0)">{Math.round(zoom * 100)}%</button>
           <button className="vg-ctrl" onClick={() => cambiarZoom(1)} disabled={zoomMax} title="Acercar (+)" aria-label="Acercar">+</button>
+          <span className="vg-ctrl-sep"></span>
+          <SelectorTono tono={tono} setTono={setTono} />
           {lista.length > 0 && (
             <React.Fragment>
               <span className="vg-ctrl-sep"></span>

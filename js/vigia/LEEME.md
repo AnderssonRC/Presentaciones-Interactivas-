@@ -17,6 +17,10 @@ Vuelve interactivos los recursos "cerrados" (videos, documentales, podcast…): 
 | `presentar-pdf.jsx` | Presentar de **documento**: PDF con activadores numerados; al tocarlos aparece la tarjeta. |
 | `estilos.css` | Estilos del editor y de Presentar. |
 
+| `epub.jsx` | Libros EPUB: los abre con JSZip (cdnjs, solo al abrir un EPUB), limpia cada capítulo (sin scripts, estilos ni enlaces del libro) y `LectorEpub` (capítulo con sus marcas sobre el texto) y `NavCapitulos`. |
+| `editor-epub.jsx` | Editor de EPUB: seleccionar texto + tipo para marcar; "Ajustar a la selección" para reubicar una marca. |
+| `presentar-epub.jsx` | Presentar un EPUB: capítulo a pantalla completa, tamaño de letra, siguiente activador. |
+| `respaldo.jsx` | Sin Drive: «Guardar solo en este computador» (`SubirLocal`), «Descargar respaldo» (`.vigia.zip` = `activacion.json` + `documento.pdf|epub`) e «Importar respaldo» en otro computador. |
 | `drive.jsx` | Google Drive del docente: sesión con Google Identity Services (`DriveAuth`, `<DriveSesion />`), carpeta «Res Cogitans/PDFs», subida del PDF, lista de PDF ya subidos y el JSON de marcas (`useSincronizarMarcas`). |
 
 ### Sobre el PDF (Google Drive)
@@ -26,6 +30,13 @@ Vuelve interactivos los recursos "cerrados" (videos, documentales, podcast…): 
 - **Abrir:** PDF.js lo descarga con `files.get?alt=media` y el token. Queda una copia en caché en el navegador (IndexedDB `vigia-pdf`, clave `drive:<id>`), así abre rápido y aunque la sesión de Google haya vencido.
 - **Sesión:** el token dura ~1 h y se guarda solo en la pestaña (sessionStorage). Al vencer, un clic en «Conectar Drive» lo renueva.
 - Activaciones anteriores a Drive (enlace o archivo subido al navegador) se siguen abriendo; la app ofrece pasarlas a Drive.
+
+### Copia en este computador y respaldo (sin Drive)
+
+- **Orden de búsqueda al abrir** (`leerCopiaLocal` en `pdf.jsx`): 1) caché de Drive `drive:<idDrive>`, 2) copia local `local:<idActivación>` (y la clave antigua `<idActivación>`), 3) Google Drive, 4) enlace antiguo. Así abre sin Drive o si Drive falla.
+- **Solo en este computador:** `pdf: { local: true, nombre, formato }` sin `driveId`. No hay JSON de marcas en Drive (las marcas siguen en Firestore).
+- **Llevar a otro computador:** «Descargar respaldo» → `.vigia.zip`. En el otro: «Importar respaldo» (dashboard) o, desde el aviso de error del documento, elegir el `.zip` o el archivo. Si la activación ya existe en la cuenta, se pregunta si se reemplazan sus marcas.
+- El navegador no puede buscar archivos en el disco por sí solo: la «búsqueda local» es la copia guardada en IndexedDB de ese navegador.
 
 Todo lo de esta carpeta se carga **solo al entrar al Modo Vigía**, mientras se ve la animación del cóndor, así no pesa en Actividades Interactivas.
 
@@ -45,6 +56,8 @@ Cada activación es un documento en la misma colección que las presentaciones (
 ```
 
 `t` es el segundo del video. `modo` (`'abierta'` / `'cerrada'`), `opciones` y `correcta` solo existen en las preguntas.
+
+**EPUB:** el archivo va en el mismo campo `pdf` con `formato: 'epub'` (y en la misma carpeta de Drive). Como el texto de un EPUB se reacomoda, sus marcas no son rectángulos sino posiciones de texto: `cap` (capítulo, índice del spine) e `ini`/`fin` (caracteres dentro del texto de ese capítulo). `fragmento` es el texto seleccionado.
 
 En un documento (`recurso: 'documento'`), en lugar de `video` hay `pdf: { url, nombre, local }`, y cada activación lleva `pagina` y su rectángulo `x, y, w, h` (fracciones 0–1 de la página) en lugar de `t`, más `fragmento` (texto marcado). El Glosario agrega `termino` y `definicion` (la que se escribe en vivo al presentar, y queda guardada).
 

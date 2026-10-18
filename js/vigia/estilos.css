@@ -530,6 +530,103 @@
 .vg-flotante-ayuda { font-size: 12px; color: var(--muted); margin: 6px 0 4px; }
 .vg-config.compacto { border: none; box-shadow: none; padding: 6px 0 0; gap: 12px; background: transparent; }
 
+/* ============ Libros EPUB: hoja de lectura y marcas sobre el texto ============ */
+.vg-epub-col { align-items: center; }
+/* Hoja blanca con tipografía de lectura (el libro se muestra sin sus estilos). */
+.vg-epub-hoja {
+  position: relative; width: 100%; max-width: 760px; flex-shrink: 0;
+  background: #FFFDF8; color: #1C1712; border-radius: 6px;
+  padding: clamp(28px, 4vw, 56px) clamp(24px, 5vw, 64px);
+  box-shadow: 0 2px 6px rgba(0,0,0,.5), 0 18px 40px -20px rgba(0,0,0,.8);
+}
+.vg-epub-hoja .vg-pdf-estado { color: #7A6F63; }
+.vg-epub-texto {
+  font-family: Georgia, 'Times New Roman', serif; line-height: 1.7; hyphens: auto; overflow-wrap: break-word;
+}
+.vg-epub-texto h1, .vg-epub-texto h2, .vg-epub-texto h3, .vg-epub-texto h4 {
+  font-family: var(--font-display); color: #120E0A; line-height: 1.2; margin: 1.2em 0 .5em;
+}
+.vg-epub-texto h1 { font-size: 1.7em; } .vg-epub-texto h2 { font-size: 1.4em; } .vg-epub-texto h3 { font-size: 1.2em; }
+.vg-epub-texto p { margin: 0 0 .9em; }
+.vg-epub-texto img, .vg-epub-texto svg { max-width: 100%; height: auto; display: block; margin: 1em auto; }
+.vg-epub-texto blockquote { margin: 1em 0; padding-left: 1em; border-left: 3px solid #D9CDBE; color: #4A4037; }
+.vg-epub-texto table { border-collapse: collapse; max-width: 100%; }
+.vg-epub-texto td, .vg-epub-texto th { border: 1px solid #D9CDBE; padding: .3em .5em; }
+.vg-epub-hoja.marcando .vg-epub-texto { cursor: text; }
+
+/* Marca: resaltador traslúcido del color del tipo + número en su comienzo. */
+.vg-epub-marca {
+  --tipo: #FF8A00;
+  position: relative; color: inherit; cursor: pointer; border-radius: 3px; padding: .05em 0;
+  background: color-mix(in srgb, var(--tipo) 34%, transparent);
+  box-shadow: 0 2px 0 color-mix(in srgb, var(--tipo) 85%, transparent);
+  -webkit-box-decoration-break: clone; box-decoration-break: clone;
+}
+.vg-epub-marca:hover { background: color-mix(in srgb, var(--tipo) 48%, transparent); }
+.vg-epub-marca.sel { background: color-mix(in srgb, var(--tipo) 52%, transparent); outline: 2px solid var(--tipo); }
+.vg-epub-marca.inicio::before {
+  content: attr(data-num); position: absolute; left: -.7em; top: -1.15em;
+  min-width: 1.5em; height: 1.5em; padding: 0 .3em; border-radius: 999px; box-sizing: border-box;
+  display: inline-grid; place-items: center; font: 800 12px/1 var(--font-display);
+  background: var(--tipo); color: #140800; border: 2px solid #fff; box-shadow: 0 2px 6px rgba(0,0,0,.35);
+  pointer-events: none;
+}
+.vg-epub-marca.visto { opacity: .55; }
+.vg-epub-marca .vg-epub-marca.inicio::before { left: .2em; }   /* marca dentro de otra */
+
+/* Índice de capítulos */
+.vg-epub-nav {
+  display: flex; align-items: center; gap: 6px; width: 100%; max-width: 760px;
+  padding: 6px; border-radius: 12px; background: var(--surface); border: 1px solid var(--line);
+}
+.vg-epub-nav select {
+  flex: 1; min-width: 0; padding: 8px 10px; border-radius: 9px; border: 1px solid var(--line);
+  background: var(--surface2); color: var(--ink); font-size: 14px; font-weight: 600; font-family: inherit;
+}
+.vg-epub-nav .vg-ctrl { color: var(--ink); }
+.vg-epub-nav.compacto { width: auto; max-width: 360px; padding: 0; background: transparent; border: none; }
+.vg-epub-nav.compacto select { max-width: 240px; background: rgba(255,255,255,.08); color: #FFF3E6; border-color: rgba(255,255,255,.18); }
+.vg-epub-nav.compacto select option { color: #1C1712; }
+
+/* Presentar: hoja más ancha, letra grande; las marcas por descubrir laten. */
+.vg-presentar-epub .vg-epub-hoja { max-width: min(1100px, 92vw); margin: 0 auto; }
+.vg-presentar-epub .vg-epub-marca.inicio::before { font-size: 16px; }
+.vg-presentar-epub .vg-epub-marca:not(.visto) { animation: vgEpubLate 2.2s ease-in-out infinite; }
+@keyframes vgEpubLate {
+  0%, 100% { box-shadow: 0 2px 0 color-mix(in srgb, var(--tipo) 85%, transparent); }
+  50% { box-shadow: 0 2px 0 color-mix(in srgb, var(--tipo) 85%, transparent), 0 0 0 5px color-mix(in srgb, var(--tipo) 30%, transparent); }
+}
+
+/* Tarjeta de edición ANCLADA al área visible de la columna del documento:
+   no se desplaza con el PDF/libro, así que siempre está a la vista. Va al
+   lado contrario de la marca y, si es larga, se desplaza por dentro. */
+.vg-col-envoltura { position: relative; min-width: 0; min-height: 0; display: flex; }
+.vg-col-envoltura > .editor-canvas-col { flex: 1; min-width: 0; }
+.vg-dock {
+  position: absolute; top: 14px; z-index: 30;
+  width: min(380px, calc(100% - 40px)); max-height: calc(100% - 28px);
+  overflow-y: auto; border-radius: 16px;
+}
+.vg-dock.derecha { right: 24px; }   /* deja libre la barra de desplazamiento */
+.vg-dock.izquierda { left: 14px; }
+.vg-dock .vg-flotante-card { max-height: none; overflow: visible; }
+
+/* Etiqueta de campo con acciones rápidas ("Borrar", "Leer de nuevo"). */
+.vg-etiqueta-campo { display: flex; align-items: center; gap: 6px; margin-bottom: 5px; }
+.vg-etiqueta-campo label { margin-bottom: 0 !important; }
+.vg-mini-accion {
+  border: 1px solid var(--line); background: var(--surface2); color: var(--muted); cursor: pointer;
+  font-size: 11.5px; font-weight: 700; padding: 3px 9px; border-radius: 999px; white-space: nowrap;
+}
+.vg-mini-accion:hover:not(:disabled) { color: var(--ink); border-color: var(--vigia-naranja); }
+.vg-mini-accion:disabled { opacity: .6; cursor: default; }
+
+/* Título de cada opción en el paso de subir el documento (Drive / este computador). */
+.vg-opcion-titulo {
+  font-family: var(--font-display); font-weight: 800; font-size: 12px; letter-spacing: .14em;
+  text-transform: uppercase; color: var(--vigia-naranja); margin-bottom: 10px;
+}
+
 /* ============ Google Drive (sesión, lista de PDF, estado de marcas) ============ */
 .vg-drive-btn { gap: 8px; white-space: nowrap; }
 .vg-drive-btn.on { border-color: rgba(61,220,151,.55); color: #BDF5DC; }
@@ -552,3 +649,91 @@
 .vg-drive-item.on { border-color: #3DDC97; }
 .vg-drive-nombre { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; font-size: 13.5px; }
 .vg-drive-tam { font-size: 12px; color: var(--muted); }
+
+/* ============ Textos largos en las tarjetas de Presentar ============
+   presentar.jsx (claseLargo) marca los textos según su largo para bajar la
+   letra lo justo y que se vean completos. Si aun así no caben, la tarjeta se
+   desplaza (el cuerpo crece con el contenido en vez de recortarse arriba). */
+.vg-tarjeta-cuerpo { flex: 1 0 auto; }
+.vg-texto-pregunta.largo, .vg-texto-grande.largo { font-size: clamp(24px, 2.5vw, 42px); }
+.vg-texto-pregunta.muy-largo, .vg-texto-grande.muy-largo { font-size: clamp(20px, 1.9vw, 32px); line-height: 1.3; }
+.vg-texto-pregunta.extra, .vg-texto-grande.extra { font-size: clamp(17px, 1.45vw, 25px); line-height: 1.35; font-weight: 700; }
+.vg-texto-contexto.largo { font-size: clamp(19px, 1.7vw, 27px); }
+.vg-texto-contexto.muy-largo { font-size: clamp(17px, 1.4vw, 23px); line-height: 1.55; }
+.vg-texto-contexto.extra { font-size: clamp(15px, 1.15vw, 19px); line-height: 1.5; }
+.vg-cita.largo { font-size: clamp(15px, 1.25vw, 20px); }
+.vg-cita.muy-largo { font-size: clamp(14px, 1.05vw, 17px); }
+.vg-cita.extra { font-size: 14px; max-height: 30vh; overflow-y: auto; }
+.vg-hoja.largo { font-size: clamp(24px, 2.6vw, 44px); }
+.vg-hoja.muy-largo { font-size: clamp(20px, 2vw, 34px); }
+.vg-hoja.extra { font-size: clamp(17px, 1.5vw, 26px); }
+.vg-glosario-termino.largo { font-size: clamp(30px, 3.4vw, 58px); }
+.vg-glosario-termino.muy-largo { font-size: clamp(24px, 2.6vw, 44px); }
+.vg-glosario-termino.extra { font-size: clamp(20px, 2vw, 34px); }
+.vg-glosario-pista.largo, .vg-glosario-pista.muy-largo, .vg-glosario-pista.extra { font-size: clamp(15px, 1.25vw, 20px); }
+.vg-texto-pregunta, .vg-texto-grande, .vg-texto-contexto, .vg-cita, .vg-glosario-termino { overflow-wrap: anywhere; }
+
+/* ============ Tono de pantalla ("Exceso de luz") ============
+   La clase tono-* va en la raíz de Presentar (presentar.jsx: useTonoPresentar).
+   Los filtros se aplican al documento, al video y a las tarjetas: no a los
+   controles del docente. */
+/* Exceso de luz: tarjetas claras, texto oscuro y documento con más contraste. */
+.tono-luz .vg-pdf-lienzo, .tono-luz .vg-epub-hoja { filter: contrast(1.35) brightness(1.03); }
+.tono-luz .vg-presentar-video { filter: brightness(1.15) contrast(1.2) saturate(1.1); }
+.tono-luz .vg-tarjeta {
+  background: radial-gradient(700px 260px at 0% 0%, color-mix(in oklch, var(--tipo) 14%, transparent), transparent 60%), #FFFCF5;
+  color: #120E0A;
+}
+.tono-luz .vg-texto-pregunta, .tono-luz .vg-texto-grande, .tono-luz .vg-glosario-termino { color: #0B0805; }
+.tono-luz .vg-texto-contexto { color: #1C1712; }
+.tono-luz .vg-cita { color: #4A3A2C; background: rgba(0,0,0,.05); }
+.tono-luz .vg-glosario-pista { color: #3A2E24; }
+.tono-luz .vg-tarjeta-kicker { filter: brightness(.72) saturate(1.3); }
+.tono-luz .vg-opcion { color: #120E0A; background: rgba(0,0,0,.04); border-color: rgba(0,0,0,.2); }
+.tono-luz .vg-ruleta-titulo { color: #1E4FD8; }
+.tono-luz .vg-ruleta-elegido { color: #0B0805; background: #FFFFFF; }
+.tono-luz .vg-girar-otra { color: #1E4FD8; background: rgba(30,79,216,.08); }
+.tono-luz .vg-pdf-marca::before { background: color-mix(in srgb, var(--tipo) 46%, transparent); }
+/* Alto contraste: negro puro, blanco puro y resaltados más fuertes. */
+.tono-contraste .vg-pdf-lienzo, .tono-contraste .vg-epub-hoja { filter: contrast(1.7) grayscale(.15); }
+.tono-contraste .vg-presentar-video { filter: contrast(1.35) saturate(1.25); }
+.tono-contraste .vg-tarjeta { background: #000; color: #FFF; }
+.tono-contraste .vg-texto-pregunta, .tono-contraste .vg-texto-grande, .tono-contraste .vg-texto-contexto,
+.tono-contraste .vg-cita, .tono-contraste .vg-glosario-pista, .tono-contraste .vg-glosario-termino { color: #FFF; }
+.tono-contraste .vg-opcion { border-color: rgba(255,255,255,.6); }
+.tono-contraste .vg-pdf-marca::before { background: color-mix(in srgb, var(--tipo) 55%, transparent); }
+.tono-contraste .vg-pdf-marca, .tono-contraste .vg-epub-marca { border-width: 3px; }
+.tono-contraste .vg-epub-marca { background: color-mix(in srgb, var(--tipo) 50%, transparent); }
+/* Tono cálido: menos azul (más suave en televisores muy fríos). */
+.tono-calido .vg-pdf-lienzo, .tono-calido .vg-epub-hoja, .tono-calido .vg-presentar-video, .tono-calido .vg-tarjeta {
+  filter: sepia(.28) saturate(1.05) brightness(.98);
+}
+
+/* Botón ☀ y su menú (se abre hacia arriba, sobre la pastilla de controles). */
+.vg-tono { position: relative; display: inline-flex; }
+.vg-ctrl-tono { font-size: 19px; }
+.vg-ctrl-tono.on { background: #F5C211; color: #1A1400; }
+.vg-ctrl-tono.on:hover:not(:disabled) { background: #FFD43B; }
+.vg-tono-menu {
+  position: absolute; right: 0; bottom: calc(100% + 12px); z-index: 40; width: 300px;
+  background: rgba(12,8,5,.97); border: 1px solid rgba(255,138,0,.4); border-radius: 16px; padding: 8px;
+  box-shadow: 0 20px 50px -16px rgba(0,0,0,.85); color: #FFF3E6; text-align: left;
+}
+.vg-tono-titulo { font-family: var(--font-display); font-weight: 800; font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--vigia-naranja); padding: 6px 8px; }
+.vg-tono-op {
+  display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; cursor: pointer;
+  padding: 8px; border-radius: 10px; border: 1px solid transparent; background: transparent; color: inherit;
+}
+.vg-tono-op:hover { background: rgba(255,255,255,.07); }
+.vg-tono-op.on { border-color: #F5C211; background: rgba(245,194,17,.1); }
+.vg-tono-op strong { display: block; font-size: 14px; }
+.vg-tono-op span span, .vg-tono-op > span:last-child > span { display: block; font-size: 11.5px; color: #B39A86; line-height: 1.35; }
+.vg-tono-muestra { width: 34px; height: 26px; border-radius: 7px; flex-shrink: 0; border: 1px solid rgba(255,255,255,.25); }
+.vg-tono-muestra.tono-normal { background: linear-gradient(135deg, #0C0806 50%, #FF8A00 50%); }
+.vg-tono-muestra.tono-luz { background: linear-gradient(135deg, #FFFCF5 50%, #FF8A00 50%); }
+.vg-tono-muestra.tono-contraste { background: linear-gradient(135deg, #000 50%, #FFF 50%); }
+.vg-tono-muestra.tono-calido { background: linear-gradient(135deg, #F3E2C4 50%, #C9792B 50%); }
+.vg-tono-ayuda { font-size: 11.5px; color: #B39A86; padding: 6px 8px 4px; line-height: 1.4; }
+/* En el video, el botón ☀ va en la barra inferior. */
+.vg-hud .vg-tono .vg-ctrl { height: 46px; min-width: 46px; background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.16); border-radius: 12px; }
+.vg-hud .vg-tono .vg-ctrl.on { background: #F5C211; }

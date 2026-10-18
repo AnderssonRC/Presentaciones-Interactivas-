@@ -17,7 +17,7 @@
 (function () {
   const RECURSOS = [
     { id: 'video',     nombre: 'Video',     desc: 'YouTube: documentales, clases, videos', icon: 'play',     tipos: ['pregunta', 'instruccion', 'creacion', 'escritura', 'contexto'] },
-    { id: 'documento', nombre: 'Documento', desc: 'PDF: lecturas, artículos, guías',       icon: 'memorama', tipos: ['pregunta', 'instruccion', 'creacion', 'escritura', 'glosario'] },
+    { id: 'documento', nombre: 'Documento', desc: 'PDF o EPUB: lecturas, libros, guías',   icon: 'memorama', tipos: ['pregunta', 'instruccion', 'creacion', 'escritura', 'glosario'] },
     { id: 'podcast',   nombre: 'Podcast',   desc: 'Audios y entrevistas',                   icon: 'debate',   tipos: ['pregunta', 'instruccion', 'creacion', 'escritura', 'contexto'], pronto: true },
     { id: 'imagenes',  nombre: 'Imágenes',  desc: 'Mapas, infografías y fotos',            icon: 'eye',      tipos: ['pregunta', 'instruccion', 'creacion', 'escritura'], pronto: true },
   ];
@@ -121,11 +121,14 @@
     return a;
   }
 
-  // Documento: orden de lectura (página, luego de arriba abajo, luego izquierda).
-  // El número de cada activador es su posición en este orden.
+  // Documento: orden de lectura. El número de cada activador es su posición
+  // en este orden. PDF: página, de arriba abajo, de izquierda a derecha.
+  // EPUB: capítulo (`cap`) y posición en su texto (`ini`).
+  const bloqueDe = (a) => (typeof a.cap === 'number' ? a.cap : (a.pagina || 1) - 1);
+  const posicionDe = (a) => (typeof a.ini === 'number' ? a.ini : (a.y || 0));
   function ordenLectura(lista) {
     return (lista || []).slice().sort((p, q) =>
-      (p.pagina || 1) - (q.pagina || 1) || (p.y || 0) - (q.y || 0) || (p.x || 0) - (q.x || 0));
+      bloqueDe(p) - bloqueDe(q) || posicionDe(p) - posicionDe(q) || (p.x || 0) - (q.x || 0));
   }
 
   // 83 -> "1:23"; 3725 -> "1:02:05"

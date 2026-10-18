@@ -223,13 +223,21 @@ function subirReanudable(meta, archivo, tipo) {
   });
 }
 
-// Sube un PDF a "Res Cogitans/PDFs". Devuelve { id, name, size }.
+// Formatos de documento aceptados (PDF y EPUB), por extensión del nombre.
+const MIME_DOCUMENTO = { pdf: 'application/pdf', epub: 'application/epub+zip' };
+function formatoDeArchivo(nombre, mime) {
+  if (/epub/i.test(mime || '') || /\.epub$/i.test(nombre || '')) return 'epub';
+  return 'pdf';
+}
+
+// Sube un PDF o EPUB a "Res Cogitans/PDFs". Devuelve { id, name, size }.
 function subirPdfDrive(archivo) {
+  const tipo = MIME_DOCUMENTO[formatoDeArchivo(archivo.name, archivo.type)];
   const intentar = () => carpetaPdfs().then((carpeta) => {
-    const meta = { name: archivo.name, mimeType: 'application/pdf', parents: [carpeta] };
+    const meta = { name: archivo.name, mimeType: tipo, parents: [carpeta] };
     return archivo.size > 5 * 1024 * 1024
-      ? subirReanudable(meta, archivo, 'application/pdf')
-      : subirArchivoDrive(meta, archivo, 'application/pdf');
+      ? subirReanudable(meta, archivo, tipo)
+      : subirArchivoDrive(meta, archivo, tipo);
   });
   // Si la carpeta guardada ya no existe (la borraron en Drive), se busca/crea de nuevo y se reintenta.
   return intentar().catch((e) => {
@@ -239,17 +247,25 @@ function subirPdfDrive(archivo) {
   });
 }
 
-// PDF que la app ya subió (para reutilizar uno en otra activación).
+// PDF y EPUB que la app ya subió (para reutilizar uno en otra activación).
 function listarPdfsDrive() {
   return carpetaPdfs().then((carpeta) => {
-    const q = "'" + carpeta + "' in parents and mimeType='application/pdf' and trashed=false";
-    return driveFetch(DRIVE_API + '/files?orderBy=modifiedTime desc&pageSize=50&fields=files(id,name,size,modifiedTime)&q=' + encodeURIComponent(q))
+    const q = "'" + carpeta + "' in parents and (mimeType='application/pdf' or mimeType='application/epub+zip') and trashed=false";
+    return driveFetch(DRIVE_API + '/files?orderBy=modifiedTime desc&pageSize=50&fields=files(id,name,size,mimeType,modifiedTime)&q=' + encodeURIComponent(q))
       .then((r) => r.json()).then((j) => j.files || []);
   });
 }
 
 // URL de descarga del contenido (PDF.js la usa con el token en la cabecera).
 function urlMediaDrive(id) { return DRIVE_API + '/files/' + id + '?alt=media'; }
+
+// Descarga el contenido completo (lo usa el EPUB, que se abre como un ZIP).
+function descargarDrive(id) {
+  return driveFetch(urlMediaDrive(id)).then((r) => r.arrayBuffer()).catch((e) => {
+    if (e.motivo === 'drive-error' && /\b404\b/.test(e.message)) e.message = 'El archivo ya no está en tu Drive (¿se borró o está en la papelera?).';
+    throw e;
+  });
+}
 
 /* JSON de marcas junto al PDF. Devuelve el id del JSON (nuevo o el mismo). */
 function contenidoMarcas(act) {
@@ -308,6 +324,6 @@ function useSincronizarMarcas(act, onChange) {
 }
 
 Object.assign(window, {
-  DriveAuth, useDrive, DriveSesion, carpetaPdfs, subirPdfDrive, listarPdfsDrive,
-  urlMediaDrive, guardarMarcasDrive, useSincronizarMarcas,
+  DriveAuth, useDrive, DriveSesion, carpetaPdfs, subirPdfDrive, listarPdfsDrive, formatoDeArchivo,
+  urlMediaDrive, descargarDrive, guardarMarcasDrive, useSincronizarMarcas,
 });

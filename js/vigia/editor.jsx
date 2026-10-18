@@ -9,9 +9,14 @@
        video: { url, id }, estudiantes: [..],
        activaciones: [{ id, tipo, t, texto, ruleta?, modo?, opciones?, correcta? }] } */
 
-/* Elige el editor según el recurso (cada uno con sus propios hooks). */
+/* Elige el editor según el recurso y el formato (cada uno con sus propios hooks).
+   Documento: EPUB si su archivo es EPUB; si no (o aún no hay archivo), PDF,
+   que es el que muestra el paso de subir el archivo. */
 function VigiaEditor(props) {
-  return props.act.recurso === 'documento' ? <VigiaEditorPdf {...props} /> : <VigiaEditorVideo {...props} />;
+  const { act } = props;
+  if (act.recurso !== 'documento') return <VigiaEditorVideo {...props} />;
+  return act.pdf && act.pdf.formato === 'epub' && (act.pdf.driveId || act.pdf.local)
+    ? <VigiaEditorEpub {...props} /> : <VigiaEditorPdf {...props} />;
 }
 
 /* Selector de recurso de la barra superior. Solo deja cambiarlo mientras la
@@ -312,14 +317,50 @@ function LineaTiempo({ duracion, tiempo, activaciones, selId, onSeek, onSelect }
   );
 }
 
-/* Configuración de la activación seleccionada. */
+/* Campo de texto que CRECE con su contenido: al pegar un texto largo se ve
+   completo (hasta `max` px; desde ahí, barra de desplazamiento). */
+function AreaTexto({ value, onChange, minRows = 2, max = 360, ...resto }) {
+  const ref = React.useRef(null);
+  React.useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = Math.min(max, el.scrollHeight + 2) + 'px';
+    el.style.overflowY = el.scrollHeight + 2 > max ? 'auto' : 'hidden';
+  }, [value, max]);
+  return <textarea ref={ref} rows={minRows} value={value} onChange={onChange} {...resto} style={{ resize: 'vertical', ...(resto.style || {}) }} />;
+}
+
+/* Etiqueta de un campo con acciones rápidas a la derecha: "Borrar" (vacía el
+   campo, útil cuando el texto se leyó mal) y, si se da, "Leer de nuevo". */
+function EtiquetaCampo({ texto, valor, onBorrar, onReleer }) {
+  const [leyendo, setLeyendo] = React.useState(false);
+  return (
+    <div className="vg-etiqueta-campo">
+      <label>{texto}</label>
+      <span style={{ flex: 1 }}></span>
+      {onReleer && (
+        <button type="button" className="vg-mini-accion" disabled={leyendo}
+          onClick={() => { setLeyendo(true); Promise.resolve(onReleer()).finally(() => setLeyendo(false)); }}
+          title="Volver a tomar el texto que queda debajo de la marca">
+          {leyendo ? 'Leyendo…' : '↻ Leer de nuevo'}
+        </button>
+      )}
+      {valor && onBorrar && (
+        <button type="button" className="vg-mini-accion" onClick={onBorrar} title="Borrar todo el texto de este campo">✕ Borrar</button>
+      )}
+    </div>
+  );
+}
+
 /* Configuración de una activación. Sirve para los dos recursos:
      · Video (conTiempo): minuto en que aparece.
      · Documento (conTiempo={false}): `ubicacion` ("Página 2 · N.º 3") y el
-       texto del PDF (`fragmento`, pegado por el docente), que se cita en la tarjeta.
-   `compacto`: versión para la tarjeta flotante sobre el PDF (sin encabezado
-   ni ubicación, que la tarjeta ya muestra). */
-function ConfigActivacion({ a, onCambiar, onBorrar, tiempoActual, duracion, hayEstudiantes, onAbrirEstudiantes, onIr, conTiempo = true, ubicacion, compacto }) {
+       texto marcado (`fragmento`: leído solo del PDF o tomado de la selección
+       en el EPUB), que se cita en la tarjeta. `onReleer`: vuelve a leerlo.
+   `compacto`: versión para la tarjeta flotante sobre el documento (sin
+   encabezado ni ubicación, que la tarjeta ya muestra). */
+function ConfigActivacion({ a, onCambiar, onBorrar, tiempoActual, duracion, hayEstudiantes, onAbrirEstudiantes, onIr, conTiempo = true, ubicacion, compacto, onReleer }) {
   const { tipo, fmtT, parseT } = VigiaTipos;
   const ti = tipo(a.tipo);
   const set = (patch) => onCambiar({ ...a, ...patch });
@@ -375,18 +416,19 @@ function ConfigActivacion({ a, onCambiar, onBorrar, tiempoActual, duracion, hayE
 
       {!conTiempo && (
         <div className="field">
-          <label>Texto del PDF (opcional)</label>
-          <textarea rows={2} value={a.fragmento || ''} onChange={(e) => set({ fragmento: e.target.value })}
-            placeholder="Selecciona el texto en el PDF, cópialo (Ctrl+C) y pégalo aquí (Ctrl+V)"></textarea>
+          <EtiquetaCampo texto="Texto marcado (opcional)" valor={a.fragmento}
+            onBorrar={() => set({ fragmento: '' })} onReleer={onReleer} />
+          <AreaTexto minRows={3} value={a.fragmento || ''} onChange={(e) => set({ fragmento: e.target.value })}
+            placeholder="Escribe o pega aquí el fragmento (también puedes seleccionarlo en el documento y copiarlo)" />
           <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 5 }}>
-            Se cita en la tarjeta al presentar. Si queda vacío, no se muestra.
+            Se tomó solo del documento: revísalo y corrige lo que haga falta. Se cita en la tarjeta al presentar; si queda vacío, no se muestra.
           </div>
         </div>
       )}
 
       {a.tipo === 'glosario' && (
         <div className="field">
-          <label>Palabra o término</label>
+          <EtiquetaCampo texto="Palabra o término" valor={a.termino} onBorrar={() => set({ termino: '' })} />
           <input type="text" value={a.termino || ''} onChange={(e) => set({ termino: e.target.value })} placeholder="Ej.: fotosíntesis" />
         </div>
       )}
@@ -404,9 +446,9 @@ function ConfigActivacion({ a, onCambiar, onBorrar, tiempoActual, duracion, hayE
       )}
 
       <div className="field">
-        <label>{ti.etiqueta}</label>
-        <textarea rows={a.tipo === 'contexto' || a.tipo === 'escritura' ? 5 : 3} value={a.texto || ''}
-          onChange={(e) => set({ texto: e.target.value })} placeholder={ti.placeholder}></textarea>
+        <EtiquetaCampo texto={ti.etiqueta} valor={a.texto} onBorrar={() => set({ texto: '' })} />
+        <AreaTexto minRows={a.tipo === 'contexto' || a.tipo === 'escritura' ? 4 : 3} value={a.texto || ''}
+          onChange={(e) => set({ texto: e.target.value })} placeholder={ti.placeholder} />
         {a.tipo === 'escritura' && (
           <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 5 }}>
             Se mostrará grande, en una hoja rayada fácil de leer desde el fondo del salón. Mejor frases cortas.
@@ -416,9 +458,9 @@ function ConfigActivacion({ a, onCambiar, onBorrar, tiempoActual, duracion, hayE
 
       {a.tipo === 'glosario' && (
         <div className="field">
-          <label>Definición construida en clase</label>
-          <textarea rows={3} value={a.definicion || ''} onChange={(e) => set({ definicion: e.target.value })}
-            placeholder="Se escribe en vivo al presentar, con los aportes del grupo. Queda guardada aquí."></textarea>
+          <EtiquetaCampo texto="Definición construida en clase" valor={a.definicion} onBorrar={() => set({ definicion: '' })} />
+          <AreaTexto minRows={3} value={a.definicion || ''} onChange={(e) => set({ definicion: e.target.value })}
+            placeholder="Se escribe en vivo al presentar, con los aportes del grupo. Queda guardada aquí." />
         </div>
       )}
 
@@ -464,4 +506,4 @@ function ConfigActivacion({ a, onCambiar, onBorrar, tiempoActual, duracion, hayE
   );
 }
 
-Object.assign(window, { VigiaEditor, VigiaEditorVideo, RecursoChips, EstudiantesPopover, PasoEnlace, LineaTiempo, ConfigActivacion });
+Object.assign(window, { AreaTexto, EtiquetaCampo, VigiaEditor, VigiaEditorVideo, RecursoChips, EstudiantesPopover, PasoEnlace, LineaTiempo, ConfigActivacion });

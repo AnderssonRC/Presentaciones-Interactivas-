@@ -8,9 +8,11 @@
    activación quedó en medio (y no fue un salto manual de más de 1,5 s), se
    dispara. Volver atrás y pasar de nuevo la vuelve a mostrar. */
 
-/* Elige el modo Presentar según el recurso. */
+/* Elige el modo Presentar según el recurso y el formato (video, PDF o EPUB). */
 function VigiaPresentar(props) {
-  return props.act.recurso === 'documento' ? <VigiaPresentarPdf {...props} /> : <VigiaPresentarVideo {...props} />;
+  const { act } = props;
+  if (act.recurso !== 'documento') return <VigiaPresentarVideo {...props} />;
+  return act.pdf && act.pdf.formato === 'epub' ? <VigiaPresentarEpub {...props} /> : <VigiaPresentarPdf {...props} />;
 }
 
 /* Pantalla completa del navegador mientras se presenta; si el docente sale
@@ -56,6 +58,7 @@ function VigiaPresentarVideo({ act, onExit }) {
   const [activa, setActiva] = React.useState(null);        // activación en pantalla
   const [frase, setFrase] = React.useState('¡Alto!');      // frase que irrumpe antes de la tarjeta
   const [usados, marcarUsado] = useUsadosRuleta(act.estudiantes);
+  const [tono, setTono] = useTonoPresentar();
   const [hudVisible, setHudVisible] = React.useState(true);
 
   usePantallaCompleta(onExit);
@@ -121,7 +124,7 @@ function VigiaPresentarVideo({ act, onExit }) {
   };
 
   return (
-    <div className="vigia vg-presentar" onMouseMove={moverMouse} data-screen-label="Modo Vigía · Presentar">
+    <div className={'vigia vg-presentar tono-' + tono} onMouseMove={moverMouse} data-screen-label="Modo Vigía · Presentar">
       <div className="vg-presentar-video">
         <div ref={yt.montaje} className="vg-video"></div>
         {/* Capa encima del iframe: el clic lo maneja la app (no YouTube). */}
@@ -165,6 +168,7 @@ function VigiaPresentarVideo({ act, onExit }) {
           ))}
         </div>
         <span className="vg-hud-tiempo">{yt.duracion ? fmtT(yt.duracion) : '–:––'}</span>
+        <SelectorTono tono={tono} setTono={setTono} />
       </div>
       <button className={'hud-btn vg-salir' + (mostrarHud && !activa ? '' : ' oculto')} onClick={onExit} title="Salir (Esc)">✕ Salir</button>
     </div>
@@ -219,9 +223,17 @@ function TarjetaActivacion({ a, frase, estudiantes, orden, usados, onUsado, onCo
 /* Contenido según el tipo de activación. `onCambiar` (opcional) guarda
    cambios hechos en vivo, como la definición del Glosario. En documentos, el
    texto marcado en el PDF (`fragmento`) se cita arriba. */
+/* La letra se ajusta al largo del texto (pegado o escrito) para que se vea
+   COMPLETO dentro de la tarjeta: clases " largo", " muy-largo", " extra". */
+function claseLargo(texto, base) {
+  const n = String(texto || '').length;
+  const b = base || 1;   // textos que ya tienen letra pequeña aguantan más
+  return n > 700 * b ? ' extra' : n > 380 * b ? ' muy-largo' : n > 170 * b ? ' largo' : '';
+}
+
 function ContenidoActivacion({ a, onCambiar }) {
   const cita = a.fragmento && a.tipo !== 'glosario' && a.tipo !== 'escritura'
-    ? <div className="vg-cita">«{a.fragmento}»</div> : null;
+    ? <div className={'vg-cita' + claseLargo(a.fragmento, 1.6)}>«{a.fragmento}»</div> : null;
   if (a.tipo === 'glosario') return <ContenidoGlosario a={a} onCambiar={onCambiar} />;
   return <React.Fragment>{cita}<ContenidoBase a={a} /></React.Fragment>;
 }
@@ -233,12 +245,13 @@ function ContenidoGlosario({ a, onCambiar }) {
   const escribir = (v) => { setDefinicion(v); if (onCambiar) onCambiar({ ...a, definicion: v }); };
   return (
     <div className="vg-glosario">
-      <div className="vg-glosario-termino">{a.termino || a.fragmento || 'Palabra'}</div>
-      {a.texto && <div className="vg-glosario-pista">{a.texto}</div>}
+      <div className={'vg-glosario-termino' + claseLargo(a.termino || a.fragmento, 0.15)}>{a.termino || a.fragmento || 'Palabra'}</div>
+      {a.texto && <div className={'vg-glosario-pista' + claseLargo(a.texto)}>{a.texto}</div>}
       <div className="vg-glosario-etiqueta">Definición entre todos</div>
-      <div className="vg-hoja vg-hoja-editable">
-        <textarea value={definicion} onChange={(e) => escribir(e.target.value)} rows={3}
-          placeholder="Escribe aquí lo que propone el grupo…" spellCheck="true" />
+      {/* La hoja crece con lo que se escribe o pega (AreaTexto, editor.jsx). */}
+      <div className={'vg-hoja vg-hoja-editable' + claseLargo(definicion, 0.6)}>
+        <AreaTexto value={definicion} onChange={(e) => escribir(e.target.value)} minRows={3} max={2000}
+          placeholder="Escribe aquí lo que propone el grupo…" spellCheck="true" style={{ resize: 'none' }} />
       </div>
     </div>
   );
@@ -255,7 +268,7 @@ function ContenidoBase({ a }) {
     const correcta = Math.min(a.correcta || 0, opciones.length - 1);
     return (
       <div>
-        <div className="vg-texto-pregunta">{texto || '¿…?'}</div>
+        <div className={'vg-texto-pregunta' + claseLargo(texto)}>{texto || '¿…?'}</div>
         {cerrada && (
           <React.Fragment>
             <div className="vg-opciones">
@@ -277,13 +290,84 @@ function ContenidoBase({ a }) {
     );
   }
   if (a.tipo === 'escritura') {
-    return <div className="vg-hoja"><p>{texto}</p></div>;
+    return <div className={'vg-hoja' + claseLargo(texto, 0.6)}><p>{texto}</p></div>;
   }
   if (a.tipo === 'contexto') {
-    return <div className="vg-texto-contexto">{texto}</div>;
+    return <div className={'vg-texto-contexto' + claseLargo(texto, 1.5)}>{texto}</div>;
   }
   // instruccion y creacion
-  return <div className="vg-texto-grande">{texto}</div>;
+  return <div className={'vg-texto-grande' + claseLargo(texto)}>{texto}</div>;
 }
 
-Object.assign(window, { VigiaPresentar, VigiaPresentarVideo, usePantallaCompleta, useUsadosRuleta, TarjetaActivacion, ContenidoActivacion });
+/* ---------- Tono de pantalla ("Exceso de luz") ----------
+   Para probar qué se ve mejor en cada video beam o televisor. Se aplica a lo
+   que se proyecta (documento, video y tarjetas) y se recuerda en este
+   computador (cada salón tiene su proyector). Atajo: tecla L. */
+const TONOS_PANTALLA = [
+  { id: 'normal',    nombre: 'Normal',             desc: 'Colores originales' },
+  { id: 'luz',       nombre: 'Exceso de luz',      desc: 'Tarjetas claras y texto más oscuro, para salones con mucha luz' },
+  { id: 'contraste', nombre: 'Alto contraste',     desc: 'Negro y blanco intensos, para proyectores débiles' },
+  { id: 'calido',    nombre: 'Tono cálido',        desc: 'Menos azul, más suave para la vista' },
+];
+function useTonoPresentar() {
+  const [tono, setTonoState] = React.useState(() => {
+    try { const t = localStorage.getItem('vigia_tono'); return TONOS_PANTALLA.some((x) => x.id === t) ? t : 'normal'; } catch (e) { return 'normal'; }
+  });
+  const setTono = (t) => { setTonoState(t); try { localStorage.setItem('vigia_tono', t); } catch (e) { /* sin almacenamiento */ } };
+  const siguienteTono = () => {
+    const i = TONOS_PANTALLA.findIndex((x) => x.id === tono);
+    setTono(TONOS_PANTALLA[(i + 1) % TONOS_PANTALLA.length].id);
+  };
+  // Tecla L: pasa al siguiente tono.
+  React.useEffect(() => {
+    const onKey = (e) => {
+      if (e.target && /input|textarea|select/i.test(e.target.tagName)) return;
+      if (e.key === 'l' || e.key === 'L') { e.preventDefault(); siguienteTono(); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
+  return [tono, setTono];
+}
+
+/* Botón ☀ con su lista de tonos (se abre hacia arriba). */
+function SelectorTono({ tono, setTono }) {
+  const [abierto, setAbierto] = React.useState(false);
+  const ref = React.useRef(null);
+  React.useEffect(() => {
+    if (!abierto) return;
+    const fuera = (e) => { if (ref.current && !ref.current.contains(e.target)) setAbierto(false); };
+    document.addEventListener('mousedown', fuera);
+    return () => document.removeEventListener('mousedown', fuera);
+  }, [abierto]);
+  const actual = TONOS_PANTALLA.find((x) => x.id === tono) || TONOS_PANTALLA[0];
+  return (
+    <div className="vg-tono" ref={ref}>
+      <button className={'vg-ctrl vg-ctrl-tono' + (tono !== 'normal' ? ' on' : '')} onClick={() => setAbierto((v) => !v)}
+        title={'Exceso de luz / tono de pantalla: ' + actual.nombre + ' (tecla L)'} aria-label="Tono de pantalla">
+        ☀
+      </button>
+      {abierto && (
+        <div className="vg-tono-menu" role="menu">
+          <div className="vg-tono-titulo">Tono de pantalla</div>
+          {TONOS_PANTALLA.map((t) => (
+            <button key={t.id} role="menuitemradio" aria-checked={t.id === tono}
+              className={'vg-tono-op' + (t.id === tono ? ' on' : '')} onClick={() => setTono(t.id)}>
+              <span className={'vg-tono-muestra tono-' + t.id}></span>
+              <span style={{ minWidth: 0 }}>
+                <strong>{t.nombre}</strong>
+                <span>{t.desc}</span>
+              </span>
+            </button>
+          ))}
+          <div className="vg-tono-ayuda">Prueba cada uno y deja el que mejor se lea desde el fondo del salón. Tecla L para cambiar rápido.</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+Object.assign(window, {
+  VigiaPresentar, VigiaPresentarVideo, usePantallaCompleta, useUsadosRuleta, TarjetaActivacion, ContenidoActivacion,
+  TONOS_PANTALLA, useTonoPresentar, SelectorTono,
+});
