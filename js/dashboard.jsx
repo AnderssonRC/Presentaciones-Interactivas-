@@ -51,12 +51,68 @@ function Sparkle({ size, style }) {
   );
 }
 
+/* Menú del avatar: Administración (solo admin), Modo Día y Cerrar sesión.
+   Se cierra al hacer clic fuera o con Escape. Cambiar el Modo Día deja el
+   menú abierto para que se vea el cambio al instante. */
+function UserMenu({ profile, esAdmin, onAdmin, onLogout, theme, setTheme, sinTema }) {
+  const [abierto, setAbierto] = React.useState(false);
+  const ref = React.useRef(null);
+  React.useEffect(() => {
+    if (!abierto) return;
+    const fuera = (e) => { if (ref.current && !ref.current.contains(e.target)) setAbierto(false); };
+    const esc = (e) => { if (e.key === 'Escape') setAbierto(false); };
+    document.addEventListener('mousedown', fuera);
+    document.addEventListener('keydown', esc);
+    return () => {
+      document.removeEventListener('mousedown', fuera);
+      document.removeEventListener('keydown', esc);
+    };
+  }, [abierto]);
+
+  const dia = theme === 'dia';
+  return (
+    <div className="user-menu-wrap" ref={ref}>
+      <button className="user-menu-btn" onClick={() => setAbierto((v) => !v)}
+        aria-haspopup="menu" aria-expanded={abierto} title={profile.nombre}>
+        <span className="profile-avatar" style={{ width: 38, height: 38, fontSize: 16, background: profile.color }}>
+          {profile.nombre.charAt(0).toUpperCase()}
+        </span>
+      </button>
+      {abierto && (
+        <div className="user-menu" role="menu">
+          <div className="user-menu-head">
+            <strong>{profile.nombre}</strong>
+            {profile.email && <span>{profile.email}</span>}
+          </div>
+          {esAdmin && (
+            <button className="user-menu-item" role="menuitem" onClick={() => { setAbierto(false); onAdmin(); }}>
+              <Icon name="user" size={17} /> Administración
+            </button>
+          )}
+          {/* `sinTema`: pantallas con entorno propio (Modo Vigía) no ofrecen Modo Día. */}
+          {!sinTema && (
+            <button className="user-menu-item" role="menuitemcheckbox" aria-checked={dia}
+              onClick={() => setTheme(dia ? 'tonos' : 'dia')}>
+              <Icon name="sol" size={17} /> Modo Día
+              <span className={'switch' + (dia ? ' on' : '')} aria-hidden="true"></span>
+            </button>
+          )}
+          <div className="user-menu-sep"></div>
+          <button className="user-menu-item peligro" role="menuitem" onClick={() => { setAbierto(false); onLogout(); }}>
+            <Icon name="salir" size={17} /> Cerrar sesión
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function presIcon(p) {
   const act = p.slides.find((s) => s.type === 'actividad');
   return act ? AIP.toolById(act.tool).icon : 'tv';
 }
 
-function Dashboard({ profile, presentations, onCreate, onOpen, onPresent, onDelete, onLogout, theme, setTheme, variant, esAdmin, onAdmin }) {  const [q, setQ] = React.useState('');
+function Dashboard({ profile, presentations, onCreate, onOpen, onPresent, onDelete, onLogout, theme, setTheme, variant, esAdmin, onAdmin, onVigia }) {  const [q, setQ] = React.useState('');
   const norm = (s) => (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   const filtered = presentations.filter((p) =>
     norm(p.tema + ' ' + p.materia + ' ' + p.objetivo).includes(norm(q)))
@@ -87,20 +143,17 @@ function Dashboard({ profile, presentations, onCreate, onOpen, onPresent, onDele
                Actividades<br />Interactivas
 </span>
 </div>
-        <nav style={{ display: 'flex', gap: 4, marginLeft: 18, flex: 1 }}>
-          <button className="navlink active">Mis presentaciones</button>
-          {esAdmin && <button className="navlink" onClick={onAdmin}>Administración</button>}
-        </nav>
-        <ThemeToggle theme={theme} setTheme={setTheme} />
+        {/* Entrada al Modo Vigía (interfaz aparte, ver js/vigia.jsx). */}
+        <button className="vigia-entrada" onClick={onVigia} title="Activar el Modo Vigía">
+          <img src="condor-vigia-icono.png" alt="" /> <span>Modo Vigía</span>
+        </button>
+        {/* Espaciador: empuja "Crear" y el avatar a la derecha. */}
+        <div style={{ flex: 1 }}></div>
         <button className="btn btn-primary" onClick={() => onCreate("normal")} style={{ borderRadius: 999 }}>
           <Icon name="mas" size={16} /> Crear nueva Presentación
         </button>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 6 }}>
-          <div className="profile-avatar" style={{ width: 38, height: 38, fontSize: 16, background: profile.color }} title={profile.nombre}>
-            {profile.nombre.charAt(0).toUpperCase()}
-          </div>
-          <button className="icon-btn" onClick={onLogout} title="Cambiar de perfil" style={{ borderRadius: 999 }}><Icon name="salir" size={15} /></button>
-        </div>
+        <UserMenu profile={profile} esAdmin={esAdmin} onAdmin={onAdmin} onLogout={onLogout}
+          theme={theme} setTheme={setTheme} />
       </header>
 
       <main className="main-wrap">
@@ -206,7 +259,7 @@ function Dashboard({ profile, presentations, onCreate, onOpen, onPresent, onDele
   );
 }
 
-Object.assign(window, { Dashboard, inkFor, PantallaAccesoPendiente, AdminPanel });
+Object.assign(window, { Dashboard, inkFor, PantallaAccesoPendiente, AdminPanel, UserMenu });
 /* ---------- Pantalla de espera: solicitud pendiente o rechazada ---------- */
 function PantallaAccesoPendiente({ estado, onLogout }) {
   const rechazado = estado === 'rechazado';

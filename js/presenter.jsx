@@ -327,10 +327,9 @@ function maxPaso(slide) {
    (ver editor.jsx y db.js: tiempoHabilitado). Arranca solo al entrar a la
    diapositiva; un clic pausa/reanuda, y al llegar a 0 muestra "SIN TIEMPO"
    (otro clic lo reinicia). Usa useCountdown/fmtTime, definidos en
-   activities.jsx (cargado antes que este archivo). */
-// Herramientas que ya traen su propia cuenta regresiva grande en el centro
-// de la actividad: el cronómetro pequeño no se duplica ahí.
-const TOOLS_TIMER_PROPIO = ['crea', 'problema', 'temporizador'];
+   js/actividades/comun.jsx (cargado antes que este archivo). */
+// Las actividades que ya traen su propia cuenta regresiva grande en el
+// centro (meta.js: timerPropio) no muestran también este cronómetro pequeño.
 function MiniTimer({ duracion, accent }) {
   const [secs, running, ctl] = useCountdown(duracion);
   const arrancado = React.useRef(false);
@@ -551,6 +550,14 @@ function Presenter({ pres, onExit, onChange }) {
 
   React.useEffect(() => { setIdx(0); setPaso(0); setReplay((r) => r + 1); setVerPodio(false); }, [pres.id]);
 
+  // Precarga en segundo plano, una por una, el código de las actividades de
+  // esta presentación (ver js/actividades/nucleo.js): al llegar a cada una
+  // ya está lista y no se ve el aviso "Cargando actividad…".
+  React.useEffect(() => {
+    Actividades.precargar(slides.filter((s) => s.type === 'actividad').map((s) => s.tool));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pres.id]);
+
   React.useEffect(() => {
     const update = () => setScale(Math.min(window.innerWidth / 1920, window.innerHeight / 1080));
     update();
@@ -624,6 +631,23 @@ function Presenter({ pres, onExit, onChange }) {
   };
   const cerrarParticipacion = () => { setRonda('idle'); setElegido(null); };
 
+  // --- Quiz en los celulares (actividad "elige") ---
+  // EligeRun (js/actividades/elige/elige.jsx) avisa vía onQuiz qué pregunta muestra el TV, en
+  // qué orden van sus opciones y si ya se reveló ('abierta' | 'cerrada').
+  // Se guarda junto al id de la diapositiva: el efecto del hijo corre antes
+  // que los del Presenter, así que en vez de limpiar al cambiar de slide se
+  // ignora un quiz que no sea del slide actual. `ronda` cuenta cada apertura
+  // (también al repetir la misma pregunta) para distinguir rondas.
+  const [quizTv, setQuizTv] = React.useState(null);
+  const recibirQuiz = React.useCallback((slideId, qz) => {
+    setQuizTv((prev) => {
+      const mismo = prev && prev.slideId === slideId;
+      const reabre = qz.fase === 'abierta' && (!mismo || prev.fase !== 'abierta' || prev.qid !== qz.qid);
+      const n = !mismo ? 1 : (reabre ? prev.ronda + 1 : prev.ronda);
+      return { ...qz, slideId, ronda: n };
+    });
+  }, []);
+
   // Escuchar comandos del celular.
   React.useEffect(() => {
     if (!remoteCode || !AIP.listenRemoteSession) return;
@@ -684,6 +708,28 @@ function Presenter({ pres, onExit, onChange }) {
   };
   handleRemoteCommandRef.current = handleRemoteCommand;
 
+  // Quiz vigente (solo si es del slide en pantalla) y su clave de ronda.
+  const slideActualId = slides[Math.min(idx, slides.length - 1)].id;
+  const quizVigente = quizTv && quizTv.slideId === slideActualId ? quizTv : null;
+  const quizKey = quizVigente ? (slideActualId + ':' + quizVigente.qid + ':' + quizVigente.ronda) : null;
+
+  // Cada pregunta nueva empieza sin respuestas en los celulares.
+  React.useEffect(() => {
+    if (!quizKey || !remoteCode || !conEstudiantes || !AIP.resetAnswers) return;
+    AIP.resetAnswers(remoteCode).catch((e) => console.error('[quiz] reset:', e));
+  }, [quizKey, remoteCode, conEstudiantes]);
+
+  // Al revelar: gana quien respondió bien primero. answerAt es la hora del
+  // SERVIDOR (db.js: submitAnswer), así no influye el reloj de cada celular;
+  // si aún no llegó (escritura pendiente) cuenta como la última.
+  const ganadorQuiz = React.useMemo(() => {
+    if (!quizVigente || quizVigente.fase !== 'cerrada') return null;
+    const ms = (t) => (t && typeof t.toMillis === 'function') ? t.toMillis() : (typeof t === 'number' ? t : Infinity);
+    const bien = participants.filter((p) => p.answer === quizVigente.correctIdx)
+      .sort((a, b) => ms(a.answerAt) - ms(b.answerAt));
+    return bien.length ? bien[0].pid : null;
+  }, [quizVigente, participants]);
+
   // Escribir el estado espejo en Firestore cada vez que cambia algo relevante.
   React.useEffect(() => {
     if (!remoteCode || !AIP.updateRemoteState) return;
@@ -698,14 +744,13 @@ function Presenter({ pres, onExit, onChange }) {
       ? { tipo: 'actividad', tool: slide.tool, nombre: t && t.nombre, color: t && t.color,
           titulo: cfg.titulo || '', instrucciones: cfg.instrucciones || '', config: cfg }
       : { tipo: 'contenido', titulo: slide.titulo || '', texto: slide.texto || '', slide };
-    // Ronda de Quiz/Kahoot: se abre automáticamente para la actividad "elige"
-    // (opción múltiple), tomando la primera pregunta configurada.
-    // Formato de cada línea en 'elige': "Pregunta|Correcta|Distractor1|Distractor2".
-    const primeraPregunta = isAct && slide.tool === 'elige' ? (cfg.items || [])[0] : null;
-    const quiz = primeraPregunta
-      ? { fase: 'abierta',
-          opciones: primeraPregunta.split('|').slice(1).map((txt) => ({ texto: (txt || '').trim() })),
-          correctIdx: 0 }
+    // Ronda de Quiz/Kahoot para la actividad "elige": sigue la pregunta que
+    // muestra el TV (mismo orden de opciones) y se cierra al revelarla.
+    // `qi` lo usa el espejo del celular para mostrar la misma pregunta.
+    const quiz = quizVigente
+      ? { fase: quizVigente.fase, key: quizKey, qi: quizVigente.qid,
+          opciones: quizVigente.opciones, correctIdx: quizVigente.correctIdx,
+          ganador: ganadorQuiz }
       : { fase: 'idle' };
     AIP.updateRemoteState(remoteCode, {
       idx,
@@ -730,15 +775,14 @@ function Presenter({ pres, onExit, onChange }) {
       // Estado de la ronda de participación para los estudiantes.
       ronda: { fase: ronda, elegido },
     });
-  }, [remoteCode, idx, slides.length, hideScores, hudOculto, brilloAlto, teams, esEquipos, ronda, elegido, verPodio, conEstudiantes, pres.mandoPin]);
+  }, [remoteCode, idx, slides.length, hideScores, hudOculto, brilloAlto, teams, esEquipos, ronda, elegido, verPodio, conEstudiantes, pres.mandoPin, quizKey, quizVigente && quizVigente.fase, ganadorQuiz]);
 
   const slide = slides[Math.min(idx, slides.length - 1)];
   const isAct = slide.type === 'actividad';
   const tool = isAct ? AIP.toolById(slide.tool) : null;
-  const Runtime = isAct ? (ActivityRuntimes[slide.tool] || ActivityRuntimes.default) : null;
 
-  // Cronómetro pequeño (ver MiniTimer/TOOLS_TIMER_PROPIO arriba).
-  const mostrarMiniTimer = isAct && !TOOLS_TIMER_PROPIO.includes(slide.tool)
+  // Cronómetro pequeño (ver MiniTimer arriba).
+  const mostrarMiniTimer = isAct && !(tool && tool.timerPropio)
     && AIP.tiempoHabilitado(slide.config, slide.tool) && (slide.config.duracion || 0) > 0;
 
   // API que consumen las actividades de equipo (RetaEquipoRun, PulsadorRun,
@@ -773,7 +817,8 @@ function Presenter({ pres, onExit, onChange }) {
       <div className="presenter-stagewrap">
         <div className={'slide' + (brilloAlto ? ' slide-brillo' : '')} key={slide.id} style={{ position: 'absolute', left: '50%', top: '50%', transform: `translate(-50%, -50%) scale(${scale})`, transformOrigin: 'center', background: isAct ? '#0B0E0B' : '#FFFFFF', color: isAct ? '#F2F5EF' : '#0B0F0C' }}>
           {isAct
-            ? <Runtime config={slide.config} tool={tool} remoteSignal={remoteSignal} equiposApi={equiposApi}
+            ? <ActividadRun toolId={slide.tool} config={slide.config} tool={tool} remoteSignal={remoteSignal} equiposApi={equiposApi}
+                onQuiz={(qz) => recibirQuiz(slide.id, qz)}
                 gruposGuardados={gruposPorSlide[slide.id]}
                 onGrupos={(gs) => setGruposPorSlide((prev) => ({ ...prev, [slide.id]: gs }))} />
             : <ContenidoSlide slide={slide} materia={pres.materia || 'Tema'} accent={pres.color} pasoActual={paso} replay={replay} />}

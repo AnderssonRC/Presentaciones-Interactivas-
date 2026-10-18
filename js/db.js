@@ -11,113 +11,23 @@
 (function () {
   const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 
-  // ---------- 20 Herramientas de Actividades Interactivas ----------
-  const TOOLS = [
-    { id: 'ruleta',       nombre: 'Ruleta de preguntas',   desc: 'Gira y responde la pregunta que toque', color: '#11F555', icon: 'ruleta' },
-    { id: 'ruletaCerrada', nombre: 'Ruleta de opción múltiple', desc: 'Gira y decide la pregunta y quién responde', color: '#EC4899', icon: 'ruleta' },
-    { id: 'completa',     nombre: 'Completa la palabra',    desc: 'Encuentra la letra que falta',          color: '#F53711', icon: 'letras' },
-    { id: 'elige',        nombre: 'Elige la respuesta',     desc: 'Opción múltiple con revelado',          color: '#116CF5', icon: 'check' },
-    { id: 'crea',         nombre: 'Crea una pregunta',      desc: 'Los estudiantes formulan preguntas',    color: '#11F555', icon: 'pregunta' },
-    { id: 'problema',     nombre: 'Resuelve un problema',   desc: 'Reto con tiempo para resolver',         color: '#F53711', icon: 'bulb' },
-    { id: 'vf',           nombre: 'Verdadero o falso',      desc: 'Afirmaciones para debatir y revelar',   color: '#116CF5', icon: 'vf' },
-    { id: 'pares',        nombre: 'Une los pares',          desc: 'Relaciona conceptos con definiciones',  color: '#11F555', icon: 'pares' },
-    { id: 'ordena',       nombre: 'Ordena los pasos',       desc: 'Secuencia procesos en orden correcto',  color: '#F53711', icon: 'ordena' },
-    { id: 'memorama',     nombre: 'Memorama',               desc: 'Memoria visual con parejas',            color: '#116CF5', icon: 'memorama' },
-    { id: 'sopa',         nombre: 'Sopa de letras',         desc: 'Encuentra palabras clave del tema',     color: '#11F555', icon: 'sopa' },
-    { id: 'adivina',      nombre: 'Adivina la imagen',      desc: 'Imagen oculta que se revela poco a poco', color: '#F53711', icon: 'eye' },
-    { id: 'lluvia',       nombre: 'Lluvia de ideas',        desc: 'Recoge ideas del grupo en pantalla',    color: '#116CF5', icon: 'cloud' },
-    { id: 'encuesta',     nombre: 'Encuesta rápida',        desc: 'Votación a mano alzada con conteo',     color: '#11F555', icon: 'chart' },
-    { id: 'temporizador', nombre: 'Temporizador',           desc: 'Cuenta regresiva grande y visible',     color: '#F53711', icon: 'clock' },
-    { id: 'selector',     nombre: 'Selector de estudiante', desc: 'Elige un participante al azar',         color: '#116CF5', icon: 'user' },
-    { id: 'dado',         nombre: 'Dado didáctico',         desc: 'Lanza el dado y asigna el reto',        color: '#11F555', icon: 'dado' },
-    { id: 'marcador',     nombre: 'Marcador de equipos',    desc: 'Puntajes en vivo por equipo',           color: '#F53711', icon: 'trofeo' },
-    { id: 'ahorcado',     nombre: 'Ahorcado',               desc: 'Adivina la palabra letra por letra',    color: '#116CF5', icon: 'ahorcado' },
-    { id: 'debate',       nombre: 'Debate: dos posturas',   desc: 'Divide el aula y argumenta',            color: '#11F555', icon: 'debate' },
-    { id: 'reto',         nombre: 'Reto relámpago',         desc: 'Desafío sorpresa de 60 segundos',       color: '#F53711', icon: 'rayo' },
-    { id: 'crucigrama',   nombre: 'Crucigrama',             desc: 'Cruza palabras por sus pistas',         color: '#116CF5', icon: 'sopa' },
-    { id: 'organiza',     nombre: 'Organiza la frase',      desc: 'Ordena las palabras del párrafo',       color: '#116CF5', icon: 'ordena' },
-    { id: 'descubre',     nombre: 'Descubre la palabra',    desc: 'Adivínala en seis intentos',            color: '#116CF5', icon: 'letras' },
-    { id: 'stop',         nombre: 'Stop the clock',         desc: 'Categorías del cuadro (una por línea)', color: '#116CF5', icon: 'letras' },
-    { id: 'errores',      nombre: 'Encuentra las diferencias', desc: 'Busca las diferencias en la imagen', color: '#116CF5', icon: 'eye' },
-    { id: 'acertijo',     nombre: 'Acertijo',               desc: 'Resuelve el enigma del docente',        color: '#116CF5', icon: 'pregunta' },
-     { id: 'retaEquipo', nombre: 'Reta al equipo',       desc: 'Preguntas por turnos entre equipos',     color: '#F53711', icon: 'trofeo' },
-    { id: 'pulsador',   nombre: 'Pulsador por turnos',  desc: 'El equipo que pulsa primero responde',   color: '#11F555', icon: 'rayo' },
-    { id: 'apuesta',    nombre: 'Apuesta de puntos',    desc: 'Cada equipo apuesta antes de responder', color: '#116CF5', icon: 'trofeo' },
-    { id: 'recuadros',  nombre: 'Recuadros por equipo', desc: 'Cada equipo resuelve su propio tablero', color: '#F5C211', icon: 'memorama' },
-    { id: 'grupos', nombre: 'Formar grupos', desc: 'Reparte la lista de estudiantes al azar', color: '#A855F7', icon: 'pares' },
-    { id: 'tablero', nombre: 'Tablero de números', desc: 'Elige un número y descubre la pregunta', color: '#116CF5', icon: 'sopa' },
-    { id: 'encuentraIdea', nombre: 'Encuentra la idea', desc: 'Toca la oración que es la idea principal', color: '#F5C211', icon: 'bulb' },
-    { id: 'encuentraElemento', nombre: 'Encuentra el elemento', desc: 'Toca la zona correcta de la imagen', color: '#A855F7', icon: 'eye' },
-  ];
+  // ---------- Catálogo de actividades ----------
+  // Cada actividad se define en js/actividades/<id>/meta.js (ver
+  // js/actividades/nucleo.js). Aquí solo se expone con los nombres de siempre.
+  if (!window.Actividades) console.error('[db] Falta js/actividades/nucleo.js antes de db.js en index.html.');
+  const TOOLS = window.Actividades ? window.Actividades.todas() : [];
 
-  const toolById = (id) => TOOLS.find((t) => t.id === id) || TOOLS[0];
+  // Id desconocido -> la ruleta (igual que antes con TOOLS[0]).
+  const toolById = (id) => window.Actividades.meta(id) || window.Actividades.meta('ruleta') || TOOLS[0];
 
   /* ====== Grupos de Interacciones ======
-     Cada grupo agrupa actividades EXISTENTES (por id, con { ref: 'id' }) y,
-     opcionalmente, actividades "próximamente" que aún no están construidas
-     (objeto completo con soon: true). */
-  const GROUPS = [
-    {
-      id: 'cognitivos',
-      nombre: 'Activadores Cognitivos',
-      desc: 'Despiertan el pensamiento y el ingenio',
-      color: '#116CF5',
-      icon: 'bulb',
-      tools: [
-        { ref: 'acertijo' },
-        { ref: 'ahorcado' },
-        { ref: 'reto' },
-        { ref: 'organiza' },
-        { ref: 'descubre' },
-        { ref: 'errores'},
-        { ref: 'encuentraIdea' },
-        { ref: 'encuentraElemento' },
-        { ref: 'stop' },
-        { ref: 'sopa' },
-        { id: 'colorea',    nombre: 'Colorea con números', desc: 'Pinta siguiendo la clave numérica',  color: '#116CF5', icon: 'chart',    soon: true },
-        { ref: 'crucigrama' },
-        { ref: 'completa' },
-        { id: 'adivina', nombre: 'Adivina la imagen', desc: 'Imagen oculta que se revela poco a poco', color: '#F53711', icon: 'eye', soon: true },
-              
-      ],
-    },
-    {
-      id: 'evaluadoras',
-      nombre: 'Pausas Evaluadoras',
-      desc: 'Comprueban y consolidan lo aprendido',
-      color: '#11F555',
-      icon: 'check',
-      tools: [
-        { ref: 'ruleta' }, { ref: 'elige' }, { ref: 'crea' }, { ref: 'problema' },
-        { ref: 'vf' }, { ref: 'pares' }, { ref: 'ordena' }, { ref: 'memorama' },
-        { ref: 'encuesta' }, { ref: 'lluvia' }, { ref: 'temporizador' }, { ref: 'selector' },
-        { ref: 'dado' }, { ref: 'marcador' }, { ref: 'debate' }, { ref: 'tablero' }, { ref: 'ruletaCerrada' },
-      ],
-    },
-    {
-      id: 'equipos',
-      nombre: 'Competencia por Equipos',
-      desc: 'Solo en Modo Equipos: reparten puntos al marcador',
-      color: '#F5C211',
-      icon: 'trofeo',
-      tools: [
-        { ref: 'retaEquipo' },
-        { ref: 'pulsador' },
-        { ref: 'apuesta' },
-        { ref: 'recuadros' },
-        { ref: 'grupos' },
-      ],
-    },
-  ];
+     Los grupos se definen en nucleo.js; cada actividad dice en su meta.js a
+     qué grupo pertenece y en qué orden. Las marcadas `pronto` salen como
+     "Próximamente" (soon: true) y no se pueden añadir. */
+  const GROUPS = window.Actividades ? window.Actividades.GRUPOS : [];
 
-  /* Resuelve cada entrada de un grupo a un objeto completo de herramienta.
-     - { ref: 'id' }          -> toma la herramienta existente del catálogo TOOLS
-     - objeto con soon: true  -> actividad futura (deshabilitada) */
   function groupTools(group) {
-    return group.tools.map((entry) => {
-      if (entry.ref) return Object.assign({}, toolById(entry.ref), { soon: false });
-      return entry;
-    });
+    return window.Actividades.delGrupo(group.id).map((m) => Object.assign({}, m, { soon: !!m.pronto }));
   }
 
   function defaultConfig(toolId) {
@@ -127,168 +37,21 @@
     // desde el editor (ver tiempoHabilitado() más abajo para el caso de
     // presentaciones guardadas antes de que existiera este campo).
     const base = { titulo: t.nombre, instrucciones: t.desc + '.', duracion: 120, tiempoActivo: false, items: [] };
-    switch (toolId) {
-      case 'ruleta':
-        base.items = ['¿Qué aprendimos hoy?', 'Da un ejemplo del tema', 'Explica con tus palabras', '¿Dónde lo ves en tu vida diaria?', 'Pregunta sorpresa del docente'];
-        base.instrucciones = 'Gira la ruleta y responde la pregunta que toque.';
-        break;
-      case 'completa':
-        base.items = ['EJEMPL_=O', 'PALABR_=A'];
-        base.instrucciones = 'Elige la letra que completa la palabra.';
-        break;
-      case 'elige':
-        base.items = ['¿Cuál es la respuesta correcta?|Opción correcta|Distractor 1|Distractor 2'];
-        base.instrucciones = 'Lee la pregunta y elige una opción.';
-        break;
-      case 'vf':
-        base.items = ['Esta afirmación es verdadera|V', 'Esta afirmación es falsa|F'];
-        base.instrucciones = '¿Verdadero o falso? Decide y revela.';
-        break;
-      case 'crea':
-        base.instrucciones = 'En parejas, escriban una pregunta sobre el tema. La mejor pregunta se responde en grupo.';
-        base.duracion = 180;
-        base.tiempoActivo = true;
-        break;
-      case 'problema':
-        base.instrucciones = 'Resuelve el problema en tu cuaderno antes de que termine el tiempo.';
-        base.items = ['Escribe aquí el enunciado del problema.'];
-        base.duracion = 300;
-        base.tiempoActivo = true;
-        break;
-      case 'selector':
-        base.items = ['Ana', 'Carlos', 'María', 'Juan', 'Sofía', 'Pedro'];
-        base.instrucciones = 'El selector elegirá un participante al azar.';
-        break;
-      case 'marcador':
-        base.items = ['Equipo Verde', 'Equipo Naranja'];
-        base.instrucciones = 'Suma puntos a cada equipo durante la clase.';
-        break;
-      case 'temporizador':
-        base.duracion = 300;
-        base.instrucciones = 'Tiempo para completar la actividad.';
-        base.tiempoActivo = true;
-        break;
-      case 'lluvia':
-        base.items = [];
-        base.instrucciones = 'Escribe las ideas del grupo: las repetidas crecen.';
-        break;
-      case 'pares':
-        base.items = ['Sol = Estrella', 'Luna = Satélite', 'Tierra = Planeta'];
-        base.instrucciones = 'Une cada elemento con su pareja: toca uno y luego su par.';
-        break;
-      case 'encuesta':
-        base.items = ['Opción A', 'Opción B', 'Opción C'];
-        base.instrucciones = 'Votación a mano alzada: suma los votos de cada opción.';
-        break;
-      case 'debate':
-        base.items = ['¿Escribe aquí la pregunta del debate?', 'A favor', 'En contra'];
-        base.instrucciones = 'Cada postura tiene su propio tiempo para argumentar.';
-        base.duracion = 120;
-        break;
-      case 'memorama':
-        base.items = ['Sol = Estrella', 'Agua = H₂O', 'Perro = Mamífero', 'Rosa = Flor'];
-        base.instrucciones = 'Voltea dos cartas: si forman pareja, se quedan descubiertas.';
-        break;
-      case 'ordena':
-        base.items = ['Primer paso', 'Segundo paso', 'Tercer paso', 'Cuarto paso'];
-        base.instrucciones = 'Arrastra los pasos hasta dejarlos en el orden correcto.';
-        break;
-      default:
-        base.duracion = 180;
-        break;
-      case 'retaEquipo':
-        base.items = ['¿Cuál es la capital de Francia?=París', '¿Cuánto es 7 × 8?=56', 'Nombra un planeta del sistema solar=Marte'];
-        base.instrucciones = 'Por turnos, cada equipo responde. Si acierta gana los puntos; si falla, pasa al siguiente.';
-        base.puntos = 1;
-        break;
-      case 'pulsador':
-        base.items = ['¿En qué año llegó el hombre a la Luna?=1969', '¿Cuál es el río más largo del mundo?=Amazonas'];
-        base.instrucciones = 'El primer equipo que pulse responde. Si falla, queda fuera de esa pregunta.';
-        base.puntos = 1;
-        break;
-      case 'apuesta':
-        base.items = ['¿Cuántos continentes hay?=7', '¿Quién escribió Cien años de soledad?=García Márquez'];
-        base.instrucciones = 'Cada equipo apuesta puntos antes de ver la pregunta. Si acierta gana lo apostado; si falla, lo pierde.';
-        break;
-      case 'recuadros':
-        // Formato por línea: Pregunta | correcta | opción | opción | opción  (la 1ª opción es la correcta)
-        base.items = [
-          '¿Capital de Colombia? | Bogotá | Bogotá | Medellín | Cali',
-          '¿2 + 2? | 4 | 4 | 3 | 5',
-          '¿Color del cielo despejado? | Azul | Azul | Verde | Rojo',
-        ];
-        base.instrucciones = 'Cada equipo abre su tablero, responde sus preguntas y escribe la secuencia de respuestas.';
-        base.puntos = 2;
-        break;
-        case 'grupos':
-        base.items = ['Ana María López', 'Carlos Pérez Ruiz', 'Sofía Torres', 'Juan D. Gómez', 'María Fernanda Díaz', 'Pedro Sánchez M.'];
-        base.numGrupos = 3;
-        base.instrucciones = 'Estos son los grupos de hoy. ¡A trabajar con tu equipo!';
-        break;
-      case 'tablero':
-        // Funciona con o sin Modo Equipos: sin equipos es un tablero para
-        // toda la clase (sin turnos ni puntaje); con Modo Equipos activo,
-        // reparte turnos entre los equipos y reparte los puntos al acertar.
-        base.items = [
-          '¿Capital de Francia?=París',
-          '¿Cuánto es 9 × 6?=54',
-          '¿Río más largo del mundo?=Amazonas',
-          '¿Autor de Cien años de soledad?=García Márquez',
-          '¿Cuántos huesos tiene el cuerpo humano?=206',
-          '¿Planeta más cercano al Sol?=Mercurio',
-        ];
-        base.instrucciones = 'Elige un número del tablero para descubrir la pregunta que esconde.';
-        base.puntos = 1;
-        break;
-      case 'ruletaCerrada':
-        // Preguntas de opción múltiple (igual formato que "Elige la
-        // respuesta"). Además de la pregunta, cada giro decide quién
-        // responde: un estudiante al azar (lista `estudiantes`, modo
-        // individual) o un equipo (si Modo Equipos está activo, ese equipo
-        // gana o pierde `puntos` según acierte o falle).
-        base.items = [
-          '¿Cuál es el planeta más cercano al Sol?|Mercurio|Venus|La Tierra',
-          '¿Cuánto es 8 × 7?|56|54|64',
-          '¿Quién escribió Don Quijote?|Miguel de Cervantes|García Márquez|Borges',
-          '¿Cuál es el océano más grande?|el Pacífico|el Atlántico|el Índico',
-        ];
-        base.estudiantes = ['Ana', 'Carlos', 'María', 'Juan', 'Sofía'];
-        base.instrucciones = 'Gira la ruleta: decide la pregunta y quién responde.';
-        base.puntos = 2;
-        break;
-      case 'encuentraIdea':
-        // Cada línea es un párrafo; la oración marcada con [corchetes] es la
-        // idea principal. El resto del párrafo se parte en oraciones que
-        // funcionan como opciones "incorrectas".
-        base.items = [
-          'Los perros son animales domésticos que existen desde hace miles de años. [Son considerados los mejores amigos del hombre por su lealtad y compañía.] Muchas familias tienen uno como mascota. Existen cientos de razas distintas.',
-          'Los océanos regulan el clima del planeta y producen buena parte del oxígeno que respiramos. [El agua es esencial para la vida porque todos los seres vivos la necesitan para sobrevivir.] Por eso debemos cuidarla y no desperdiciarla.',
-        ];
-        base.instrucciones = 'Toca la oración que creas que es la idea principal del párrafo.';
-        break;
-      case 'encuentraElemento':
-        // Una sola imagen por diapositiva (igual que "Encuentra las
-        // diferencias"): `zonas` son los rectángulos correctos, en % de la
-        // imagen (x,y = esquina superior izquierda; w,h = ancho/alto). Puede
-        // haber una o varias zonas; hay que encontrarlas todas.
-        base.imagen = '';
-        base.zonas = [{ x: 40, y: 40, w: 20, h: 20 }];
-        base.instrucciones = 'Toca las zonas de la imagen que creas correctas.';
-        break;
-    }
+    // Cada meta.js ajusta lo suyo (items de ejemplo, instrucciones, duración…).
+    if (typeof t.config === 'function') t.config(base);
     return base;
   }
 
   // ¿Debe mostrarse el cronómetro de esta actividad en Presentar?
-  // Antes de que existiera `config.tiempoActivo`, estas 3 herramientas ya
-  // mostraban su cuenta regresiva de forma incondicional (con que `duracion`
-  // existiera, que siempre era el caso). Para no apagar de golpe el tiempo en
+  // Antes de que existiera `config.tiempoActivo`, algunas herramientas (las
+  // que tienen `tiempoSiempre` en su meta.js) ya mostraban su cuenta regresiva
+  // de forma incondicional. Para no apagar de golpe el tiempo en
   // presentaciones ya guardadas sin el campo nuevo, si `tiempoActivo` no está
-  // definido se asume encendido solo para esas 3; para el resto, apagado.
-  const TOOLS_TIEMPO_SIEMPRE = ['crea', 'problema', 'temporizador'];
+  // definido se asume encendido solo para esas; para el resto, apagado.
   function tiempoHabilitado(config, toolId) {
     if (config && typeof config.tiempoActivo === 'boolean') return config.tiempoActivo;
-    return TOOLS_TIEMPO_SIEMPRE.includes(toolId);
+    const m = window.Actividades && window.Actividades.meta(toolId);
+    return !!(m && m.tiempoSiempre);
   }
 
   // ---------- presentaciones semilla (para cuentas nuevas) ----------
@@ -571,9 +334,11 @@
   }
 
   // El estudiante responde el Quiz (índice de la opción elegida).
+  // answerAt usa la hora del servidor: el TV ordena por ella para saber quién
+  // respondió primero, y el reloj de cada celular puede estar desfasado.
   async function submitAnswer(code, pid, optionIndex) {
     if (!code || !pid) return;
-    await partsCol(code).doc(pid).set({ answer: optionIndex, answerAt: Date.now() }, { merge: true });
+    await partsCol(code).doc(pid).set({ answer: optionIndex, answerAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
   }
 
   // La TV limpia manos/respuestas de todos al empezar una ronda nueva.
@@ -582,6 +347,14 @@
     const snap = await partsCol(code).get();
     await Promise.all(snap.docs.map((d) =>
       d.ref.set({ hand: false, handAt: null, answer: null, answerAt: null }, { merge: true })));
+  }
+
+  // La TV limpia solo las respuestas del Quiz al pasar a una pregunta nueva
+  // (no toca las manos levantadas de la ronda de participación).
+  async function resetAnswers(code) {
+    if (!code) return;
+    const snap = await partsCol(code).get();
+    await Promise.all(snap.docs.map((d) => d.ref.set({ answer: null, answerAt: null }, { merge: true })));
   }
 
   // La TV (y opcionalmente el celular) escucha la lista de participantes.
@@ -604,6 +377,6 @@
     createRemoteSession, updateRemoteState, clearRemoteCommand,
     sendRemoteCommand, listenRemoteSession, getRemoteSession, closeRemoteSession,
     // sala multijugador
-    joinSession, raiseHand, submitAnswer, resetRound, listenParticipants,
+    joinSession, raiseHand, submitAnswer, resetRound, resetAnswers, listenParticipants,
   };
 })();

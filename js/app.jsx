@@ -7,9 +7,25 @@ const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
 
 const ACENTO_TEXT = { '#F53711': '#FFFFFF', '#11F555': '#06140A', '#116CF5': '#FFFFFF' };
 
+/* Ícono y título de la pestaña según el modo. En Modo Vigía se usa el logo
+   del cóndor; al salir se restauran los íconos originales de index.html. */
+const TITULO_BASE = document.title;
+function usarIconoPestana(vigia) {
+  document.querySelectorAll('link[rel~="icon"], link[rel="apple-touch-icon"]').forEach((l) => {
+    if (!l.dataset.original) l.dataset.original = l.getAttribute('href');
+    // Versión recortada: en la pestaña el cóndor llena el cuadro.
+    const icono = l.rel === 'apple-touch-icon' ? 'condor-vigia-icono.png' : 'condor-vigia-64.png';
+    l.setAttribute('href', vigia ? icono : l.dataset.original);
+    if (l.hasAttribute('type')) l.setAttribute('type', 'image/png');
+    if (!vigia && l.dataset.original.endsWith('.ico')) l.removeAttribute('type');
+  });
+  document.title = vigia ? 'Modo Vigía — Actividades Interactivas' : TITULO_BASE;
+}
+
 function App() {
   const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
-  const [theme, setThemeState] = React.useState(() => localStorage.getItem('aip_theme') || 'dia');
+  // Tema de toda la app: 'tonos' (oscuro, por defecto) o 'dia' (claro, "Modo Día").
+  const [theme, setThemeState] = React.useState(() => localStorage.getItem('aip_theme') || 'tonos');
 
   const [authReady, setAuthReady] = React.useState(false); // ¿ya respondió Firebase Auth?
   const [user, setUser] = React.useState(null);            // usuario de Firebase o null
@@ -19,6 +35,33 @@ function App() {
   const [presentingId, setPresentingId] = React.useState(null);
   const [acceso, setAcceso] = React.useState(null);      // null = verificando
   const [adminOpen, setAdminOpen] = React.useState(false);
+  // Interfaz activa: 'interactivas' (la de siempre) o 'vigia' (Modo Vigía,
+  // js/vigia.jsx). Se recuerda en este navegador. `vigiaCargando` muestra la
+  // pantalla de carga del cóndor un momento al activarlo.
+  const [modo, setModoState] = React.useState(() => localStorage.getItem('aip_modo') === 'vigia' ? 'vigia' : 'interactivas');
+  const [vigiaCargando, setVigiaCargando] = React.useState(() => localStorage.getItem('aip_modo') === 'vigia');
+  const setModo = (m) => {
+    setModoState(m);
+    try { localStorage.setItem('aip_modo', m); } catch (e) { /* sin almacenamiento: solo esta sesión */ }
+    if (m === 'vigia') setVigiaCargando(true);
+  };
+  React.useEffect(() => {
+    if (!vigiaCargando) return;
+    const t = setTimeout(() => setVigiaCargando(false), 1600);
+    return () => clearTimeout(t);
+  }, [vigiaCargando]);
+  // Módulos del Modo Vigía (editor, presentar…): se cargan bajo demanda la
+  // primera vez que se entra al modo, mientras se ve la animación del cóndor.
+  const [vigiaListo, setVigiaListo] = React.useState(false);
+  const [vigiaError, setVigiaError] = React.useState(null);
+  const [vigiaIntento, setVigiaIntento] = React.useState(0);
+  React.useEffect(() => {
+    if (modo !== 'vigia' || !user || vigiaListo) return;
+    let vivo = true;
+    setVigiaError(null);
+    cargarVigia().then(() => { if (vivo) setVigiaListo(true); }).catch((e) => { if (vivo) setVigiaError(e); });
+    return () => { vivo = false; };
+  }, [modo, user, vigiaListo, vigiaIntento]);
 
   const setTheme = (v) => { setThemeState(v); localStorage.setItem('aip_theme', v); };
 
@@ -30,6 +73,9 @@ function App() {
     root.style.setProperty('--acento-text', ACENTO_TEXT[t.acento] || '#FFFFFF');
     root.style.setProperty('--font-display', "'" + t.fuente + "', sans-serif");
   }, [theme, t.acento, t.fuente]);
+
+  // Ícono/título de la pestaña: cóndor solo con sesión y en Modo Vigía.
+  React.useEffect(() => { usarIconoPestana(!!user && modo === 'vigia'); }, [user, modo]);
 
   // Suscripción al estado de autenticación
   React.useEffect(() => {
@@ -75,13 +121,34 @@ React.useEffect(() => {
     AIP.savePresentation(pres).catch((e) => console.error('No se pudo guardar:', e));
   };
 
-  const createPres = () => {
+  // `modo`: 'normal' | 'equipos' (botón "Modo Equipos" del Dashboard). En
+  // modo equipos se crea ya con los dos equipos por defecto, los mismos que
+  // usa el editor (editor.jsx) cuando la presentación aún no tiene equipos.
+  const createPres = (modo) => {
     const colors = ['#11F555', '#F53711', '#116CF5'];
     const nueva = {
       id: AIP.uid(), tema: 'Nueva presentación', materia: 'Mi materia',
       objetivo: 'Escribe aquí el objetivo de aprendizaje.',
       color: colors[presentations.length % colors.length], usos: 0,
       slides: [{ id: AIP.uid(), type: 'contenido', titulo: 'Mi primera plantilla', texto: 'Haz clic aquí para escribir el contenido.', imagen: { tipo: 'url', valor: '' } }],
+    };
+    if (modo === 'equipos') {
+      nueva.tema = 'Nueva presentación por equipos';
+      nueva.modo = 'equipos';
+      nueva.equipos = [{ name: 'Equipo Verde', color: '#11F555' }, { name: 'Equipo Naranja', color: '#F53711' }];
+    }
+    persist(nueva);
+    setEditingId(nueva.id);
+  };
+
+  /* Activación del Modo Vigía. Se guarda en la misma colección que las
+     presentaciones (así funciona con las reglas de Firestore actuales),
+     marcada con clase 'vigia' para separarla de las presentaciones. */
+  const createActivacion = (recurso) => {
+    const nueva = {
+      id: AIP.uid(), clase: 'vigia', recurso: recurso || 'video',
+      titulo: 'Nueva activación', objetivo: '', usos: 0,
+      video: { url: '', id: '' }, estudiantes: [], activaciones: [],
     };
     persist(nueva);
     setEditingId(nueva.id);
@@ -90,7 +157,10 @@ React.useEffect(() => {
   const changePres = (next) => persist(next);
 
   const deletePres = (id) => {
-    if (window.confirm('¿Eliminar esta presentación? Esta acción no se puede deshacer.')) {
+    const esVigia = presentations.some((p) => p.id === id && p.clase === 'vigia');
+    if (window.confirm(esVigia
+      ? '¿Eliminar esta activación? Esta acción no se puede deshacer.'
+      : '¿Eliminar esta presentación? Esta acción no se puede deshacer.')) {
       setPresentations((prev) => prev.filter((p) => p.id !== id));
       AIP.deletePresentation(id).catch((e) => console.error('No se pudo eliminar:', e));
     }
@@ -166,9 +236,44 @@ if (adminOpen && AIP.esAdmin()) {
     );
   }
 
-  const profile = { nombre: user.displayName || (user.email ? user.email.split('@')[0] : 'Docente'), color: '#11F555' };
+  const profile = { nombre: user.displayName || (user.email ? user.email.split('@')[0] : 'Docente'), email: user.email || '', color: '#11F555' };
   const editing = presentations.find((p) => p.id === editingId);
   const presenting = presentations.find((p) => p.id === presentingId);
+
+  // Presentaciones y activaciones (Modo Vigía) comparten la colección; se separan aquí.
+  const presentaciones = presentations.filter((p) => p.clase !== 'vigia');
+  const activaciones = presentations.filter((p) => p.clase === 'vigia');
+  const esVigia = (p) => !!p && p.clase === 'vigia';
+
+  // Modo Vigía: interfaz aparte (js/vigia.jsx), con su carga del cóndor.
+  if (modo === 'vigia' && (!editing || esVigia(editing)) && (!presenting || esVigia(presenting))) {
+    if (vigiaCargando || !vigiaListo) {
+      return (
+        <React.Fragment>
+          <VigiaCarga error={!vigiaCargando && vigiaError} onReintentar={() => setVigiaIntento((n) => n + 1)} />
+          <AppTweaks t={t} setTweak={setTweak} />
+        </React.Fragment>
+      );
+    }
+    if (presenting) {
+      return <VigiaPresentar act={presenting} onExit={() => setPresentingId(null)} />;
+    }
+    return (
+      <React.Fragment>
+        {editing ? (
+          <VigiaEditor act={editing} onChange={changePres} onBack={() => setEditingId(null)}
+            onPresent={() => present(editing.id)} />
+        ) : (
+          <VigiaDashboard profile={profile} esAdmin={AIP.esAdmin()} onAdmin={() => setAdminOpen(true)}
+            onLogout={logout} onSalir={() => setModo('interactivas')}
+            activaciones={activaciones} onCrear={createActivacion} onAbrir={setEditingId}
+            onPresentar={present} onEliminar={deletePres} />
+        )}
+        <ResCogitasFooter />
+        <AppTweaks t={t} setTweak={setTweak} />
+      </React.Fragment>
+    );
+  }
 
   return (
     <React.Fragment>
@@ -184,8 +289,8 @@ if (adminOpen && AIP.esAdmin()) {
             <Editor pres={editing} onChange={changePres} onBack={() => setEditingId(null)}
               onPresent={() => present(editing.id)} theme={theme} setTheme={setTheme} />
           ) : (
-            <Dashboard profile={profile} presentations={presentations} variant={t.pantallaPrincipal}
-            esAdmin={AIP.esAdmin()} onAdmin={() => setAdminOpen(true)}
+            <Dashboard profile={profile} presentations={presentaciones} variant={t.pantallaPrincipal}
+            esAdmin={AIP.esAdmin()} onAdmin={() => setAdminOpen(true)} onVigia={() => setModo('vigia')}
               onCreate={createPres} onOpen={setEditingId} onPresent={present} onDelete={deletePres} onLogout={logout}
               theme={theme} setTheme={setTheme} />
           )}

@@ -13,7 +13,8 @@
 
    CAMBIOS:
      - El espejo de una ACTIVIDAD ahora monta la MISMA actividad que el TV
-       (ActivityRuntimes[tool]) en modo solo-lectura, escalada al celular.
+       (ActividadRun, que carga su código bajo demanda) en modo solo-lectura,
+       escalada al celular.
        El estudiante ve la actividad completa con todas sus opciones; sigue
        resolviéndose en el televisor (los arrastres del TV no se reflejan).
      - Si la actividad no trae config, cae al espejo del slide o a la tarjeta.
@@ -60,8 +61,10 @@ function StudentView({ code }) {
   }, [fase]);
 
   // Cuando cambia la diapositiva, limpiar mi respuesta del quiz anterior.
+  // También al pasar a otra pregunta del quiz (quiz.key cambia en cada ronda).
   const idx = state ? state.idx : null;
-  React.useEffect(() => { setMiRespuesta(null); }, [idx]);
+  const quizKey = state && state.quiz ? state.quiz.key : null;
+  React.useEffect(() => { setMiRespuesta(null); }, [idx, quizKey]);
 
   async function unirse() {
     if (!nombre.trim()) { setError('Escribe tu nombre.'); return; }
@@ -122,12 +125,9 @@ function StudentView({ code }) {
   const quizActivo = quiz.fase === 'abierta' || quiz.fase === 'cerrada';
   const elegidoSoyYo = fase === 'sorteo' && st.ronda && st.ronda.elegido === pid;
 
-  // ¿La actividad trae config y existe su Runtime para montarla en el celular?
-  const runtimes = (typeof ActivityRuntimes !== 'undefined') ? ActivityRuntimes : null;
-  const ActRuntime = (esActividad && runtimes)
-    ? (runtimes[mirror.tool] || runtimes.default)
-    : null;
-  const actividadMontable = !!(esActividad && mirror.config && ActRuntime);
+  // ¿La actividad trae config para montarla en el celular? Su código se
+  // carga bajo demanda (ActividadRun, js/actividades/comun.jsx).
+  const actividadMontable = !!(esActividad && mirror.config && typeof ActividadRun === 'function');
   // Metadatos de la herramienta (color/nombre) si el presenter los expone.
   const toolMeta = (esActividad && typeof AIP !== 'undefined' && AIP.toolById)
     ? AIP.toolById(mirror.tool) : null;
@@ -155,7 +155,8 @@ function StudentView({ code }) {
             <div style={{ fontSize: 12, color: mirror.color || '#116CF5', fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', marginBottom: 8 }}>
               {mirror.nombre || 'Actividad'}
             </div>
-            <EspejoActividad Runtime={ActRuntime} config={mirror.config} tool={toolMeta} />
+            <EspejoActividad toolId={mirror.tool} config={mirror.config} tool={toolMeta}
+              qiControlado={quizActivo && typeof quiz.qi === 'number' ? quiz.qi : undefined} />
           </div>
         ) : esActividad ? (
           // Actividad sin config reflejable: tarjeta con título e instrucciones.
@@ -338,7 +339,7 @@ function EspejoSlide({ slide }) {
    - Al TOCARLO: se abre a pantalla completa GIRADO 90°, de modo que la
      actividad (horizontal) aprovecha todo el ALTO del celular vertical y se
      ve grande y legible. Se cierra tocando de nuevo o con el botón ✕. */
-function EspejoActividad({ Runtime, config, tool }) {
+function EspejoActividad({ toolId, config, tool, qiControlado }) {
   const boxRef = React.useRef(null);
   const [scale, setScale] = React.useState(0.18);
   const [full, setFull] = React.useState(false);
@@ -362,8 +363,7 @@ function EspejoActividad({ Runtime, config, tool }) {
     return () => { document.body.style.overflow = prev; };
   }, [full]);
 
-  if (typeof Runtime !== 'function') return null;
-  const contenido = <Runtime config={config} tool={tool} remoteSignal={{ action: null, nonce: null }} />;
+  const contenido = <ActividadRun toolId={toolId} config={config} tool={tool} remoteSignal={{ action: null, nonce: null }} qiControlado={qiControlado} />;
 
   return (
     <React.Fragment>

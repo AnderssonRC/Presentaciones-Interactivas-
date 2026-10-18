@@ -1,0 +1,324 @@
+/* estilos.css — Editor y Presentar del Modo Vigía.
+   Se carga bajo demanda junto con los módulos de js/vigia/ (ver cargarVigia
+   en js/vigia.jsx). Los estilos del dashboard y de la carga del Modo Vigía
+   están en styles.css porque se ven antes de cargar esto. */
+
+/* ============ Botones propios ============ */
+.vg-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+  padding: 14px 26px; border-radius: 14px; border: none; cursor: pointer;
+  background: linear-gradient(100deg, var(--vigia-naranja), #FF5E00); color: #140800;
+  font-family: var(--font-display); font-weight: 800; font-size: 17px;
+  box-shadow: 0 0 26px -6px rgba(255,138,0,.9);
+  transition: transform .15s ease, box-shadow .15s ease, filter .15s ease;
+}
+.vg-btn:hover { transform: translateY(-2px); filter: brightness(1.08); box-shadow: 0 0 34px -4px rgba(255,138,0,1); }
+.vg-btn:disabled { opacity: .55; cursor: default; transform: none; }
+.vg-btn-texto {
+  background: none; border: none; padding: 0; cursor: pointer;
+  color: var(--vigia-azul); font-weight: 700; font-size: 13.5px; text-decoration: underline; text-underline-offset: 3px;
+}
+.vg-btn-texto:hover { color: #8EC5FF; }
+
+/* ============ Editor ============ */
+.vg-editor input, .vg-editor textarea, .vg-editor select { color: var(--ink); }
+.vg-editor .editor-topbar { gap: 12px; background: rgba(10,6,4,.92); }
+.vg-editor .editor-canvas-col { background: transparent; }
+.vg-editor .editor-list, .vg-editor .editor-tools { background: rgba(15,10,7,.85); }
+.vg-editor .slide-thumb.active, .vg-editor .tool-card:hover .tool-add { --acento: var(--vigia-naranja); }
+
+.vg-recursos { display: flex; gap: 4px; padding: 4px; border-radius: 12px; background: var(--surface2); border: 1px solid var(--line); }
+.vg-recurso-chip {
+  display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 9px;
+  border: none; background: transparent; color: var(--muted); font-size: 13px; font-weight: 700; cursor: pointer;
+}
+.vg-recurso-chip.on { background: var(--vigia-naranja); color: #140800; box-shadow: 0 0 14px -4px rgba(255,138,0,.9); }
+.vg-recurso-chip:disabled { cursor: not-allowed; opacity: .7; }
+.vg-recurso-chip .soon-tag { margin-left: 2px; }
+
+.vg-popover {
+  position: absolute; top: 110%; right: 0; z-index: 60; width: 320px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px;
+  box-shadow: 0 20px 50px -20px rgba(0,0,0,.7);
+}
+.vg-textarea, .vg-input {
+  width: 100%; border: 1px solid var(--line); border-radius: 10px; background: var(--bg);
+  color: var(--ink); padding: 10px 12px; font-size: 14.5px; font-family: inherit; outline: none;
+}
+.vg-textarea { resize: vertical; line-height: 1.5; }
+.vg-textarea:focus, .vg-input:focus { border-color: var(--vigia-naranja); }
+
+.vg-dot { width: 9px; height: 9px; border-radius: 3px; flex-shrink: 0; display: inline-block; }
+
+.vg-video-marco {
+  position: relative; width: 100%; max-width: 980px; aspect-ratio: 16 / 9; flex-shrink: 0;
+  background: #000; border-radius: 14px; overflow: hidden;
+  border: 1px solid rgba(255,138,0,.35); box-shadow: 0 0 40px -18px rgba(255,138,0,.7);
+}
+.vg-video, .vg-video > div, .vg-video iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.vg-video-error {
+  position: absolute; inset: 0; display: grid; place-items: center; padding: 24px; text-align: center;
+  color: #FFD3A3; background: rgba(0,0,0,.85); font-weight: 600;
+}
+
+/* Línea de tiempo */
+.vg-linea { width: 100%; max-width: 980px; }
+.vg-linea-barra {
+  position: relative; height: 40px; cursor: pointer; border-radius: 10px;
+  background: linear-gradient(var(--surface2), var(--surface2)) center / 100% 8px no-repeat;
+}
+.vg-linea-progreso {
+  position: absolute; left: 0; top: 50%; height: 8px; transform: translateY(-50%); border-radius: 99px;
+  background: linear-gradient(90deg, var(--vigia-naranja), var(--vigia-azul)); pointer-events: none;
+}
+.vg-linea-cabezal {
+  position: absolute; top: 2px; bottom: 2px; width: 3px; transform: translateX(-50%);
+  background: #fff; border-radius: 3px; box-shadow: 0 0 10px rgba(255,255,255,.8); pointer-events: none;
+}
+.vg-marca {
+  position: absolute; top: 50%; width: 28px; height: 28px; transform: translate(-50%, -50%);
+  border-radius: 50%; border: 2px solid #0B0705; color: #140800; display: grid; place-items: center;
+  cursor: pointer; z-index: 2; transition: transform .12s ease, box-shadow .12s ease;
+}
+.vg-marca:hover { transform: translate(-50%, -50%) scale(1.15); }
+.vg-marca.sel { box-shadow: 0 0 0 3px #fff, 0 0 16px 2px rgba(255,255,255,.6); z-index: 3; }
+.vg-linea-tiempos { display: flex; justify-content: space-between; font-size: 12.5px; color: var(--muted); margin-top: 4px; font-variant-numeric: tabular-nums; }
+
+.vg-config { max-width: 980px; }
+.vg-segmento { display: inline-flex; gap: 4px; padding: 4px; border-radius: 11px; background: var(--surface2); border: 1px solid var(--line); }
+.vg-segmento button {
+  border: none; background: transparent; color: var(--muted); padding: 7px 14px; border-radius: 8px;
+  font-weight: 700; font-size: 13.5px; cursor: pointer;
+}
+.vg-segmento button.on { background: var(--vigia-azul); color: #fff; box-shadow: 0 0 14px -4px rgba(77,148,255,.9); }
+.vg-correcta {
+  width: 34px; height: 34px; flex-shrink: 0; border-radius: 9px; cursor: pointer;
+  border: 1.5px solid var(--line); background: var(--surface2); color: var(--muted); font-weight: 800;
+}
+.vg-correcta.on { background: #3DDC97; border-color: #3DDC97; color: #04130B; }
+.vg-tipo .tool-ico { color: #140800; }
+
+/* Paso 1: enlace del video */
+.vg-paso { flex: 1; display: grid; place-items: center; padding: 30px 20px; overflow-y: auto; }
+.vg-paso-card {
+  width: 100%; max-width: 620px; background: var(--surface); border: 1px solid rgba(255,138,0,.35);
+  border-radius: 22px; padding: 32px; box-shadow: 0 30px 80px -40px rgba(255,138,0,.6);
+}
+.vg-paso-mini { display: block; width: 100%; max-width: 320px; border-radius: 12px; margin-top: 16px; border: 1px solid var(--line); }
+
+/* Dashboard: tarjetas de activaciones y ventana de recursos */
+.vg-card-head { background: #120B06 center / cover no-repeat; color: var(--vigia-naranja); }
+.vg-card-recurso {
+  position: absolute; left: 10px; bottom: 10px; display: inline-flex; align-items: center; gap: 5px;
+  background: rgba(0,0,0,.72); color: #FFD3A3; font-size: 12px; font-weight: 700; padding: 4px 9px; border-radius: 999px;
+}
+.vg-card-tipos { display: flex; flex-wrap: wrap; gap: 6px; font-size: 12px; font-weight: 700; }
+.vg-card-tipos span { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 999px; border: 1px solid var(--line); }
+
+.vg-modal-fondo {
+  position: fixed; inset: 0; z-index: 95; background: rgba(0,0,0,.72); backdrop-filter: blur(5px);
+  display: grid; place-items: center; padding: 18px; animation: vgAparece .18s ease both;
+}
+.vg-modal {
+  position: relative; width: 100%; max-width: 720px; background: var(--surface);
+  border: 1px solid rgba(255,138,0,.4); border-radius: 22px; padding: 28px;
+  box-shadow: 0 0 0 1px rgba(77,148,255,.1), 0 40px 90px -40px rgba(255,138,0,.6);
+}
+.vg-modal-cerrar {
+  position: absolute; top: 14px; right: 14px; width: 36px; height: 36px; border-radius: 999px;
+  border: none; background: var(--surface2); color: var(--muted); font-size: 16px; font-weight: 800; cursor: pointer;
+}
+.vg-recurso-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.vg-recurso-card {
+  position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; text-align: left;
+  padding: 18px; border-radius: 16px; cursor: pointer; color: var(--ink);
+  background: var(--surface2); border: 1.5px solid var(--line); transition: all .15s ease;
+}
+.vg-recurso-card span:not(.vg-recurso-ico):not(.soon-tag) { font-size: 12.5px; color: var(--muted); }
+.vg-recurso-card:hover:not(:disabled) { border-color: var(--vigia-naranja); box-shadow: 0 0 26px -8px rgba(255,138,0,.8); transform: translateY(-2px); }
+.vg-recurso-card.pronto { opacity: .55; cursor: not-allowed; }
+.vg-recurso-ico {
+  width: 48px; height: 48px; border-radius: 14px; display: grid; place-items: center; margin-bottom: 4px;
+  background: rgba(255,138,0,.12); color: var(--vigia-naranja); outline: 1px solid rgba(77,148,255,.35);
+}
+.vg-recurso-card .soon-tag { position: absolute; top: 12px; right: 12px; }
+
+/* ============ Ruleta ============ */
+.vg-ruleta { display: flex; flex-direction: column; align-items: center; gap: 16px; }
+.vg-ruleta-titulo { font-family: var(--font-display); font-weight: 800; font-size: 22px; color: var(--vigia-azul); letter-spacing: .02em; }
+.vg-ruleta-caja { position: relative; width: min(360px, 30vw, 46vh); aspect-ratio: 1; }
+.vg-ruleta-svg {
+  width: 100%; height: 100%; display: block; border-radius: 50%;
+  filter: drop-shadow(0 0 22px rgba(255,138,0,.45));
+}
+.vg-ruleta-flecha {
+  position: absolute; top: -10px; left: 50%; transform: translateX(-50%); z-index: 2;
+  width: 0; height: 0; border-left: 18px solid transparent; border-right: 18px solid transparent;
+  border-top: 30px solid #fff; filter: drop-shadow(0 0 8px rgba(77,148,255,.95));
+}
+.vg-ruleta-elegido {
+  font-family: var(--font-display); font-weight: 800; font-size: clamp(26px, 2.6vw, 42px); text-align: center;
+  color: #fff; padding: 10px 24px; border-radius: 16px; max-width: 100%;
+  background: linear-gradient(100deg, rgba(255,138,0,.25), rgba(77,148,255,.25));
+  border: 2px solid var(--vigia-azul); box-shadow: 0 0 30px -4px rgba(77,148,255,.9);
+  animation: vgPop .55s cubic-bezier(.2,1.6,.4,1) both;
+}
+.vg-btn-ruleta { min-width: 220px; }
+
+/* ============ Presentar ============ */
+.vg-presentar { position: fixed; inset: 0; z-index: 70; background: #000; overflow: hidden; }
+.vg-presentar-video {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  width: min(100vw, 177.78vh); aspect-ratio: 16 / 9; background: #000;
+}
+.vg-presentar-capa { position: absolute; inset: 0; z-index: 1; cursor: pointer; }
+.vg-presentar-error { position: fixed; z-index: 5; }
+
+.vg-portada {
+  position: absolute; inset: 0; z-index: 10; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 12px; text-align: center; padding: 30px;
+  background:
+    radial-gradient(800px 380px at 50% 110%, rgba(77,148,255,.22), transparent 62%),
+    radial-gradient(800px 380px at 50% -10%, rgba(255,138,0,.22), transparent 60%),
+    rgba(4,2,1,.9);
+}
+.vg-portada-logo { width: 120px; height: 120px; border-radius: 26px; animation: vigiaDespierta 1.4s ease both; margin-bottom: 8px; }
+.vg-portada h1 { font-size: clamp(32px, 4.2vw, 64px); font-weight: 800; color: #fff; margin: 0; max-width: 18em; line-height: 1.1; }
+.vg-portada p { color: #F3DCC6; font-size: clamp(16px, 1.4vw, 21px); max-width: 40em; margin: 0; }
+.vg-portada-info { color: var(--vigia-azul); font-weight: 700; margin: 8px 0 14px; }
+.vg-btn-grande { font-size: 22px; padding: 18px 40px; border-radius: 18px; }
+
+.vg-hud {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; display: flex; align-items: center; gap: 14px;
+  padding: 40px 26px 22px; background: linear-gradient(transparent, rgba(0,0,0,.85));
+  transition: opacity .3s ease;
+}
+.vg-hud.oculto, .vg-salir.oculto { opacity: 0; pointer-events: none; }
+.vg-hud-tiempo { color: #fff; font-weight: 700; font-variant-numeric: tabular-nums; font-size: 15px; min-width: 52px; text-align: center; }
+.vg-hud-barra {
+  position: relative; flex: 1; height: 26px; cursor: pointer;
+  background: linear-gradient(rgba(255,255,255,.22), rgba(255,255,255,.22)) center / 100% 6px no-repeat;
+}
+.vg-hud-barra .vg-linea-progreso { height: 6px; }
+.vg-hud-marca {
+  position: absolute; top: 50%; width: 14px; height: 14px; border-radius: 50%; transform: translate(-50%, -50%);
+  border: 2px solid #000; box-shadow: 0 0 10px currentColor; pointer-events: none;
+}
+.vg-salir { position: fixed; top: 18px; right: 18px; z-index: 20; transition: opacity .3s ease; }
+
+/* Velo + "¡ALTO!" + tarjeta */
+.vg-velo {
+  position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; padding: 3vh 3vw;
+  background: radial-gradient(circle at 50% 50%, rgba(10,5,2,.55), rgba(0,0,0,.88));
+  backdrop-filter: blur(6px); animation: vgAparece .35s ease both;
+}
+.vg-alto {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  font-family: var(--font-display); font-weight: 800; font-size: clamp(90px, 14vw, 240px); letter-spacing: .04em;
+  color: var(--vigia-naranja); text-shadow: 0 0 40px rgba(255,138,0,.9), 0 0 90px rgba(77,148,255,.6);
+  pointer-events: none; animation: vgAlto 1.1s cubic-bezier(.2,.9,.3,1) both;
+}
+.vg-tarjeta-marco {
+  --tipo: #FF8A00;
+  position: relative; width: min(1180px, 94vw); max-height: 92vh; padding: 4px; border-radius: 30px;
+  overflow: hidden; display: flex;
+  box-shadow: 0 0 70px -12px var(--tipo), 0 0 140px -40px #4D94FF;
+  animation: vgEntra .7s cubic-bezier(.2,1.2,.35,1) .55s both;
+}
+/* Luz que recorre el borde: un degradado cónico girando detrás de la tarjeta. */
+.vg-tarjeta-marco::before {
+  content: ""; position: absolute; left: 50%; top: 50%; width: 260%; aspect-ratio: 1;
+  background: conic-gradient(from 0deg,
+    transparent 0 14%, var(--tipo) 22%, #FFFFFF 25%, var(--tipo) 28%, transparent 38% 64%,
+    #4D94FF 72%, #FFFFFF 75%, #4D94FF 78%, transparent 88%);
+  animation: vgGira 3.4s linear infinite;
+}
+.vg-tarjeta-marco:not(.con-ruleta) { width: min(1040px, 94vw); }
+.vg-tarjeta {
+  position: relative; flex: 1; min-width: 0; border-radius: 26px; overflow-y: auto;
+  padding: clamp(24px, 3.2vw, 48px);
+  display: flex; flex-direction: column; gap: clamp(16px, 2.2vh, 28px);
+  background:
+    radial-gradient(700px 260px at 0% 0%, color-mix(in oklch, var(--tipo) 18%, transparent), transparent 60%),
+    radial-gradient(700px 260px at 100% 100%, rgba(77,148,255,.14), transparent 60%),
+    #0C0806;
+  color: #FFF3E6;
+}
+.vg-tarjeta-kicker {
+  display: flex; align-items: center; gap: 14px;
+  font-family: var(--font-display); font-weight: 800; font-size: clamp(20px, 1.8vw, 28px);
+  letter-spacing: .14em; text-transform: uppercase;
+}
+.vg-tarjeta-ico {
+  width: 48px; height: 48px; border-radius: 14px; display: grid; place-items: center; color: #140800;
+  box-shadow: 0 0 22px -2px var(--tipo); animation: vgLatido 1.6s ease-in-out infinite;
+}
+.vg-tarjeta-cuerpo { display: block; }
+.con-ruleta .vg-tarjeta-cuerpo { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: clamp(20px, 3vw, 48px); align-items: center; }
+.vg-tarjeta-pie { display: flex; justify-content: flex-end; }
+
+.vg-texto-pregunta, .vg-texto-grande {
+  font-family: var(--font-display); font-weight: 800; line-height: 1.2;
+  font-size: clamp(28px, 3.3vw, 56px); color: #FFFFFF; white-space: pre-wrap;
+}
+.vg-texto-contexto {
+  font-family: Georgia, 'Times New Roman', serif; font-size: clamp(21px, 2vw, 32px); line-height: 1.6;
+  color: #F6E9DA; white-space: pre-wrap; border-left: 4px solid #3DDC97; padding-left: clamp(16px, 2vw, 28px);
+}
+/* Escritura: hoja rayada, alto contraste, para copiar desde el fondo del salón. */
+.vg-hoja {
+  position: relative; border-radius: 16px; padding: 30px 36px 30px clamp(64px, 6vw, 92px);
+  background:
+    linear-gradient(90deg, transparent calc(clamp(64px, 6vw, 92px) - 18px), rgba(245,55,17,.55) calc(clamp(64px, 6vw, 92px) - 18px), rgba(245,55,17,.55) calc(clamp(64px, 6vw, 92px) - 15px), transparent calc(clamp(64px, 6vw, 92px) - 15px)),
+    repeating-linear-gradient(#FFF8EC 0, #FFF8EC calc(1.7em - 2px), #BFD3F2 calc(1.7em - 2px), #BFD3F2 1.7em);
+  font-size: clamp(30px, 3.4vw, 58px); box-shadow: inset 0 0 0 1px rgba(0,0,0,.08), 0 18px 40px -20px rgba(0,0,0,.8);
+}
+.vg-hoja p {
+  margin: 0; color: #1B1408; font-family: 'Outfit', sans-serif; font-weight: 600;
+  line-height: 1.7em; letter-spacing: .01em; white-space: pre-wrap;
+}
+
+.vg-opciones { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: clamp(16px, 2.4vh, 28px); }
+.vg-opcion {
+  display: flex; align-items: center; gap: 14px; text-align: left; cursor: pointer;
+  padding: 16px 18px; border-radius: 16px; border: 2px solid rgba(255,255,255,.14);
+  background: rgba(255,255,255,.05); color: #fff; font-size: clamp(18px, 1.6vw, 26px); font-weight: 700;
+  transition: all .18s ease;
+}
+.vg-opcion:hover { border-color: var(--vigia-azul); }
+.vg-opcion-letra {
+  width: 42px; height: 42px; flex-shrink: 0; border-radius: 12px; display: grid; place-items: center;
+  background: rgba(255,138,0,.18); color: var(--vigia-naranja); font-family: var(--font-display); font-weight: 800;
+}
+.vg-opcion.elegida { border-color: var(--vigia-azul); box-shadow: 0 0 22px -6px rgba(77,148,255,.9); }
+.vg-opcion.correcta { border-color: #3DDC97; background: rgba(61,220,151,.16); box-shadow: 0 0 26px -6px rgba(61,220,151,.9); }
+.vg-opcion.correcta .vg-opcion-letra { background: #3DDC97; color: #04130B; }
+.vg-opcion.incorrecta { border-color: #F53711; background: rgba(245,55,17,.14); }
+.vg-opcion.apagada { opacity: .45; }
+.vg-revelar { margin-top: 14px; font-size: 16px; }
+
+@keyframes vgGira { from { transform: translate(-50%, -50%) rotate(0deg); } to { transform: translate(-50%, -50%) rotate(360deg); } }
+@keyframes vgAparece { from { opacity: 0; } to { opacity: 1; } }
+@keyframes vgEntra {
+  from { opacity: 0; transform: scale(.86) translateY(24px); filter: blur(6px); }
+  to   { opacity: 1; transform: none; filter: none; }
+}
+@keyframes vgAlto {
+  0%   { opacity: 0; transform: translate(-50%, -50%) scale(1.6); }
+  25%  { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  60%  { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(.7); }
+}
+@keyframes vgPop { from { opacity: 0; transform: scale(.6); } to { opacity: 1; transform: scale(1); } }
+@keyframes vgLatido { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .vg-tarjeta-marco::before, .vg-tarjeta-ico { animation: none; }
+  .vg-alto { display: none; }
+  .vg-tarjeta-marco { animation-delay: 0s; }
+}
+@media (max-width: 900px) {
+  .con-ruleta .vg-tarjeta-cuerpo { grid-template-columns: 1fr; }
+  .vg-opciones { grid-template-columns: 1fr; }
+  .vg-recursos { display: none; }
+}

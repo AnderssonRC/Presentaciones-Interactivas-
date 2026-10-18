@@ -62,13 +62,17 @@ function Logo({ dark, size = 30 }) {
   );
 }
 
+/* Interruptor "Modo Día": encendido = tema claro ('dia'); apagado = tema
+   oscuro ('tonos'). Es el mismo ajuste en toda la app (editor y dashboard,
+   ver app.jsx) y se recuerda en este navegador. */
 function ThemeToggle({ theme, setTheme }) {
-  const dark = theme === 'tonos';
+  const dia = theme === 'dia';
   return (
-    <button className="btn btn-sm" onClick={() => setTheme(dark ? 'dia' : 'tonos')}
-      title="Cambiar entre modo día y modo tonos (para aulas con mucha luz)">
-      <Icon name={dark ? 'sol' : 'luna'} size={16} />
-      {dark ? 'Modo día' : 'Modo tonos'}
+    <button className="btn btn-sm" onClick={() => setTheme(dia ? 'tonos' : 'dia')}
+      aria-pressed={dia} title={dia ? 'Apagar Modo Día (tema oscuro)' : 'Encender Modo Día (tema claro)'}>
+      <Icon name="sol" size={16} />
+      Modo Día
+      <span className={'switch' + (dia ? ' on' : '')} aria-hidden="true" style={{ marginLeft: 4 }}></span>
     </button>
   );
 }

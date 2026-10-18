@@ -470,23 +470,18 @@ function Editor({ pres, onChange, onBack, onPresent, theme, setTheme }) {
                 <label>Instrucciones para el grupo</label>
                 <textarea rows="2" value={current.config.instrucciones} onChange={setCfg('instrucciones')}></textarea>
               </div>
-              {current.tool === 'sopa' ? (
-                <SopaEditor current={current} curIdx={curIdx} updateSlide={updateSlide} />
-              ) : current.tool === 'descubre' ? (
-                <DescubreEditor current={current} curIdx={curIdx} updateSlide={updateSlide} setItems={setItems} />
-              ) : current.tool === 'errores' ? (
-                <DiferenciasEditor current={current} curIdx={curIdx} updateSlide={updateSlide} />
-              ) : current.tool === 'encuentraElemento' ? (
-                <EncuentraElementoEditor current={current} curIdx={curIdx} updateSlide={updateSlide} />
-                ) : current.tool === 'grupos' ? (
-                <GruposEditor current={current} curIdx={curIdx} updateSlide={updateSlide} setItems={setItems} esEquipos={esEquipos} numEquipos={equipos.length} />
-              ) : current.tool === 'ruletaCerrada' ? (
-                <RuletaCerradaEditor current={current} curIdx={curIdx} updateSlide={updateSlide} setItems={setItems} />
+              {/* Si la actividad trae su propio editor (meta.js: editorPropio),
+                  se carga desde su carpeta; si no, el campo genérico de
+                  elementos con la etiqueta/ayuda de su meta.js (campos). */}
+              {tool.editorPropio ? (
+                <ActividadEditor key={current.tool} toolId={current.tool}
+                  current={current} curIdx={curIdx} updateSlide={updateSlide} setItems={setItems}
+                  esEquipos={esEquipos} numEquipos={equipos.length} />
               ) : (
                 <div className="field">
-                  <label>{itemsLabel(current.tool)}</label>
+                  <label>{(tool.campos && tool.campos.label) || 'Elementos de la actividad (uno por línea)'}</label>
                   <textarea rows="5" value={(current.config.items || []).join('\n')} onChange={setItems} placeholder="Un elemento por línea"></textarea>
-                  <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 5 }}>{itemsHint(current.tool)}</div>
+                  <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 5 }}>{(tool.campos && tool.campos.hint) || 'Opcional según la actividad. Un elemento por línea.'}</div>
                 </div>
               )}
             </div>
@@ -630,145 +625,6 @@ function HistorialEquiposModal({ historial, onClose }) {
       </div>
     </div>
   );
-}
-/* Editor especial para Descubre la palabra: palabras + número de intentos. */
-function DescubreEditor({ current, curIdx, updateSlide, setItems }) {
-  const setIntentos = (e) => {
-    const v = Number(e.target.value);
-    updateSlide(curIdx, { ...current, config: { ...current.config, intentos: v } });
-  };
-  return (
-    <div>
-      <div className="field">
-        <label>Número de intentos</label>
-        <select value={current.config.intentos || 6} onChange={setIntentos}
-          style={{ padding: '9px 12px', borderRadius: 10, border: '1px solid var(--line)', background: 'var(--surface2)', color: 'var(--ink)', fontFamily: 'var(--font-body)', fontSize: 14 }}>
-          {[3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
-            <option key={n} value={n}>{n} intentos</option>
-          ))}
-        </select>
-      </div>
-      <div className="field">
-        <label>Palabras a adivinar (una por línea)</label>
-        <textarea rows="5" value={(current.config.items || []).join('\n')} onChange={setItems}
-          placeholder="PALABRA=pista (la pista es opcional)"></textarea>
-        <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 5 }}>
-          Formato: PALABRA=pista. Cada palabra puede tener distinta longitud. Ej: ELEFANTE=Animal con trompa
-        </div>
-      </div>
-    </div>
-  );
-  }
-  /* Editor de Formar grupos: número de grupos + lista de nombres (pegada de Excel). */
-function GruposEditor({ current, curIdx, updateSlide, setItems, esEquipos, numEquipos }) {
-  const setN = (e) => updateSlide(curIdx, { ...current, config: { ...current.config, numGrupos: Number(e.target.value) } });
-  return (
-    <div>
-      {esEquipos ? (
-        <div className="field">
-          <label>Número de grupos</label>
-          <div style={{ fontSize: 13, color: 'var(--muted)', padding: '9px 0' }}>
-            Como el Modo Equipos está activo, se formarán exactamente <strong>{numEquipos} grupos</strong> —
-            uno por cada equipo del marcador (nombre y color incluidos). Los integrantes de cada equipo
-            se actualizarán solos al sortear, sin que tengas que escribirlos en "🏆 Equipos".
-          </div>
-        </div>
-      ) : (
-        <div className="field">
-          <label>Número de grupos</label>
-          <select value={current.config.numGrupos || 3} onChange={setN}
-            style={{ padding: '9px 12px', borderRadius: 10, border: '1px solid var(--line)', background: 'var(--surface2)', color: 'var(--ink)', fontFamily: 'var(--font-body)', fontSize: 14 }}>
-            {[2, 3, 4, 5, 6, 7, 8].map((n) => <option key={n} value={n}>{n} grupos</option>)}
-          </select>
-        </div>
-      )}
-      <div className="field">
-        <label>Lista de estudiantes (un nombre por línea)</label>
-        <textarea rows="8" value={(current.config.items || []).join('\n')} onChange={setItems}
-          placeholder={'Pega aquí tu lista desde Excel\nAna María López\nCarlos Pérez Ruiz\n…'}></textarea>
-        <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 5 }}>
-          Copia la columna de nombres en Excel y pégala aquí tal cual: la numeración (1., 2)…), las tabulaciones y las líneas vacías se limpian solas. Los nombres completos caben: la letra se ajusta en pantalla.
-        </div>
-      </div>
-    </div>
-  );
-}
-/* Editor de Ruleta de opción múltiple: preguntas de opción múltiple + una
-   lista aparte de estudiantes (para el sorteo de "quién responde" cuando la
-   presentación NO está en Modo Equipos; con Modo Equipos activo, sortea
-   entre los equipos y esa lista de nombres se ignora). */
-function RuletaCerradaEditor({ current, curIdx, updateSlide, setItems }) {
-  const setEstudiantes = (e) => {
-    updateSlide(curIdx, { ...current, config: { ...current.config, estudiantes: e.target.value.split('\n') } });
-  };
-  return (
-    <div>
-      <div className="field">
-        <label>Preguntas de opción múltiple (una por línea)</label>
-        <textarea rows="6" value={(current.config.items || []).join('\n')} onChange={setItems}
-          placeholder={'Pregunta|Respuesta correcta|Distractor 1|Distractor 2'}></textarea>
-        <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 5 }}>
-          Formato: Pregunta|Respuesta correcta|Distractor 1|Distractor 2 (de 2 a 4 opciones). La PRIMERA opción después de la pregunta es siempre la correcta; el juego las mezcla solo.
-        </div>
-      </div>
-      <div className="field">
-        <label>Estudiantes para el modo individual (uno por línea)</label>
-        <textarea rows="5" value={(current.config.estudiantes || []).join('\n')} onChange={setEstudiantes}
-          placeholder={'Ana\nCarlos\nMaría…'}></textarea>
-        <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 5 }}>
-          Solo se usa cuando la presentación NO está en Modo Equipos: cada giro también sortea quién responde, de esta lista. Si Modo Equipos está activo, sortea entre los equipos del marcador en su lugar (esta lista se ignora).
-        </div>
-      </div>
-    </div>
-  );
-}
-function itemsLabel(toolId) {
-  return {
-    ruleta: 'Preguntas de la ruleta (una por línea)',
-    completa: 'Palabras (una por línea)',
-    elige: 'Preguntas (una por línea)',
-    vf: 'Afirmaciones (una por línea)',
-    problema: 'Enunciado del problema',
-    selector: 'Nombres de estudiantes (uno por línea)',
-    marcador: 'Nombres de los equipos (uno por línea)',
-    ahorcado: 'Palabras a adivinar (una por línea)',
-    reto    : 'Pasos de la rutina (uno por línea)',
-    organiza: 'Párrafos con palabras entre [corchetes] (uno por línea)',
-    descubre: 'Palabras a adivinar (una por línea)',
-    stop: 'Categorías del cuadro (una por línea)',
-    acertijo: 'Acertijos (uno por línea)',
-    lluvia: 'Ideas iniciales (opcional, una por línea)',
-    pares: 'Parejas (una por línea: izquierda = derecha)',
-    encuesta: 'Opciones de la encuesta (una por línea)',
-    debate: 'Línea 1: pregunta · Línea 2: postura A · Línea 3: postura B',
-    memorama: 'Parejas (una por línea: A = B)',
-    ordena: 'Pasos EN ORDEN CORRECTO (uno por línea)',
-    tablero: 'Preguntas del tablero (una por línea: pregunta=respuesta)',
-    encuentraIdea: 'Párrafos para encontrar la idea principal (uno por línea)',
-  }[toolId] || 'Elementos de la actividad (uno por línea)';
-}
-function itemsHint(toolId) {
-  return {
-    completa: 'Formato: PALABR_=A → usa "_" para la letra oculta y "=" para la respuesta.',
-    elige: 'Formato: Pregunta|Respuesta correcta|Distractor 1|Distractor 2',
-    vf: 'Formato: Afirmación|V  o  Afirmación|F',
-    ruleta: 'Cada línea es un sector de la ruleta.',
-    problema: 'La primera línea se muestra en grande durante la actividad.',
-    ahorcado: 'Formato: PALABRA=pista (la pista es opcional). Ej: ELEFANTE=Animal con trompa',
-    reto    : 'Formato: Reto = URL de imagen o video (la URL es opcional). Ej: 10 sentadillas = https://...',
-    organiza: 'Marca con [corchetes] las palabras a ordenar. Ej: El gato [come] pescado y [duerme] mucho.',
-    descubre: 'Formato: PALABRA=pista. Para fijar los intentos, escribe el número en el campo "Tiempo (segundos)".',
-    stop: 'Una categoría por línea. Ej: Nombre, País, Animal, Color, Comida.',
-    acertijo: 'Formato: enunciado | respuesta | URL (la URL es opcional). Ej: Vuela de noche y duerme de día | murciélago | https://...',
-    lluvia: 'En vivo escribes las ideas en pantalla. Aquí puedes dejar algunas iniciales (una por línea); las repetidas crecen.',
-    pares: 'Formato: izquierda = derecha. Cada lado puede ser imagen con "img:URL". Ej: Perro = Mamífero  ·  img:https://... = Planeta',
-    encuesta: 'Una opción por línea. En Presentar sumas votos con +/− y las barras crecen.',
-    debate: 'Tres líneas: la pregunta, el nombre de la postura A y el de la postura B. El tiempo por postura se fija en "Tiempo (segundos)".',
-    memorama: 'Formato: A = B (una pareja por línea). Cada lado puede ser imagen con "img:URL". Ej: Perro = Mamífero  ·  img:https://... = Sol',
-    ordena: 'Escribe los pasos en el orden CORRECTO (uno por línea). En Presentar se mostrarán barajados para que el grupo los acomode.',
-    tablero: 'Formato: Pregunta=Respuesta (la respuesta es opcional). Cada línea es un número del tablero, en orden mezclado. "Puntos por acierto" reparte puntaje si Modo Equipos está activo.',
-    encuentraIdea: 'Escribe el párrafo completo y marca con [corchetes] la ORACIÓN que es la idea principal (incluye su punto final dentro de los corchetes). Ej: Los perros son animales domésticos. [Son los mejores amigos del hombre por su lealtad.] Viven en muchos hogares.',
-  }[toolId] || 'Opcional según la actividad. Un elemento por línea.';
 }
 
 Object.assign(window, { Editor });
@@ -1087,12 +943,12 @@ const selStyle = {
 
 Object.assign(window, { LienzoToolbar, LzMenu, FondoMenu });
 
-/* Tarjeta "Cómo funciona + Ejemplo": lee window.ACT_EJEMPLOS (examples.js).
+/* Tarjeta "Cómo funciona + Ejemplo": lee `guia` del meta.js de la actividad.
    Muestra qué hace la actividad, qué ve el grupo y el formato. Permite
    precargar un ejemplo real con un clic, sin pisar lo que el docente ya escribió
    salvo que confirme. */
 function EjemploCard({ tool, current, curIdx, updateSlide }) {
-  const guia = (window.actEjemplo && window.actEjemplo(tool.id)) || null;
+  const guia = tool.guia || null;
   const [abierto, setAbierto] = React.useState(false);
   if (!guia) return null;
 
@@ -1152,204 +1008,6 @@ function EjemploCard({ tool, current, curIdx, updateSlide }) {
             </button>
           )}
         </div>
-      )}
-    </div>
-  );
-}
-/* Editor especial para Encuentra las diferencias:
-   modo + URLs + marcar puntos con clic sobre la imagen. */
-function DiferenciasEditor({ current, curIdx, updateSlide }) {
-  const cfg = current.config;
-  const modo = cfg.modo || 'dos';
-  const puntos = Array.isArray(cfg.puntos) ? cfg.puntos : [];
-
-  const set = (cambios) => updateSlide(curIdx, { ...current, config: { ...cfg, ...cambios } });
-
-  const marcar = (e) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = Math.round(((e.clientX - rect.left) / rect.width) * 1000) / 10;
-    const y = Math.round(((e.clientY - rect.top) / rect.height) * 1000) / 10;
-    set({ puntos: [...puntos, { x, y }] });
-  };
-  const borrarPunto = (i, ev) => {
-    ev.stopPropagation();
-    set({ puntos: puntos.filter((_, j) => j !== i) });
-  };
-
-  const imgRef = cfg.img1 || '';
-
-  return (
-    <div>
-      <div className="field">
-        <label>Modo de imágenes</label>
-        <select value={modo} onChange={(e) => set({ modo: e.target.value })}
-          style={{ padding: '9px 12px', borderRadius: 10, border: '1px solid var(--line)', background: 'var(--surface2)', color: 'var(--ink)', fontFamily: 'var(--font-body)', fontSize: 14 }}>
-          <option value="dos">Dos imágenes separadas (original y modificada)</option>
-          <option value="una">Una sola imagen (ya tiene las dos mitades)</option>
-        </select>
-      </div>
-
-      <div className="field">
-        <label>{modo === 'dos' ? 'URL de la imagen 1 (izquierda)' : 'URL de la imagen'}</label>
-        <input type="text" value={cfg.img1 || ''} onChange={(e) => set({ img1: e.target.value })} placeholder="https://..." />
-      </div>
-
-      {modo === 'dos' && (
-        <div className="field">
-          <label>URL de la imagen 2 (derecha, la modificada)</label>
-          <input type="text" value={cfg.img2 || ''} onChange={(e) => set({ img2: e.target.value })} placeholder="https://..." />
-        </div>
-      )}
-
-      {imgRef ? (
-        <div className="field">
-          <label>Haz clic sobre la imagen para marcar cada diferencia ({puntos.length} marcadas)</label>
-          <div style={{ position: 'relative', display: 'inline-block', maxWidth: '100%', border: '2px solid var(--line)', borderRadius: 10, overflow: 'hidden', cursor: 'crosshair' }}
-            onClick={marcar}>
-            <img src={imgRef} style={{ display: 'block', maxWidth: '100%', maxHeight: 360, userSelect: 'none' }} alt="" />
-            {puntos.map((p, i) => (
-              <div key={i} onClick={(ev) => borrarPunto(i, ev)} title="Clic para borrar"
-                style={{ position: 'absolute', left: p.x + '%', top: p.y + '%', width: 26, height: 26, marginLeft: -13, marginTop: -13,
-                  borderRadius: '50%', background: 'rgba(245,55,17,.85)', border: '2px solid #fff', color: '#fff',
-                  display: 'grid', placeItems: 'center', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}>{i + 1}</div>
-            ))}
-          </div>
-          <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 6 }}>
-            Clic en la imagen para añadir una diferencia. Clic en un círculo rojo para borrarlo. Marca el mismo lugar donde está la diferencia.
-          </div>
-        </div>
-      ) : (
-        <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 6 }}>Pega una URL de imagen arriba para poder marcar las diferencias.</div>
-      )}
-    </div>
-  );
-}
-/* Editor de "Encuentra el elemento": URL de imagen + una zona correcta
-   (rectángulo en % de la imagen). Clic en la imagen mueve la zona (queda
-   centrada donde se toca); el tamaño se ajusta con los campos de abajo. */
-function EncuentraElementoEditor({ current, curIdx, updateSlide }) {
-  const cfg = current.config;
-  const zonas = Array.isArray(cfg.zonas) ? cfg.zonas : (cfg.zona ? [cfg.zona] : []);
-  const [dibujo, setDibujo] = React.useState(null); // rectángulo en vivo mientras se arrastra
-  const set = (cambios) => updateSlide(curIdx, { ...current, config: { ...cfg, ...cambios } });
-  const setZonas = (nuevas) => set({ zonas: nuevas, zona: undefined });
-
-  const coordsPct = (e, el) => {
-    const rect = el.getBoundingClientRect();
-    return {
-      x: Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100)),
-      y: Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100)),
-    };
-  };
-
-  // Clic simple sobre la imagen = agrega una zona de tamaño estándar
-  // centrada en ese punto. Clic y arrastre = dibuja una zona del tamaño
-  // que se quiera, además de los campos manuales de abajo.
-  const iniciarDibujo = (e) => {
-    e.preventDefault();
-    const el = e.currentTarget;
-    const inicio = coordsPct(e, el);
-    let arrastrado = false;
-
-    const mover = (ev) => {
-      const cur = coordsPct(ev, el);
-      if (Math.abs(cur.x - inicio.x) > 1 || Math.abs(cur.y - inicio.y) > 1) arrastrado = true;
-      setDibujo({
-        x: Math.min(inicio.x, cur.x), y: Math.min(inicio.y, cur.y),
-        w: Math.abs(cur.x - inicio.x), h: Math.abs(cur.y - inicio.y),
-      });
-    };
-    const soltar = (ev) => {
-      window.removeEventListener('pointermove', mover);
-      window.removeEventListener('pointerup', soltar);
-      setDibujo(null);
-      const cur = coordsPct(ev, el);
-      let nueva;
-      if (arrastrado) {
-        nueva = {
-          x: Math.round(Math.min(inicio.x, cur.x) * 10) / 10,
-          y: Math.round(Math.min(inicio.y, cur.y) * 10) / 10,
-          w: Math.round(Math.abs(cur.x - inicio.x) * 10) / 10,
-          h: Math.round(Math.abs(cur.y - inicio.y) * 10) / 10,
-        };
-        if (nueva.w < 2 || nueva.h < 2) return; // arrastre demasiado pequeño, se ignora
-      } else {
-        const w = 20, h = 20;
-        nueva = {
-          x: Math.round(Math.max(0, Math.min(100 - w, inicio.x - w / 2)) * 10) / 10,
-          y: Math.round(Math.max(0, Math.min(100 - h, inicio.y - h / 2)) * 10) / 10,
-          w, h,
-        };
-      }
-      setZonas([...zonas, nueva]);
-    };
-    window.addEventListener('pointermove', mover);
-    window.addEventListener('pointerup', soltar);
-  };
-
-  const actualizarZona = (i, cambios) => setZonas(zonas.map((z, j) => (j === i ? { ...z, ...cambios } : z)));
-  const borrarZona = (i, ev) => { ev.stopPropagation(); setZonas(zonas.filter((_, j) => j !== i)); };
-  const setTam = (i, campo) => (e) => {
-    const v = Math.max(2, Math.min(100, Number(e.target.value) || 0));
-    actualizarZona(i, { [campo]: v });
-  };
-
-  const imgUrl = cfg.imagen || '';
-
-  return (
-    <div>
-      <div className="field">
-        <label>URL de la imagen</label>
-        <input type="text" value={imgUrl} onChange={(e) => set({ imagen: e.target.value })} placeholder="https://..." />
-      </div>
-      {imgUrl ? (
-        <React.Fragment>
-          <div className="field">
-            <label>Zonas correctas ({zonas.length})</label>
-            <div style={{ position: 'relative', display: 'inline-block', maxWidth: '100%', border: '2px solid var(--line)', borderRadius: 10, overflow: 'hidden', cursor: 'crosshair', touchAction: 'none' }}
-              onPointerDown={iniciarDibujo}>
-              <img src={imgUrl} draggable="false" style={{ display: 'block', maxWidth: '100%', maxHeight: 360, userSelect: 'none', WebkitUserDrag: 'none' }} alt="" />
-              {zonas.map((z, i) => (
-                <div key={i} style={{
-                  position: 'absolute', left: z.x + '%', top: z.y + '%', width: z.w + '%', height: z.h + '%',
-                  border: '3px solid #11F555', background: 'rgba(17,245,85,.2)', borderRadius: 6,
-                }}>
-                  <span onPointerDown={(ev) => ev.stopPropagation()} onClick={(ev) => borrarZona(i, ev)} title="Clic para borrar"
-                    style={{ position: 'absolute', top: -13, left: -13, width: 26, height: 26, borderRadius: '50%',
-                      background: 'rgba(17,245,85,.9)', border: '2px solid #fff', color: '#06140A',
-                      display: 'grid', placeItems: 'center', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}>{i + 1}</span>
-                </div>
-              ))}
-              {dibujo && (
-                <div style={{
-                  position: 'absolute', left: dibujo.x + '%', top: dibujo.y + '%', width: dibujo.w + '%', height: dibujo.h + '%',
-                  border: '3px dashed #F5C211', background: 'rgba(245,194,17,.2)', borderRadius: 6, pointerEvents: 'none',
-                }} />
-              )}
-            </div>
-            <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 6 }}>
-              Clic sobre la imagen para agregar una zona de tamaño estándar, o arrastra para dibujarla del tamaño que quieras. Puedes agregar varias zonas; el grupo deberá encontrarlas todas. Clic en el número de una zona para borrarla.
-            </div>
-          </div>
-          {zonas.length > 0 && (
-            <div className="field">
-              <label>Ajustar tamaño manualmente</label>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {zonas.map((z, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <span style={{ width: 24, height: 24, borderRadius: '50%', background: '#11F555', color: '#06140A',
-                      display: 'grid', placeItems: 'center', fontWeight: 800, fontSize: 12, flexShrink: 0 }}>{i + 1}</span>
-                    <label className="lz-mini" style={{ flex: 1 }}>Ancho (%)<input type="number" min="2" max="100" value={z.w} onChange={setTam(i, 'w')} /></label>
-                    <label className="lz-mini" style={{ flex: 1 }}>Alto (%)<input type="number" min="2" max="100" value={z.h} onChange={setTam(i, 'h')} /></label>
-                    <button type="button" onClick={(ev) => borrarZona(i, ev)} className="lz-del">Eliminar</button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </React.Fragment>
-      ) : (
-        <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 6 }}>Pega una URL de imagen arriba para poder ubicar las zonas correctas.</div>
       )}
     </div>
   );

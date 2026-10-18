@@ -845,10 +845,12 @@ input, textarea, select { font-family: var(--font-body); color: inherit; }
 }
 /* ============================================================
    ATMÓSFERA DASHBOARD — noche verde con brillos (estilo afiche)
+   Solo con el tema oscuro ("Modo Día" apagado). Con "Modo Día" encendido
+   el dashboard usa los estilos claros de arriba (héroe azul, tarjetas blancas).
    Truco: redefinimos los tokens SOLO dentro del dashboard y casi
    toda la pantalla (tarjetas, textos, bordes) se re-pinta sola.
    ============================================================ */
-[data-screen-label="Inicio"] {
+[data-theme="tonos"] [data-screen-label="Inicio"] {
   --bg: #050B06;                /* negro-verde profundo */
   --surface: #0B130C;           /* tarjetas oscuras */
   --surface2: #111D11;
@@ -868,19 +870,19 @@ input, textarea, select { font-family: var(--font-body); color: inherit; }
 }
 
 /* Barra superior: vidrio oscuro */
-[data-screen-label="Inicio"] .topnav {
+[data-theme="tonos"] [data-screen-label="Inicio"] .topnav {
   background: rgba(6,12,7,.85);
   backdrop-filter: blur(8px);
   border-bottom: 1px solid var(--line);
 }
-[data-screen-label="Inicio"] .navlink.active {
+[data-theme="tonos"] [data-screen-label="Inicio"] .navlink.active {
   color: #8CF04F;
   background: rgba(110,214,68,.12);
 }
 
 /* Héroe: escenario oscuro con pedestal luminoso (como el afiche:
    brillo verde abajo y un toque dorado sutil arriba a la derecha) */
-[data-screen-label="Inicio"] .hero-grad {
+[data-theme="tonos"] [data-screen-label="Inicio"] .hero-grad {
   background:
     radial-gradient(850px 320px at 50% 118%, rgba(110,214,68,.30), transparent 62%),
     radial-gradient(650px 240px at 88% -35%, rgba(232,178,58,.12), transparent 60%),
@@ -888,25 +890,215 @@ input, textarea, select { font-family: var(--font-body); color: inherit; }
   border: 1px solid #1F3418;
   box-shadow: 0 0 0 1px rgba(110,214,68,.07), 0 34px 80px -34px rgba(110,214,68,.4);
 }
-[data-screen-label="Inicio"] .hero-pill {
+[data-theme="tonos"] [data-screen-label="Inicio"] .hero-pill {
   border-color: rgba(140,240,79,.4);
   background: rgba(110,214,68,.10);
   color: #DFF5D0;
 }
 
 /* Chips de estadísticas: anillo tenue (el chip negro ya no se pierde) */
-[data-screen-label="Inicio"] .stat-ico { outline: 1px solid #223A1E; }
+[data-theme="tonos"] [data-screen-label="Inicio"] .stat-ico { outline: 1px solid #223A1E; }
 
 /* Tarjetas: al pasar el mouse, brillo verde en vez de solo elevarse */
-[data-screen-label="Inicio"] .pres-card2:hover,
-[data-screen-label="Inicio"] .pres-row:hover {
+[data-theme="tonos"] [data-screen-label="Inicio"] .pres-card2:hover,
+[data-theme="tonos"] [data-screen-label="Inicio"] .pres-row:hover {
   border-color: #2C4A24;
   box-shadow: 0 0 0 1px rgba(110,214,68,.12), 0 18px 44px -18px rgba(110,214,68,.30);
 }
 
 /* Tarjeta "+ Crear": el hover pasa de naranja a lima brillante */
-[data-screen-label="Inicio"] .create-card:hover {
+[data-theme="tonos"] [data-screen-label="Inicio"] .create-card:hover {
   border-color: #8CF04F;
   color: #8CF04F;
   background: rgba(110,214,68,.06);
+}
+
+/* ============================================================
+   Menú del usuario (avatar del dashboard): Administración, Modo Día, Salir
+   ============================================================ */
+.user-menu-wrap { position: relative; margin-left: 6px; }
+.user-menu-btn {
+  border: 2px solid transparent; background: none; padding: 0; border-radius: 50%;
+  cursor: pointer; transition: border-color .12s ease;
+}
+.user-menu-btn:hover, .user-menu-btn[aria-expanded="true"] { border-color: var(--muted); }
+.user-menu {
+  position: absolute; top: calc(100% + 10px); right: 0; z-index: 60; width: 250px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
+  box-shadow: 0 20px 50px -20px rgba(0,0,0,.55); padding: 6px;
+  animation: fadeUp .16s ease both;
+}
+.user-menu-head { padding: 10px 12px 12px; border-bottom: 1px solid var(--line); margin-bottom: 6px; }
+.user-menu-head strong { display: block; font-family: var(--font-display); font-size: 15px; color: var(--ink); }
+.user-menu-head span { display: block; font-size: 12.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.user-menu-item {
+  width: 100%; display: flex; align-items: center; gap: 11px;
+  padding: 10px 12px; border: none; background: transparent; border-radius: 10px;
+  color: var(--ink); font-size: 14.5px; font-weight: 600; text-align: left; cursor: pointer;
+}
+.user-menu-item:hover { background: var(--surface2); }
+.user-menu-item.peligro { color: var(--naranja-ink); }
+.user-menu-sep { height: 1px; background: var(--line); margin: 6px 4px; }
+
+/* Interruptor (Modo Día): pista + perilla */
+.switch {
+  margin-left: auto; width: 38px; height: 22px; border-radius: 999px; flex-shrink: 0;
+  background: var(--muted); position: relative; transition: background .15s ease;
+}
+.switch::after {
+  content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px;
+  border-radius: 50%; background: #FFFFFF; box-shadow: 0 1px 3px rgba(0,0,0,.35);
+  transition: transform .15s ease;
+}
+.switch.on { background: var(--verde); }
+.switch.on::after { transform: translateX(16px); }
+
+/* ============================================================
+   MODO VIGÍA (js/vigia.jsx) — naranja neón + azul eléctrico sobre negro
+   Igual que el dashboard: se redefinen los tokens dentro de .vigia y las
+   piezas comunes (topnav, hero-grad, stat-card, create-card) se repintan.
+   ============================================================ */
+/* Botón de entrada, junto al logo de Actividades Interactivas */
+.vigia-entrada {
+  display: inline-flex; align-items: center; gap: 8px; margin-left: 14px;
+  padding: 5px 14px 5px 5px; border-radius: 999px; cursor: pointer;
+  background: #0A0604; color: #FFB25C; font-family: var(--font-display); font-weight: 700; font-size: 14px;
+  border: 1.5px solid rgba(255,138,0,.65);
+  box-shadow: 0 0 14px -4px rgba(255,138,0,.7), inset 0 0 10px -6px rgba(77,148,255,.8);
+  transition: box-shadow .15s ease, transform .15s ease;
+}
+.vigia-entrada img { width: 32px; height: 32px; border-radius: 8px; }
+.vigia-entrada:hover { transform: translateY(-1px); box-shadow: 0 0 22px -2px rgba(255,138,0,.85), inset 0 0 12px -4px rgba(77,148,255,.9); }
+
+.vigia {
+  --vigia-naranja: #FF8A00;
+  --vigia-azul: #4D94FF;
+  --bg: #060403;
+  --surface: #0F0A07;
+  --surface2: #18100A;
+  --ink: #FFF3E6;
+  --muted: #B39A86;
+  --line: #2C1D12;
+  --shadow: 0 1px 2px rgba(0,0,0,.6), 0 14px 34px -14px rgba(255,138,0,.18);
+  --naranja-ink: #FFB25C;
+  --acento: var(--vigia-naranja);
+
+  color: var(--ink);
+  min-height: 100dvh;
+  background:
+    radial-gradient(900px 380px at 15% -10%, rgba(255,138,0,.16), transparent 60%),
+    radial-gradient(800px 380px at 95% 0%, rgba(77,148,255,.12), transparent 60%),
+    var(--bg);
+}
+.vigia-topnav {
+  background: rgba(8,5,3,.85); backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--line);
+}
+.vigia-volver {
+  display: inline-flex; align-items: center; gap: 8px; margin-left: 14px;
+  padding: 6px 14px 6px 6px; border-radius: 999px; cursor: pointer;
+  background: transparent; color: var(--muted); font-weight: 600; font-size: 13.5px;
+  border: 1px solid var(--line);
+}
+.vigia-volver img { width: 26px; height: 26px; border-radius: 7px; }
+.vigia-volver:hover { color: var(--vigia-azul); border-color: rgba(77,148,255,.5); }
+
+.vigia-btn-crear {
+  background: linear-gradient(100deg, var(--vigia-naranja), #FF5E00);
+  color: #140800; border-color: transparent; font-weight: 800;
+  box-shadow: 0 0 22px -6px rgba(255,138,0,.9);
+}
+.vigia-btn-crear:hover { border-color: transparent; filter: brightness(1.08); box-shadow: 0 0 30px -4px rgba(255,138,0,1); }
+
+.vigia-hero {
+  background:
+    radial-gradient(700px 300px at 85% 120%, rgba(77,148,255,.22), transparent 62%),
+    radial-gradient(700px 300px at 0% -30%, rgba(255,138,0,.28), transparent 60%),
+    linear-gradient(160deg, #0D0805, #120B06 90%);
+  border: 1px solid rgba(255,138,0,.35);
+  box-shadow: 0 0 0 1px rgba(77,148,255,.08), 0 30px 80px -34px rgba(255,138,0,.55);
+}
+.vigia-pill { border-color: rgba(77,148,255,.55); background: rgba(77,148,255,.10); color: #CFF6FF; }
+/* "Bienvenido.": degradado azul nítido (sin resplandor que lo emborrone). */
+.vigia-neon {
+  background: linear-gradient(95deg, #8EC5FF 0%, #4D94FF 55%, #3B6BFF 100%);
+  -webkit-background-clip: text; background-clip: text;
+  color: transparent; -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 2px 10px rgba(77,148,255,.35));
+}
+.vigia-eslogan {
+  max-width: 40em; margin: 14px 0 0; font-size: 16.5px; line-height: 1.6; color: #F3DCC6;
+}
+.vigia-eslogan strong { color: var(--vigia-naranja); text-shadow: 0 0 10px rgba(255,138,0,.6); }
+
+/* Cóndor de fondo del héroe: grande, a la derecha y traslúcido. Con
+   mix-blend-mode: screen el fondo negro del PNG desaparece y solo queda el
+   trazo neón. (Declarado después de `.hero-grad > *`, que da position:
+   relative a los hijos: aquí se vuelve a absolute.) */
+.vigia-marca-agua {
+  position: absolute; z-index: 0; pointer-events: none;
+  right: 3%; top: 50%; transform: translateY(-50%);
+  height: 125%; width: auto; max-width: none;
+  opacity: .2; mix-blend-mode: screen;
+  -webkit-mask-image: radial-gradient(closest-side, #000 70%, transparent 100%);
+  mask-image: radial-gradient(closest-side, #000 70%, transparent 100%);
+}
+
+.vigia-stat { border-color: rgba(255,138,0,.18); }
+.vigia-stat-ico {
+  color: var(--vigia-naranja); background: rgba(255,138,0,.10);
+  outline: 1px solid rgba(77,148,255,.35); box-shadow: inset 0 0 14px -6px rgba(77,148,255,.8);
+}
+.vigia .create-card.vigia-create { border-color: rgba(255,138,0,.4); color: var(--naranja-ink); }
+.vigia .create-card.vigia-create:hover {
+  border-color: var(--vigia-azul); color: var(--vigia-azul); background: rgba(77,148,255,.06);
+}
+.vigia-vacio {
+  border-radius: 18px; border: 1px solid var(--line); background: var(--surface);
+  min-height: 270px; padding: 24px; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 8px; text-align: center;
+}
+.vigia-vacio strong { font-family: var(--font-display); font-size: 16px; }
+.vigia-vacio span { font-size: 13.5px; color: var(--muted); max-width: 22em; }
+
+.vigia-aviso {
+  position: fixed; left: 50%; bottom: 56px; transform: translateX(-50%); z-index: 90;
+  background: #0F0A07; color: #FFE2C2; font-weight: 700; padding: 12px 20px; border-radius: 14px;
+  border: 1px solid rgba(77,148,255,.55); box-shadow: 0 0 24px -6px rgba(77,148,255,.7);
+  animation: fadeUp .2s ease both; max-width: calc(100vw - 32px); text-align: center;
+}
+
+/* Pantalla de carga del Modo Vigía */
+.vigia-carga {
+  position: fixed; inset: 0; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 22px;
+}
+.vigia-carga-logo {
+  width: min(220px, 50vw); height: auto; border-radius: 28px;
+  animation: vigiaDespierta 1.6s ease both;
+}
+@keyframes vigiaDespierta {
+  0%   { opacity: 0; transform: scale(.82); filter: brightness(.3) drop-shadow(0 0 0 rgba(255,138,0,0)); }
+  55%  { opacity: 1; transform: scale(1.03); filter: brightness(1.15) drop-shadow(0 0 34px rgba(255,138,0,.75)); }
+  100% { opacity: 1; transform: scale(1); filter: brightness(1) drop-shadow(0 0 24px rgba(77,148,255,.45)); }
+}
+.vigia-carga-texto { font-family: var(--font-display); font-weight: 700; font-size: 18px; color: #FFD3A3; letter-spacing: .04em; }
+.vigia-carga-barra { width: min(260px, 60vw); height: 4px; border-radius: 99px; background: #2C1D12; overflow: hidden; }
+.vigia-carga-barra span {
+  display: block; height: 100%; width: 100%; transform-origin: left;
+  background: linear-gradient(90deg, var(--vigia-naranja), var(--vigia-azul));
+  box-shadow: 0 0 12px rgba(77,148,255,.8);
+  animation: vigiaBarra 1.5s ease-in-out both;
+}
+@keyframes vigiaBarra { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@media (prefers-reduced-motion: reduce) {
+  .vigia-carga-logo, .vigia-carga-barra span { animation: none; }
+}
+
+/* Celular: la entrada queda solo con el cóndor; en Vigía se compacta la barra */
+@media (max-width: 760px) {
+  .vigia-entrada span, .vigia-volver span { display: none; }
+  .vigia-entrada, .vigia-volver { padding: 4px; margin-left: 8px; }
+  .vigia-topnav .vigia-btn-crear { display: none; }   /* ya está en el héroe */
+  .vigia-marca-agua { right: -18%; opacity: .14; }   /* detrás del texto, más tenue */
 }
