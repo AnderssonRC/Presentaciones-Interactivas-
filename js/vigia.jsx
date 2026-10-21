@@ -16,23 +16,36 @@ const VIGIA_LOGO = 'condor-vigia-icono.png';
 // Módulos del Modo Vigía, en orden. Al editar uno, sube su versión aquí
 // (y la de este archivo en index.html) para que el navegador no use la vieja.
 const VIGIA_MODULOS = [
-  ['js/vigia/tipos.js', '20261020a'],
-  ['js/vigia/youtube.jsx', '20261018a'],
+  ['js/vigia/tipos.js', '20261021b'],
+  ['js/vigia/youtube.jsx', '20261020p'],
+  ['js/vigia/audio.jsx', '20261021a'],
   ['js/vigia/drive.jsx', '20261020a'],
-  ['js/vigia/pdf.jsx', '20261020c'],
-  ['js/vigia/epub.jsx', '20261020b'],
+  ['js/vigia/pdf.jsx', '20261020f'],
+  ['js/vigia/epub.jsx', '20261020f'],
   ['js/vigia/respaldo.jsx', '20261020b'],
-  ['js/vigia/ruleta.jsx', '20261018c'],
-  ['js/vigia/editor.jsx', '20261020e'],
+  ['js/vigia/ruleta.jsx', '20261020l'],
+  ['js/vigia/editor.jsx', '20261021b'],
   ['js/vigia/editor-pdf.jsx', '20261020d'],
   ['js/vigia/editor-epub.jsx', '20261020d'],
-  ['js/vigia/presentar.jsx', '20261020e'],
-  ['js/vigia/presentar-pdf.jsx', '20261020e'],
-  ['js/vigia/presentar-epub.jsx', '20261020e'],
+  ['js/vigia/editor-podcast.jsx', '20261021b'],
+  ['js/vigia/editor-imagenes.jsx', '20261021b'],
+  ['js/vigia/herramientas.jsx', '20261021c'],
+  ['js/vigia/presentar.jsx', '20261021c'],
+  ['js/vigia/presentar-pdf.jsx', '20261021c'],
+  ['js/vigia/presentar-epub.jsx', '20261021c'],
+  ['js/vigia/presentar-podcast.jsx', '20261021c'],
+  ['js/vigia/presentar-imagenes.jsx', '20261021c'],
 ];
-const VIGIA_ESTILOS = ['js/vigia/estilos.css', '20261020e'];
+const VIGIA_ESTILOS = ['js/vigia/estilos.css', '20261021c'];
 let promesaVigia = null;
+// Tipografía de los títulos de las tarjetas (Fraunces, cursiva "suave"): elegante y juguetona.
+const VIGIA_FUENTE = 'https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT,WONK@1,9..144,600..900,100,1&display=swap';
 function cargarEstilosVigia() {
+  if (!document.getElementById('vigia-fuente')) {
+    const f = document.createElement('link');
+    f.id = 'vigia-fuente'; f.rel = 'stylesheet'; f.href = VIGIA_FUENTE;
+    document.head.appendChild(f);   // no se espera: mientras llega, se usa Georgia
+  }
   if (document.getElementById('vigia-estilos')) return Promise.resolve();
   return new Promise((resolve, reject) => {
     const l = document.createElement('link');
@@ -199,18 +212,22 @@ function VigiaDashboard({ profile, esAdmin, onAdmin, onLogout, onSalir, activaci
           {docs.map((d) => {
             const r = VigiaTipos.recurso(d.recurso);
             const n = (d.activaciones || []).length;
-            const vid = d.recurso !== 'documento' && d.video && d.video.id;
+            const vid = d.recurso === 'video' || !d.recurso ? d.video && d.video.id : null;
+            // Fondo de la tarjeta: miniatura del video o imagen del podcast.
+            const fondo = vid ? 'https://img.youtube.com/vi/' + vid + '/mqdefault.jpg'
+              : d.recurso === 'podcast' ? imagenPodcast(d.podcast)
+              : d.recurso === 'imagenes' && d.galeria ? urlImagen(((d.galeria.diapos || []).find((x) => x.url) || {}).url || '') : '';
             const listo = VigiaTipos.recursoListo(d);
             return (
               <div key={d.id} className="pres-card2 vg-card">
-                <div className="pres-card2-head vg-card-head" style={vid ? { backgroundImage: 'url(https://img.youtube.com/vi/' + vid + '/mqdefault.jpg)' } : null}>
-                  {!vid && <Icon name={r.icon} size={40} />}
+                <div className="pres-card2-head vg-card-head" style={fondo ? { backgroundImage: 'url(' + JSON.stringify(fondo) + ')' } : null}>
+                  {!fondo && <Icon name={r.icon} size={40} />}
                   <span className="vg-card-recurso"><Icon name={r.icon} size={13} /> {r.nombre}</span>
                   <button className="del-btn" title="Eliminar activación" onClick={() => onEliminar(d.id)}>✕</button>
                 </div>
                 <div style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
                   <h3 style={{ fontSize: 18, fontWeight: 800 }}>{d.titulo || 'Sin nombre'}</h3>
-                  <p style={{ margin: 0, color: 'var(--muted)', fontSize: 13.5, flex: 1 }}>{d.objetivo || (listo ? (d.recurso === 'documento' && d.pdf ? d.pdf.nombre : '') : (d.recurso === 'documento' ? 'Falta añadir el PDF.' : 'Falta añadir el video.'))}</p>
+                  <p style={{ margin: 0, color: 'var(--muted)', fontSize: 13.5, flex: 1 }}>{d.objetivo || (listo ? (d.recurso === 'documento' && d.pdf ? d.pdf.nombre : '') : (d.recurso === 'documento' ? 'Falta añadir el PDF.' : d.recurso === 'podcast' ? 'Falta añadir el audio.' : d.recurso === 'imagenes' ? 'Falta añadir las imágenes.' : 'Falta añadir el video.'))}</p>
                   <div className="vg-card-tipos">
                     {VigiaTipos.TIPOS.map((t) => {
                       const c = (d.activaciones || []).filter((x) => x.tipo === t.id).length;

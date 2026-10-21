@@ -316,7 +316,7 @@ function LectorEpub({ libro, capitulo, marcas, numeros, selId, tamano, onClickMa
 
   const editada = editorId && (marcas || []).find((a) => a.id === editorId);
   return (
-    <div className={'vg-epub-hoja' + (clase ? ' ' + clase : '')} ref={hoja} style={{ fontSize: tamano }}>
+    <div className={'vg-epub-hoja vg-proyectado-doc' + (clase ? ' ' + clase : '')} ref={hoja} style={{ fontSize: tamano }}>
       {error ? <div className="vg-pdf-estado">{error}</div>
         : !cap || cap.indice !== capitulo ? <div className="vg-pdf-estado">Abriendo el capítulo…</div> : null}
       <div className="vg-epub-texto" ref={(el) => { contenido.current = el; if (contenidoRef) contenidoRef.current = el; }}

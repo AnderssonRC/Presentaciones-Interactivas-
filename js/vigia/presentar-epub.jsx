@@ -131,8 +131,6 @@ function VigiaPresentarEpub({ act, onExit, onChange }) {
           <button className="vg-ctrl" onClick={() => cambiarTamano(-1)} disabled={tamano <= EPUB_TAMANOS[0]} title="Letra más pequeña (−)" aria-label="Letra más pequeña">−</button>
           <button className="vg-ctrl vg-ctrl-zoom" onClick={() => cambiarTamano(0)} title="Tamaño normal (0)">Aa</button>
           <button className="vg-ctrl" onClick={() => cambiarTamano(1)} disabled={tamano >= EPUB_TAMANOS[EPUB_TAMANOS.length - 1]} title="Letra más grande (+)" aria-label="Letra más grande">+</button>
-          <span className="vg-ctrl-sep"></span>
-          <SelectorTono tono={tono} setTono={setTono} />
           {lista.length > 0 && (
             <React.Fragment>
               <span className="vg-ctrl-sep"></span>
@@ -152,6 +150,10 @@ function VigiaPresentarEpub({ act, onExit, onChange }) {
           orden={act.ordenNombres || 'apellidos'} usados={usados} onUsado={marcarUsado}
           onContinuar={cerrar} textoContinuar="Volver al libro" onCambiarActivacion={cambiarActivacion} />
       )}
+      {/* Tono de pantalla: aparece al acercar el mouse al borde izquierdo. */}
+      <TonoLateral tono={tono} setTono={setTono} />
+      {/* Herramientas (pincel, abajo a la izquierda): lupa, marcador, puntero, texto. */}
+      <HerramientasPresentar />
     </div>
   );
 }

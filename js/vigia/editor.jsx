@@ -14,6 +14,8 @@
    que es el que muestra el paso de subir el archivo. */
 function VigiaEditor(props) {
   const { act } = props;
+  if (act.recurso === 'podcast') return <VigiaEditorPodcast {...props} />;
+  if (act.recurso === 'imagenes') return <VigiaEditorImagenes {...props} />;
   if (act.recurso !== 'documento') return <VigiaEditorVideo {...props} />;
   return act.pdf && act.pdf.formato === 'epub' && (act.pdf.driveId || act.pdf.local)
     ? <VigiaEditorEpub {...props} /> : <VigiaEditorPdf {...props} />;
@@ -198,9 +200,11 @@ function VigiaEditorVideo({ act, onChange, onBack, onPresent }) {
               {yt.error && <div className="vg-video-error">{yt.error}</div>}
             </div>
             <LineaTiempo duracion={yt.duracion} tiempo={yt.tiempo} activaciones={lista} selId={selId}
-              onSeek={yt.seek} onSelect={seleccionar} />
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: 'var(--muted)', marginTop: -8 }}>
-              <span>Las activaciones nuevas se insertan en <strong style={{ color: 'var(--ink)' }}>{fmtT(yt.tiempo)}</strong>.</span>
+              onSeek={yt.seek} onSelect={seleccionar}
+              onMover={(a, t) => { cambiar({ ...a, t }); setSelId(a.id); }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: 'var(--muted)', marginTop: -8, flexWrap: 'wrap', width: '100%', maxWidth: 980 }}>
+              {/* Minuto exacto donde se insertan las activaciones nuevas. */}
+              <MinutoExacto tiempo={yt.tiempo} duracion={yt.duracion} onIr={(t) => { yt.seek(t); yt.pause(); }} />
               <span style={{ flex: 1 }}></span>
               <button className="vg-btn-texto" onClick={() => setCambiandoVideo(true)}>Cambiar video</button>
             </div>
@@ -282,33 +286,162 @@ function PasoEnlace({ actual, onListo, onCancelar }) {
   );
 }
 
-/* Línea de tiempo: marcas de las activaciones + cabezal; clic para saltar. */
-function LineaTiempo({ duracion, tiempo, activaciones, selId, onSeek, onSelect }) {
+/* "Insertar en el minuto [mm:ss]": escribir un minuto exacto lleva el video
+   ahí (en pausa) y las activaciones nuevas se crean en ese segundo. Con
+   −5s / −1s / +1s / +5s se ajusta fino. Mientras no se escribe, muestra el
+   minuto actual del video. */
+function MinutoExacto({ tiempo, duracion, onIr, avisoYouTube = true }) {
+  const { fmtT, parseT } = VigiaTipos;
+  // Opción que se activa con un botón (se recuerda en este computador).
+  const [activo, setActivoEstado] = React.useState(() => {
+    try { return localStorage.getItem('vigia_minuto_exacto') === '1'; } catch (e) { return false; }
+  });
+  const setActivo = (v) => { setActivoEstado(v); try { localStorage.setItem('vigia_minuto_exacto', v ? '1' : '0'); } catch (e) { /* */ } };
+  const [texto, setTexto] = React.useState(null);   // null = mostrando el tiempo del video
+  const [error, setError] = React.useState(false);
+  const inicial = React.useRef(null);   // lo que mostraba al entrar al campo
+  const yaConfirmado = React.useRef(false);   // Enter ya confirmó: el blur que sigue no repite
+  const limite = (t) => Math.max(0, Math.min(duracion || t, t));
+  const ir = (t) => { setError(false); setTexto(null); onIr(limite(Math.round(t))); };
+  const confirmar = () => {
+    if (yaConfirmado.current) { yaConfirmado.current = false; return; }
+    if (texto === null) return;
+    if (texto === inicial.current) { setTexto(null); return; }   // sin cambios: no mueve el video
+    const v = parseT(texto);
+    if (v === null) { setError(true); return; }
+    ir(v);
+  };
+  if (!activo) {
+    return (
+      <div className="vg-minuto-exacto">
+        <span>Las activaciones nuevas se insertan en <strong style={{ color: 'var(--ink)' }}>{fmtT(tiempo)}</strong>.</span>
+        <button type="button" className="vg-mini-accion" onClick={() => setActivo(true)}
+          title="Escribir un minuto exacto (mm:ss) y ajustarlo segundo a segundo">⏱ Minuto exacto</button>
+      </div>
+    );
+  }
+  return (
+    <div className="vg-minuto-exacto-caja">
+    <div className="vg-minuto-exacto">
+      <button type="button" className="vg-mini-accion on" onClick={() => setActivo(false)} title="Ocultar el minuto exacto">⏱ Minuto exacto ✕</button>
+      <span>Insertar en el minuto</span>
+      <input type="text" inputMode="numeric" className={'vg-minuto-campo' + (error ? ' error' : '')}
+        value={texto === null ? fmtT(tiempo) : texto} placeholder="mm:ss"
+        onFocus={(e) => { const t = fmtT(tiempo); inicial.current = t; setTexto(t); setTimeout(() => e.target.select(), 0); }}
+        onChange={(e) => { setTexto(e.target.value); setError(false); }}
+        onBlur={confirmar}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') { e.preventDefault(); confirmar(); yaConfirmado.current = true; e.target.blur(); }
+          if (e.key === 'Escape') { setTexto(null); setError(false); yaConfirmado.current = true; e.target.blur(); }
+        }}
+        title="Escribe el minuto exacto (p. ej. 16:40 o 1:02:15) y presiona Enter" />
+      {[-5, -1, 1, 5].map((d) => (
+        <button key={d} type="button" className="vg-mini-accion" onClick={() => ir(Math.floor(tiempo) + d)}
+          title={(d > 0 ? 'Adelantar ' : 'Retroceder ') + Math.abs(d) + ' s'}>{(d > 0 ? '+' : '−') + Math.abs(d) + 's'}</button>
+      ))}
+      {error && <span style={{ color: 'var(--naranja-ink)' }}>Usa el formato mm:ss</span>}
+    </div>
+    {avisoYouTube && (
+      <div className="vg-minuto-aviso">
+        ⏳ Por cómo funciona YouTube, al saltar a un minuto exacto el video puede <strong>volver por un momento a un minuto anterior</strong>.
+        Ten paciencia: espera un par de segundos a que llegue antes de volver a intentarlo.
+      </div>
+    )}
+    </div>
+  );
+}
+
+/* Línea de tiempo: marcas de las activaciones + cabezal; clic para saltar.
+   Las marcas se pueden ARRASTRAR a otro segundo (`onMover(item, t)` guarda
+   el cambio); un clic sin arrastrar las selecciona.
+   `imagenes` (podcast, opcional): miniaturas bajo la barra donde cambia la
+   imagen (también arrastrables, con `onMoverImagen`). */
+function LineaTiempo({ duracion, tiempo, activaciones, selId, onSeek, onSelect, imagenes, onMover, onMoverImagen }) {
   const { tipo, fmtT } = VigiaTipos;
-  const total = Math.max(duracion || 0, ...activaciones.map((a) => a.t + 5), 1);
+  const [arrastre, setArrastre] = React.useState(null);   // { id, t } mientras se arrastra
+  const total = Math.max(duracion || 0, ...activaciones.map((a) => a.t + 5), ...(imagenes || []).map((x) => x.t + 5), 1);
   const pct = (t) => Math.min(100, Math.max(0, (t / total) * 100)) + '%';
+  const tDe = (item) => (arrastre && arrastre.id === item.id ? arrastre.t : item.t);
   const barra = React.useRef(null);
   const saltar = (e) => {
     const r = barra.current.getBoundingClientRect();
     onSeek(((e.clientX - r.left) / r.width) * total);
   };
+  // Arrastrar una marca: se mueve con el mouse (segundo a segundo) y al
+  // soltar se guarda. Si casi no se movió, cuenta como clic (seleccionar).
+  const empezarArrastre = (e, item, onMov) => {
+    if (e.button !== 0) return;
+    e.preventDefault(); e.stopPropagation();
+    const x0 = e.clientX;
+    let movido = false, tFinal = item.t;
+    const mover = (ev) => {
+      if (!movido && Math.abs(ev.clientX - x0) < 4) return;
+      movido = true;
+      const r = barra.current.getBoundingClientRect();
+      const ancho = duracion || total;
+      tFinal = Math.round(Math.max(0, Math.min(ancho, ((ev.clientX - r.left) / r.width) * total)));
+      setArrastre({ id: item.id, t: tFinal });
+    };
+    const soltar = () => {
+      window.removeEventListener('pointermove', mover);
+      window.removeEventListener('pointerup', soltar);
+      setArrastre(null);
+      if (movido && onMov) { if (tFinal !== item.t) onMov(item, tFinal); }
+      else onSelect(item);
+    };
+    window.addEventListener('pointermove', mover);
+    window.addEventListener('pointerup', soltar);
+  };
+  // Imágenes del mismo segundo: miniaturas una al lado de la otra (no encimadas).
+  const imgs = (imagenes || []).map((x) => ({ ...x, t: tDe(x) })).sort((a, b) => a.t - b.t);
+  const lado = {};
+  const posLado = (x) => { const k = Math.round(x.t); lado[k] = (lado[k] || 0) + 1; return lado[k] - 1; };
   return (
-    <div className="vg-linea">
+    <div className={'vg-linea' + (arrastre ? ' arrastrando' : '')}>
+      {/* Minuto al que va la marca que se arrastra. */}
+      {arrastre && <span className="vg-marca-hora" style={{ left: pct(arrastre.t) }}>{fmtT(arrastre.t)}</span>}
       <div className="vg-linea-barra" ref={barra} onClick={saltar} title="Clic para ir a ese momento">
         <div className="vg-linea-progreso" style={{ width: pct(tiempo) }}></div>
         {activaciones.map((a) => {
           const ti = tipo(a.tipo);
+          const t = tDe(a);
+          const moviendo = arrastre && arrastre.id === a.id;
           return (
-            <button key={a.id} className={'vg-marca' + (a.id === selId ? ' sel' : '')}
-              style={{ left: pct(a.t), background: ti.color }}
-              onClick={(e) => { e.stopPropagation(); onSelect(a); }}
-              title={fmtT(a.t) + ' · ' + ti.nombre + (a.texto ? ': ' + a.texto : '')}>
+            <button key={a.id} className={'vg-marca' + (a.id === selId ? ' sel' : '') + (moviendo ? ' moviendo' : '') + (onMover ? ' movible' : '')}
+              style={{ left: pct(t), background: ti.color }}
+              onPointerDown={(e) => empezarArrastre(e, a, onMover)}
+              onClick={(e) => e.stopPropagation()}
+              title={fmtT(a.t) + ' · ' + ti.nombre + (a.texto ? ': ' + a.texto : '') + (onMover ? ' · Arrastra para moverla' : '')}>
               <Icon name={ti.icon} size={13} />
             </button>
           );
         })}
         <div className="vg-linea-cabezal" style={{ left: pct(tiempo) }}></div>
       </div>
+      {imgs.length > 0 && (
+        <div className="vg-linea-imagenes">
+          {/* Tramo en que se ve cada imagen: hasta su fin, la siguiente (de otro segundo) o el final. */}
+          {imgs.map((x) => {
+            const sig = imgs.find((y) => Math.round(y.t) > Math.round(x.t));
+            const fin = Math.min(typeof x.fin === 'number' ? x.fin + (x.t - (imagenes.find((y) => y.id === x.id) || x).t) : total, sig ? sig.t : total);
+            const ini = Math.min(100, Math.max(0, (x.t / total) * 100));
+            return <span key={'tramo' + x.id} className={'vg-img-tramo' + (x.id === selId ? ' sel' : '')}
+              style={{ left: ini + '%', width: Math.max(0, Math.min(100, (fin / total) * 100) - ini) + '%' }}></span>;
+          })}
+          {imgs.map((x) => {
+            const n = posLado(x);
+            const moviendo = arrastre && arrastre.id === x.id;
+            return (
+              <button key={x.id} className={'vg-marca-img' + (x.id === selId ? ' sel' : '') + (moviendo ? ' moviendo' : '') + (onMoverImagen ? ' movible' : '')}
+                style={{ left: pct(x.t), transform: 'translateX(calc(-50% + ' + n * 44 + 'px))' }}
+                onPointerDown={(e) => empezarArrastre(e, (imagenes.find((y) => y.id === x.id) || x), onMoverImagen)}
+                title={fmtT(x.t) + ' · Imagen' + (onMoverImagen ? ' · Arrastra para moverla' : '')}>
+                {x.url ? <img src={urlImagen(x.url)} alt="" referrerPolicy="no-referrer" draggable="false" /> : <Icon name="eye" size={12} />}
+              </button>
+            );
+          })}
+        </div>
+      )}
       <div className="vg-linea-tiempos">
         <span>{fmtT(tiempo)}</span>
         <span>{duracion ? fmtT(duracion) : '–:––'}</span>
@@ -360,7 +493,7 @@ function EtiquetaCampo({ texto, valor, onBorrar, onReleer }) {
        en el EPUB), que se cita en la tarjeta. `onReleer`: vuelve a leerlo.
    `compacto`: versión para la tarjeta flotante sobre el documento (sin
    encabezado ni ubicación, que la tarjeta ya muestra). */
-function ConfigActivacion({ a, onCambiar, onBorrar, tiempoActual, duracion, hayEstudiantes, onAbrirEstudiantes, onIr, conTiempo = true, ubicacion, compacto, onReleer }) {
+function ConfigActivacion({ a, onCambiar, onBorrar, tiempoActual, duracion, hayEstudiantes, onAbrirEstudiantes, onIr, conTiempo = true, ubicacion, compacto, onReleer, sinFragmento }) {
   const { tipo, fmtT, parseT } = VigiaTipos;
   const ti = tipo(a.tipo);
   const set = (patch) => onCambiar({ ...a, ...patch });
@@ -414,7 +547,7 @@ function ConfigActivacion({ a, onCambiar, onBorrar, tiempoActual, duracion, hayE
         </div>
       )}
 
-      {!conTiempo && (
+      {!conTiempo && !sinFragmento && (
         <div className="field">
           <EtiquetaCampo texto="Texto marcado (opcional)" valor={a.fragmento}
             onBorrar={() => set({ fragmento: '' })} onReleer={onReleer} />
@@ -506,4 +639,4 @@ function ConfigActivacion({ a, onCambiar, onBorrar, tiempoActual, duracion, hayE
   );
 }
 
-Object.assign(window, { AreaTexto, EtiquetaCampo, VigiaEditor, VigiaEditorVideo, RecursoChips, EstudiantesPopover, PasoEnlace, LineaTiempo, ConfigActivacion });
+Object.assign(window, { AreaTexto, EtiquetaCampo, VigiaEditor, VigiaEditorVideo, RecursoChips, EstudiantesPopover, PasoEnlace, MinutoExacto, LineaTiempo, ConfigActivacion });

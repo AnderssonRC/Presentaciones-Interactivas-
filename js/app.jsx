@@ -152,6 +152,8 @@ React.useEffect(() => {
     };
     // Cada recurso guarda su origen: el video de YouTube o el PDF.
     if (nueva.recurso === 'documento') nueva.pdf = { url: '', nombre: '', local: false };
+    else if (nueva.recurso === 'podcast') nueva.podcast = { url: '', fuente: '', src: '', imagen: '' };
+    else if (nueva.recurso === 'imagenes') nueva.galeria = { diapos: [], musica: null };
     else nueva.video = { url: '', id: '' };
     persist(nueva);
     setEditingId(nueva.id);

@@ -142,8 +142,6 @@ function VigiaPresentarPdf({ act, onExit, onChange }) {
           <button className="vg-ctrl" onClick={() => cambiarZoom(-1)} disabled={zoomMin} title="Alejar (−)" aria-label="Alejar">−</button>
           <button className="vg-ctrl vg-ctrl-zoom" onClick={() => cambiarZoom(0)} title="Tamaño normal (0)">{Math.round(zoom * 100)}%</button>
           <button className="vg-ctrl" onClick={() => cambiarZoom(1)} disabled={zoomMax} title="Acercar (+)" aria-label="Acercar">+</button>
-          <span className="vg-ctrl-sep"></span>
-          <SelectorTono tono={tono} setTono={setTono} />
           {lista.length > 0 && (
             <React.Fragment>
               <span className="vg-ctrl-sep"></span>
@@ -163,6 +161,10 @@ function VigiaPresentarPdf({ act, onExit, onChange }) {
           orden={act.ordenNombres || 'apellidos'} usados={usados} onUsado={marcarUsado}
           onContinuar={cerrar} textoContinuar="Volver al documento" onCambiarActivacion={cambiarActivacion} />
       )}
+      {/* Tono de pantalla: aparece al acercar el mouse al borde izquierdo. */}
+      <TonoLateral tono={tono} setTono={setTono} />
+      {/* Herramientas (pincel, abajo a la izquierda): lupa, marcador, puntero, texto. */}
+      <HerramientasPresentar />
     </div>
   );
 }

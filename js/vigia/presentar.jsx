@@ -11,6 +11,8 @@
 /* Elige el modo Presentar según el recurso y el formato (video, PDF o EPUB). */
 function VigiaPresentar(props) {
   const { act } = props;
+  if (act.recurso === 'podcast') return <VigiaPresentarPodcast {...props} />;
+  if (act.recurso === 'imagenes') return <VigiaPresentarImagenes {...props} />;
   if (act.recurso !== 'documento') return <VigiaPresentarVideo {...props} />;
   return act.pdf && act.pdf.formato === 'epub' ? <VigiaPresentarEpub {...props} /> : <VigiaPresentarPdf {...props} />;
 }
@@ -52,14 +54,17 @@ function useUsadosRuleta(estudiantes) {
 function VigiaPresentarVideo({ act, onExit }) {
   const { tipo, fmtT } = VigiaTipos;
   const lista = (act.activaciones || []).slice().sort((x, y) => x.t - y.t);
-  const yt = useYouTube(act.video && act.video.id, { controls: 0, disablekb: 1, fs: 0, iv_load_policy: 3 });
+  // Controles NATIVOS de YouTube: volumen, subtítulos (CC, que se pueden
+  // arrastrar), configuración y "Omitir anuncio" se manejan dentro del video.
+  // fs: 0 -> sin el botón de pantalla completa de YouTube (ya lo está la app).
+  const yt = useYouTube(act.video && act.video.id, { controls: 1, fs: 0, iv_load_policy: 3 });
+  const raiz = React.useRef(null);
 
   const [empezado, setEmpezado] = React.useState(false);
   const [activa, setActiva] = React.useState(null);        // activación en pantalla
   const [frase, setFrase] = React.useState('¡Alto!');      // frase que irrumpe antes de la tarjeta
   const [usados, marcarUsado] = useUsadosRuleta(act.estudiantes);
   const [tono, setTono] = useTonoPresentar();
-  const [hudVisible, setHudVisible] = React.useState(true);
 
   usePantallaCompleta(onExit);
 
@@ -69,6 +74,9 @@ function VigiaPresentarVideo({ act, onExit }) {
     const ant = prevT.current;
     prevT.current = yt.tiempo;
     if (activa || !yt.reproduciendo) return;
+    // Mientras pasa un anuncio no se dispara nada (por si YouTube informa el
+    // tiempo del anuncio en vez del del video).
+    if (yt.videoActual && yt.videoActual() && yt.videoActual() !== act.video.id) return;
     const avance = yt.tiempo - ant;
     if (avance <= 0 || avance > 1.5) return;   // pausa o salto manual
     const alcanzada = lista.find((a) => a.t > ant && a.t <= yt.tiempo + 0.05);
@@ -77,6 +85,10 @@ function VigiaPresentarVideo({ act, onExit }) {
       yt.seek(alcanzada.t);
       setFrase((f) => VigiaTipos.fraseAlAzar(f));
       setActiva(alcanzada);
+      // Si el foco estaba dentro del video (tras usar sus controles), el
+      // teclado no llegaría a la app: se recupera para espacio / Esc.
+      if (document.activeElement && document.activeElement.tagName === 'IFRAME') document.activeElement.blur();
+      if (raiz.current) raiz.current.focus();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [yt.tiempo]);
@@ -104,15 +116,24 @@ function VigiaPresentarVideo({ act, onExit }) {
     return () => window.removeEventListener('keydown', onKey);
   });
 
-  // --- HUD que se oculta solo mientras el video corre ---
-  const ocultarRef = React.useRef(null);
-  const moverMouse = () => {
-    setHudVisible(true);
-    clearTimeout(ocultarRef.current);
-    ocultarRef.current = setTimeout(() => setHudVisible(false), 2600);
+  // --- Barra inferior que se oculta sola (así el grupo no ve en la línea de
+  //     tiempo cuándo viene la próxima activación). Reaparece al pasar el
+  //     mouse por la franja de abajo y no se oculta mientras esté encima. ---
+  const [barraVisible, setBarraVisible] = React.useState(true);
+  const ocultarBarra = React.useRef(null);
+  const mostrarBarra = (ms) => {
+    setBarraVisible(true);
+    clearTimeout(ocultarBarra.current);
+    ocultarBarra.current = setTimeout(() => setBarraVisible(false), ms || 2500);
   };
-  React.useEffect(() => { moverMouse(); return () => clearTimeout(ocultarRef.current); }, []);
-  const mostrarHud = hudVisible || !yt.reproduciendo;
+  const mantenerBarra = () => { setBarraVisible(true); clearTimeout(ocultarBarra.current); };
+  React.useEffect(() => { mostrarBarra(3500); return () => clearTimeout(ocultarBarra.current); }, []);
+
+  // --- Subtítulos (controles propios, además de los de YouTube) ---
+  const [conSubtitulos, setConSubtitulos] = React.useState(false);
+  const [tamSub, setTamSub] = React.useState(1);   // -1 a 3
+  const alternarSubtitulos = () => { const v = !conSubtitulos; setConSubtitulos(v); yt.subtitulos(v); if (v) yt.tamanoSubtitulos(tamSub); };
+  const cambiarTamSub = (d) => { const n = Math.max(-1, Math.min(3, tamSub + d)); setTamSub(n); if (!conSubtitulos) { setConSubtitulos(true); yt.subtitulos(true); } yt.tamanoSubtitulos(n); };
 
   const total = Math.max(yt.duracion || 0, 1);
   const barra = React.useRef(null);
@@ -122,13 +143,27 @@ function VigiaPresentarVideo({ act, onExit }) {
     prevT.current = t;
     yt.seek(t);
   };
+  // Clic en una marca de la barra: el video va a ESE segundo, se pausa y se
+  // abre su tarjeta directamente (sin depender de que el video "pase" por ahí).
+  const abrirMarca = (a) => {
+    yt.pause();
+    yt.seek(a.t);
+    prevT.current = a.t + 0.1;   // al continuar, no vuelve a dispararse la misma
+    if (!empezado) setEmpezado(true);
+    setFrase((f) => VigiaTipos.fraseAlAzar(f));
+    setActiva(a);
+  };
 
   return (
-    <div className={'vigia vg-presentar tono-' + tono} onMouseMove={moverMouse} data-screen-label="Modo Vigía · Presentar">
-      <div className="vg-presentar-video">
-        <div ref={yt.montaje} className="vg-video"></div>
-        {/* Capa encima del iframe: el clic lo maneja la app (no YouTube). */}
-        <div className="vg-presentar-capa" onClick={alternar}></div>
+    <div className={'vigia vg-presentar tono-' + tono} data-screen-label="Modo Vigía · Presentar"
+      ref={raiz} tabIndex={-1} style={{ outline: 'none' }}>
+      {/* El video ocupa todo MENOS la franja de abajo (barra de la app). Nada
+          de la app queda encima del video: sus controles (volumen, subtítulos,
+          configuración, omitir anuncio, arriba o abajo) siempre responden. */}
+      <div className="vg-video-zona">
+        <div className="vg-presentar-video vg-proyectado-medio">
+          <div ref={yt.montaje} className="vg-video"></div>
+        </div>
       </div>
 
       {yt.error && <div className="vg-video-error vg-presentar-error">{yt.error}</div>}
@@ -154,23 +189,48 @@ function VigiaPresentarVideo({ act, onExit }) {
           onContinuar={continuar} />
       )}
 
-      {/* HUD */}
-      <div className={'vg-hud' + (mostrarHud && !activa ? '' : ' oculto')}>
-        <button className="hud-btn" onClick={alternar} title="Reproducir / pausar (espacio)">
-          {yt.reproduciendo ? '❚❚' : '▶'}
-        </button>
-        <span className="vg-hud-tiempo">{fmtT(yt.tiempo)}</span>
-        <div className="vg-hud-barra" ref={barra} onClick={saltar}>
-          <div className="vg-linea-progreso" style={{ width: (yt.tiempo / total) * 100 + '%' }}></div>
-          {lista.map((a) => (
-            <span key={a.id} className="vg-hud-marca" style={{ left: (a.t / total) * 100 + '%', background: tipo(a.tipo).color }}
-              title={fmtT(a.t) + ' · ' + tipo(a.tipo).nombre}></span>
-          ))}
+      {/* Barra de la app en su PROPIA franja inferior (fuera del video):
+          reproducir, línea de tiempo con las activaciones, volumen,
+          subtítulos y salir. */}
+      {!activa && (
+        <div className={'vg-barra-video' + (barraVisible ? '' : ' oculta')}
+          onMouseEnter={mantenerBarra} onMouseMove={mantenerBarra} onMouseLeave={() => mostrarBarra(900)}>
+          <button className="vg-ctrl" onClick={alternar} title="Reproducir / pausar (espacio)" aria-label="Reproducir o pausar">
+            {yt.reproduciendo ? '❚❚' : '▶'}
+          </button>
+          <span className="vg-hud-tiempo">{fmtT(yt.tiempo)}</span>
+          <div className="vg-hud-barra" ref={barra} onClick={saltar} title="Clic para ir a ese momento">
+            <div className="vg-linea-progreso" style={{ width: (yt.tiempo / total) * 100 + '%' }}></div>
+            {lista.map((a) => (
+              <button key={a.id} className="vg-hud-marca vg-hud-marca-boton" style={{ left: (a.t / total) * 100 + '%', background: tipo(a.tipo).color }}
+                onClick={(e) => { e.stopPropagation(); abrirMarca(a); }}
+                title={'Abrir: ' + tipo(a.tipo).nombre + ' · ' + fmtT(a.t)} aria-label={'Abrir activación del minuto ' + fmtT(a.t)}></button>
+            ))}
+          </div>
+          <span className="vg-hud-tiempo">{yt.duracion ? fmtT(yt.duracion) : '–:––'}</span>
+          <span className="vg-ctrl-sep"></span>
+          {/* Volumen */}
+          <button className="vg-ctrl" onClick={yt.alternarSilencio} title={yt.silencio ? 'Activar sonido' : 'Silenciar'} aria-label="Silencio">
+            {yt.silencio || yt.volumen === 0 ? '🔇' : yt.volumen < 50 ? '🔉' : '🔊'}
+          </button>
+          <input type="range" className="vg-volumen" min="0" max="100" step="5" value={yt.silencio ? 0 : yt.volumen}
+            onChange={(e) => yt.setVolumen(Number(e.target.value))} title={'Volumen: ' + (yt.silencio ? 0 : yt.volumen) + '%'} aria-label="Volumen" />
+          <span className="vg-ctrl-sep"></span>
+          {/* Subtítulos */}
+          <button className={'vg-ctrl vg-ctrl-cc' + (conSubtitulos ? ' on' : '')} onClick={alternarSubtitulos}
+            title={(conSubtitulos ? 'Ocultar subtítulos' : 'Mostrar subtítulos (si el video los tiene)')
+              + '. Color y fondo: en el video, ⚙ Configuración → Subtítulos → Opciones (YouTube lo recuerda en este computador).'}
+            aria-label="Subtítulos">CC</button>
+          <button className="vg-ctrl vg-ctrl-chico" onClick={() => cambiarTamSub(-1)} disabled={tamSub <= -1} title="Subtítulos más pequeños">A−</button>
+          <button className="vg-ctrl vg-ctrl-chico" onClick={() => cambiarTamSub(1)} disabled={tamSub >= 3} title="Subtítulos más grandes">A+</button>
+          <span className="vg-ctrl-sep"></span>
+          <button className="vg-ctrl" onClick={onExit} title="Salir (Esc)" aria-label="Salir">✕</button>
         </div>
-        <span className="vg-hud-tiempo">{yt.duracion ? fmtT(yt.duracion) : '–:––'}</span>
-        <SelectorTono tono={tono} setTono={setTono} />
-      </div>
-      <button className={'hud-btn vg-salir' + (mostrarHud && !activa ? '' : ' oculto')} onClick={onExit} title="Salir (Esc)">✕ Salir</button>
+      )}
+      {/* Tono de pantalla: aparece al acercar el mouse al borde izquierdo. */}
+      <TonoLateral tono={tono} setTono={setTono} />
+      {/* Herramientas (pincel, abajo a la izquierda): lupa, marcador, puntero, texto. */}
+      <HerramientasPresentar />
     </div>
   );
 }
@@ -180,7 +240,32 @@ function VigiaPresentarVideo({ act, onExit }) {
 function TarjetaActivacion({ a, frase, estudiantes, orden, usados, onUsado, onContinuar, textoContinuar, onCambiarActivacion }) {
   const ti = VigiaTipos.tipo(a.tipo);
   const nombres = (estudiantes || []).map((s) => (s || '').trim()).filter(Boolean);
-  const conRuleta = ti.ruleta && a.ruleta && nombres.length > 0;
+  const sorteo = ti.ruleta && a.ruleta && nombres.length > 0;
+  // Pregunta cerrada: la pregunta y sus opciones necesitan todo el ancho, así
+  // que en vez de la ruleta va un recuadro compacto de nombres (SelectorNombres)
+  // entre la pregunta y las opciones. Los demás tipos conservan la ruleta.
+  const opcionesValidas = (a.opciones || []).filter((o) => (o || '').trim()).length;
+  const esCerrada = a.tipo === 'pregunta' && a.modo === 'cerrada' && opcionesValidas >= 2;
+  const esAbierta = a.tipo === 'pregunta' && !esCerrada;
+  // Pregunta cerrada: recuadro de nombres EN LA CABECERA (primero "¡Pregunta!",
+  // luego se reemplaza por "¿Quién responde?" + nombres).
+  const selector = sorteo && esCerrada
+    ? <SelectorNombres nombres={nombres} usados={usados} onElegido={onUsado} titulo={ti.preguntaRuleta} orden={orden} clase="en-cabecera" />
+    : null;
+  // Pregunta abierta: recuadro de nombres vertical A LA DERECHA (donde iba la ruleta).
+  const selectorLateral = sorteo && esAbierta
+    ? <SelectorNombres nombres={nombres} usados={usados} onElegido={onUsado} titulo={ti.preguntaRuleta} orden={orden} clase="lateral" />
+    : null;
+  // Los demás tipos con sorteo (Creación, Nota de contexto, Glosario) conservan la ruleta.
+  const conRuleta = sorteo && !esCerrada && !esAbierta;
+  const dosColumnas = conRuleta || !!selectorLateral;
+  // Tamaño de la letra de ESTA tarjeta (A− / A+, esquina superior derecha).
+  const [escala, setEscala] = React.useState(1);
+  const cambiarEscala = (dir) => setEscala((e) => {
+    if (dir === 0) return 1;
+    const i = ESCALAS_TARJETA.indexOf(e);
+    return ESCALAS_TARJETA[Math.max(0, Math.min(ESCALAS_TARJETA.length - 1, (i < 0 ? 3 : i) + dir))];
+  });
   // "Girar otra vez" va debajo del texto: la ruleta avisa su estado y gira
   // cuando cambia `giro`.
   const [giro, setGiro] = React.useState(0);
@@ -192,14 +277,20 @@ function TarjetaActivacion({ a, frase, estudiantes, orden, usados, onUsado, onCo
         style={{ fontSize: 'min(14vw, 240px, ' + (150 / Math.max((frase || '').length, 1)).toFixed(2) + 'vw)' }}>
         {frase || '¡Alto!'}
       </div>
-      <div className={'vg-tarjeta-marco' + (conRuleta ? ' con-ruleta' : '')} style={{ '--tipo': ti.color }}>
+      {/* --ancho: al agrandar la letra, la tarjeta gana ANCHO (no alto): el
+          texto ocupa los lados, que suelen tener espacio libre. */}
+      <div className={'vg-tarjeta-marco' + (dosColumnas ? ' con-ruleta' : '') + (esCerrada ? ' cerrada' : '')}
+        style={{ '--tipo': ti.color, '--ancho': Math.max(1, escala) }}>
         <div className="vg-tarjeta">
-          <div className="vg-tarjeta-kicker" style={{ color: ti.color }}>
-            <span className="vg-tarjeta-ico" style={{ background: ti.color }}><Icon name={ti.icon} size={22} /></span>
-            {ti.titular}
+          {/* Letra más pequeña / normal / más grande (solo esta tarjeta). */}
+          <div className="vg-tarjeta-letra" role="group" aria-label="Tamaño de la letra">
+            <button onClick={() => cambiarEscala(-1)} disabled={escala <= ESCALAS_TARJETA[0]} title="Letra más pequeña">A−</button>
+            <button onClick={() => cambiarEscala(0)} title={'Tamaño normal (ahora ' + Math.round(escala * 100) + '%)'} className="normal">Aa</button>
+            <button onClick={() => cambiarEscala(1)} disabled={escala >= ESCALAS_TARJETA[ESCALAS_TARJETA.length - 1]} title="Letra más grande">A+</button>
           </div>
+          <CabeceraTarjeta ti={ti} selector={selector} />
           <div className="vg-tarjeta-cuerpo">
-            <div className="vg-tarjeta-contenido">
+            <div className="vg-tarjeta-contenido" style={{ zoom: escala }}>
               <ContenidoActivacion a={a} onCambiar={onCambiarActivacion} />
               {conRuleta && (
                 <button className="vg-girar-otra" onClick={() => setGiro((g) => g + 1)}
@@ -212,10 +303,46 @@ function TarjetaActivacion({ a, frase, estudiantes, orden, usados, onUsado, onCo
               <RuletaEstudiantes nombres={nombres} usados={usados} onElegido={onUsado} titulo={ti.preguntaRuleta} orden={orden}
                 giroExterno={giro} onEstado={setRuleta} girarOtraFuera />
             )}
+            {selectorLateral}
           </div>
         </div>
       </div>
       <button className="vg-btn vg-continuar" onClick={onContinuar}>{textoContinuar || 'Continuar el video'} <Icon name="play" size={16} /></button>
+    </div>
+  );
+}
+
+// Pasos de tamaño de letra de una tarjeta (1 = normal). Se aplica con `zoom`,
+// así el texto se reacomoda en vez de solo estirarse.
+const ESCALAS_TARJETA = [0.7, 0.8, 0.9, 1, 1.12, 1.25, 1.4, 1.6];
+
+/* Cabecera de la tarjeta: ícono + título del tipo ("¡Pregunta!"…), con
+   tipografía de títulos (Fraunces) y dos destellos. Si hay `selector`
+   (pregunta cerrada con estudiantes), el título se ve primero y a los
+   ~2,8 s se REEMPLAZA (sube y se desvanece) por "¿Quién responde?" + el
+   recuadro de nombres, que entra desde abajo. Clic en el título: adelanta. */
+const CABECERA_ESPERA_MS = 2800;
+function CabeceraTarjeta({ ti, selector }) {
+  const [fase, setFase] = React.useState('titulo');   // 'titulo' | 'quien'
+  React.useEffect(() => {
+    if (!selector) return;
+    const t = setTimeout(() => setFase('quien'), CABECERA_ESPERA_MS);
+    return () => clearTimeout(t);
+  }, [!!selector]);
+  const titulo = (
+    <div className={'vg-tarjeta-kicker' + (selector && fase === 'quien' ? ' sale' : '')}
+      onClick={selector ? () => setFase('quien') : undefined} aria-hidden={selector && fase === 'quien' ? 'true' : undefined}>
+      <span className="vg-tarjeta-ico" style={{ background: ti.color }}><Icon name={ti.icon} size={22} /></span>
+      <span className="vg-destello" aria-hidden="true">✦</span>
+      <span className="vg-titulo-texto">{ti.titular}</span>
+      <span className="vg-destello dos" aria-hidden="true">✦</span>
+    </div>
+  );
+  if (!selector) return titulo;
+  return (
+    <div className="vg-cabecera">
+      {titulo}
+      {fase === 'quien' && <div className="vg-cabecera-quien">{selector}</div>}
     </div>
   );
 }
@@ -266,12 +393,16 @@ function ContenidoBase({ a }) {
     const opciones = (a.opciones || []).map((o) => (o || '').trim()).filter(Boolean);
     const cerrada = a.modo === 'cerrada' && opciones.length >= 2;
     const correcta = Math.min(a.correcta || 0, opciones.length - 1);
+    // Cerrada: pregunta y opciones comparten la tarjeta, así que la letra baja
+    // antes (según el largo de la pregunta y de la opción más larga).
+    const masLarga = opciones.reduce((m, o) => Math.max(m, o.length), 0);
+    const claseOpciones = masLarga > 140 ? ' extra' : masLarga > 80 ? ' muy-largo' : masLarga > 40 ? ' largo' : '';
     return (
       <div>
-        <div className={'vg-texto-pregunta' + claseLargo(texto)}>{texto || '¿…?'}</div>
+        <div className={'vg-texto-pregunta' + (cerrada ? ' cerrada' + claseLargo(texto, 0.55) : claseLargo(texto))}>{texto || '¿…?'}</div>
         {cerrada && (
           <React.Fragment>
-            <div className="vg-opciones">
+            <div className={'vg-opciones' + claseOpciones}>
               {opciones.map((o, i) => {
                 const estado = revelada ? (i === correcta ? ' correcta' : (i === elegida ? ' incorrecta' : ' apagada')) : (i === elegida ? ' elegida' : '');
                 return (
@@ -330,9 +461,11 @@ function useTonoPresentar() {
   return [tono, setTono];
 }
 
-/* Botón ☀ con su lista de tonos (se abre hacia arriba). */
-function SelectorTono({ tono, setTono }) {
+/* Botón ☀ con su lista de tonos. `hacia`: 'arriba' (por defecto) o
+   'derecha' (desde el borde izquierdo). `onAbierto` avisa si el menú está abierto. */
+function SelectorTono({ tono, setTono, hacia, onAbierto }) {
   const [abierto, setAbierto] = React.useState(false);
+  React.useEffect(() => { if (onAbierto) onAbierto(abierto); }, [abierto]);
   const ref = React.useRef(null);
   React.useEffect(() => {
     if (!abierto) return;
@@ -342,7 +475,7 @@ function SelectorTono({ tono, setTono }) {
   }, [abierto]);
   const actual = TONOS_PANTALLA.find((x) => x.id === tono) || TONOS_PANTALLA[0];
   return (
-    <div className="vg-tono" ref={ref}>
+    <div className={'vg-tono' + (hacia === 'derecha' ? ' hacia-derecha' : '')} ref={ref}>
       <button className={'vg-ctrl vg-ctrl-tono' + (tono !== 'normal' ? ' on' : '')} onClick={() => setAbierto((v) => !v)}
         title={'Exceso de luz / tono de pantalla: ' + actual.nombre + ' (tecla L)'} aria-label="Tono de pantalla">
         ☀
@@ -367,7 +500,25 @@ function SelectorTono({ tono, setTono }) {
   );
 }
 
+/* El botón ☀ en el BORDE IZQUIERDO de Presentar: invisible hasta que el
+   mouse se acerca a ese borde; se oculta al retirarlo (salvo con el menú
+   abierto). Va en TODOS los modos Presentar del Modo Vigía. */
+function TonoLateral({ tono, setTono }) {
+  const [cerca, setCerca] = React.useState(false);
+  const [menu, setMenu] = React.useState(false);
+  const visible = cerca || menu;
+  return (
+    <div className={'vg-tono-lateral' + (visible ? ' visible' : '')}
+      onMouseEnter={() => setCerca(true)} onMouseLeave={() => setCerca(false)}>
+      <div className="vg-tono-lateral-boton">
+        <SelectorTono tono={tono} setTono={setTono} hacia="derecha" onAbierto={setMenu} />
+        <span className="vg-tono-lateral-etiqueta">Tono</span>
+      </div>
+    </div>
+  );
+}
+
 Object.assign(window, {
   VigiaPresentar, VigiaPresentarVideo, usePantallaCompleta, useUsadosRuleta, TarjetaActivacion, ContenidoActivacion,
-  TONOS_PANTALLA, useTonoPresentar, SelectorTono,
+  TONOS_PANTALLA, useTonoPresentar, SelectorTono, TonoLateral,
 });

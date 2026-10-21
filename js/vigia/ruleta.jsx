@@ -147,4 +147,78 @@ function RuletaEstudiantes({ nombres, usados, onElegido, titulo, orden, giroExte
   );
 }
 
-Object.assign(window, { RuletaEstudiantes, etiquetasRuleta, nombreAnuncio });
+/* ---------- Selector de nombres (recuadro compacto) ----------
+   Alternativa a la ruleta cuando el espacio importa (preguntas cerradas):
+   un recuadro donde los nombres van pasando — cada uno sale por arriba
+   desvaneciéndose y el siguiente entra desde abajo —, primero rápido y
+   frenando, hasta detenerse en el elegido. Misma regla de "no repetir".
+   Props: nombres, usados, onElegido, titulo, orden. */
+const SELECTOR_PASOS = 24;
+function SelectorNombres({ nombres, usados, onElegido, titulo, orden, clase }) {
+  const lista = (nombres || []).map((n) => (n || '').trim()).filter(Boolean);
+  const etiquetas = etiquetasRuleta(lista, orden);
+  const [vista, setVista] = React.useState({ actual: null, previo: null, n: 0, dur: 300 });
+  const [girando, setGirando] = React.useState(false);
+  const [elegido, setElegido] = React.useState(null);
+  const timers = React.useRef([]);
+  React.useEffect(() => () => timers.current.forEach(clearTimeout), []);
+  if (!lista.length) return null;
+
+  const girar = () => {
+    if (girando) return;
+    timers.current.forEach(clearTimeout); timers.current = [];
+    const libres = lista.map((x, i) => i).filter((i) => !(usados || []).includes(lista[i]));
+    const pool = libres.length ? libres : lista.map((x, i) => i);
+    const final = pool[Math.floor(Math.random() * pool.length)];
+    // Secuencia de nombres (sin repetir el mismo dos veces seguidas), terminando en el elegido.
+    const secuencia = [];
+    let ant = vista.actual;
+    for (let k = 0; k < SELECTOR_PASOS - 1; k++) {
+      let i = Math.floor(Math.random() * lista.length);
+      if (lista.length > 1 && i === ant) i = (i + 1) % lista.length;
+      secuencia.push(i); ant = i;
+    }
+    if (lista.length > 1 && secuencia[secuencia.length - 1] === final) secuencia[secuencia.length - 1] = (final + 1) % lista.length;
+    secuencia.push(final);
+    setElegido(null); setGirando(true);
+    // Intervalos que van creciendo: rápido al principio, lento al final.
+    let t = 0;
+    secuencia.forEach((idx, k) => {
+      const p = k / (secuencia.length - 1);
+      const intervalo = 55 + 520 * Math.pow(p, 2.4);
+      t += intervalo;
+      timers.current.push(setTimeout(() => {
+        setVista((v) => ({ actual: idx, previo: v.actual, n: v.n + 1, dur: Math.min(420, Math.max(90, intervalo * 0.9)) }));
+      }, t));
+    });
+    timers.current.push(setTimeout(() => {
+      setGirando(false);
+      setElegido(lista[final]);
+      if (onElegido) onElegido(lista[final]);
+    }, t + 450));
+  };
+
+  const etiqueta = (i) => (i === null || i === undefined ? '' : etiquetas[i]);
+  return (
+    <div className={'vg-selector' + (elegido ? ' listo' : '') + (girando ? ' girando' : '') + (clase ? ' ' + clase : '')}>
+      {titulo && <span className="vg-selector-titulo"><span className="vg-titulo-texto">{titulo}</span></span>}
+      <div className="vg-selector-caja" style={{ '--dur': vista.dur + 'ms' }} aria-live="polite">
+        {vista.actual === null && !girando ? (
+          <span className="vg-selector-nombre espera">? ? ?</span>
+        ) : (
+          <React.Fragment>
+            {vista.previo !== null && <span key={'p' + vista.n} className="vg-selector-nombre sale">{etiqueta(vista.previo)}</span>}
+            <span key={'a' + vista.n} className="vg-selector-nombre entra">
+              {elegido ? nombreAnuncio(elegido, orden) : etiqueta(vista.actual)}
+            </span>
+          </React.Fragment>
+        )}
+      </div>
+      <button className="vg-btn vg-selector-btn" onClick={girar} disabled={girando}>
+        {girando ? 'Eligiendo…' : elegido ? 'Otra vez' : 'Elegir'}
+      </button>
+    </div>
+  );
+}
+
+Object.assign(window, { RuletaEstudiantes, SelectorNombres, etiquetasRuleta, nombreAnuncio });

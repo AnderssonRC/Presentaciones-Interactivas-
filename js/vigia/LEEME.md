@@ -21,6 +21,11 @@ Vuelve interactivos los recursos "cerrados" (videos, documentales, podcast…): 
 | `editor-epub.jsx` | Editor de EPUB: seleccionar texto + tipo para marcar; "Ajustar a la selección" para reubicar una marca. |
 | `presentar-epub.jsx` | Presentar un EPUB: capítulo a pantalla completa, tamaño de letra, siguiente activador. |
 | `respaldo.jsx` | Sin Drive: «Guardar solo en este computador» (`SubirLocal`), «Descargar respaldo» (`.vigia.zip` = `activacion.json` + `documento.pdf|epub`) e «Importar respaldo» en otro computador. |
+| `audio.jsx` | Podcast: `resolverPodcast(url)` reconoce YouTube, Spotify (iFrame API), SoundCloud (Widget API), Apple Podcasts (MP3 vía API de iTunes, JSONP), iVoox (`listen_mn_<id>_1.mp3`), Internet Archive (API de metadatos), Drive/Dropbox y MP3 directos. Reproductores `useAudio`, `useSpotify`, `useSoundCloud` (misma forma que `useYouTube`) y `usePodcast`. Imágenes en el tiempo: `imagenesDe`, `imagenEn(p, t)`. |
+| `editor-podcast.jsx` | Editor de **podcast**: `PasoPodcast`, imagen inicial (`CampoImagen`), imágenes en el tiempo (`ConfigImagen`, `podcast.imagenes = [{ id, t, url }]`), `PortadaPodcast` (fundido entre imágenes, encima del reproductor) y `ControlesAudio`. |
+| `presentar-podcast.jsx` | Presentar de **podcast**: la imagen a pantalla completa, mismas tarjetas y barra que el video; «YT» muestra el video de YouTube (anuncios). |
+| `editor-imagenes.jsx` | Editor de **imágenes** (estilo Genially): imágenes como diapositivas (`galeria.diapos`), activadores como íconos arrastrables sobre la imagen (`x`, `y` en 0–1, `tarjeta: 'pequena'|'grande'`, `titulo` = primer vistazo), `LienzoImagen` y `MusicaFondo` (`galeria.musica`, mismas plataformas que el podcast). |
+| `presentar-imagenes.jsx` | Presentar **imágenes**: íconos que laten, vistazo al pasar el mouse, `MiniTarjeta` junto al ícono o `TarjetaActivacion` grande, navegación ← → con puntos, música de fondo que baja al abrir una tarjeta. |
 | `drive.jsx` | Google Drive del docente: sesión con Google Identity Services (`DriveAuth`, `<DriveSesion />`), carpeta «Res Cogitans/PDFs», subida del PDF, lista de PDF ya subidos y el JSON de marcas (`useSincronizarMarcas`). |
 
 ### Sobre el PDF (Google Drive)
@@ -67,6 +72,25 @@ En un documento (`recurso: 'documento'`), en lugar de `video` hay `pdf: { url, n
 2. Si tiene campos propios, agrégalos en `ConfigActivacion` (`editor.jsx`).
 3. Define cómo se ve en `ContenidoActivacion` (`presentar.jsx`).
 
-## Agregar un recurso (Documento, Podcast, Imágenes)
+## Agregar un recurso (Podcast, Imágenes…)
 
-Quita su `pronto: true` en `tipos.js` y crea su editor y su modo Presentar (por ejemplo `editor-documento.jsx`). En `app.jsx` elige el editor según `act.recurso`.
+1. Quita su `pronto: true` en `tipos.js` (ahí está también qué tipos de activación habilita).
+2. Crea su editor y su modo Presentar en archivos propios (por ejemplo `editor-podcast.jsx` y `presentar-podcast.jsx`) y agrégalos a `VIGIA_MODULOS` en `js/vigia.jsx`.
+3. Elígelos según `act.recurso` en `VigiaEditor` (`editor.jsx`) y `VigiaPresentar` (`presentar.jsx`).
+4. Cumple la lista de «Todo modo Presentar» (abajo).
+
+## Todo modo Presentar (obligatorio en todos: Video, Documento, Podcast, Imágenes…)
+
+- **Exceso de luz / tono de pantalla:**
+  - `const [tono, setTono] = useTonoPresentar();` (recuerda el tono en ese computador y activa la tecla **L**).
+  - En la raíz: `className={'vigia vg-presentar … tono-' + tono}`.
+  - Al final de la raíz: `<TonoLateral tono={tono} setTono={setTono} />` (botón ☀ en el borde izquierdo: aparece al acercar el mouse y se oculta al retirarlo).
+  - Y después: `<HerramientasPresentar />` (herramientas.jsx: pincel abajo a la izquierda con lupa, marcador, puntero y texto; la lupa escala `.vg-presentar`).
+  - Lo que se proyecta lleva una clase genérica para que los tonos lo afecten:
+    - `vg-proyectado-doc`: páginas, textos e **imágenes** (Imágenes y Documento).
+    - `vg-proyectado-medio`: video, portada o animación del **podcast**.
+  - Las tarjetas (`TarjetaActivacion`) cambian de tono solas.
+- **Pantalla completa:** `usePantallaCompleta(onExit)`.
+- **Ruleta sin repetir:** `useUsadosRuleta(act.estudiantes)`.
+- **Tarjeta y frases:** `TarjetaActivacion` con `frase={VigiaTipos.fraseAlAzar(…)}` y un `textoContinuar` acorde («Continuar el audio», «Volver a la imagen»…).
+- **Controles discretos** que se ocultan solos (como la pastilla de PDF/EPUB), con Esc para salir.

@@ -18,8 +18,9 @@
   const RECURSOS = [
     { id: 'video',     nombre: 'Video',     desc: 'YouTube: documentales, clases, videos', icon: 'play',     tipos: ['pregunta', 'instruccion', 'creacion', 'escritura', 'contexto'] },
     { id: 'documento', nombre: 'Documento', desc: 'PDF o EPUB: lecturas, libros, guías',   icon: 'memorama', tipos: ['pregunta', 'instruccion', 'creacion', 'escritura', 'glosario'] },
-    { id: 'podcast',   nombre: 'Podcast',   desc: 'Audios y entrevistas',                   icon: 'debate',   tipos: ['pregunta', 'instruccion', 'creacion', 'escritura', 'contexto'], pronto: true },
-    { id: 'imagenes',  nombre: 'Imágenes',  desc: 'Mapas, infografías y fotos',            icon: 'eye',      tipos: ['pregunta', 'instruccion', 'creacion', 'escritura'], pronto: true },
+    { id: 'podcast',   nombre: 'Podcast',   desc: 'Audios y entrevistas, con su imagen',    icon: 'debate',   tipos: ['pregunta', 'instruccion', 'creacion', 'escritura', 'contexto'] },
+    // Imágenes: activadores como íconos SOBRE la imagen (editor-imagenes.jsx).
+    { id: 'imagenes',  nombre: 'Imágenes',  desc: 'Mapas, infografías y fotos con activadores encima', icon: 'eye', tipos: ['pregunta', 'instruccion', 'creacion', 'escritura', 'contexto', 'glosario'] },
   ];
 
   const TIPOS = [
@@ -149,6 +150,8 @@
   function recursoListo(d) {
     if (!d) return false;
     if (d.recurso === 'documento') return !!(d.pdf && (d.pdf.driveId || d.pdf.url || d.pdf.local));
+    if (d.recurso === 'podcast') return !!(d.podcast && (d.podcast.id || d.podcast.src));
+    if (d.recurso === 'imagenes') return !!(d.galeria && (d.galeria.diapos || []).some((x) => x.url));
     return !!(d.video && d.video.id);
   }
 

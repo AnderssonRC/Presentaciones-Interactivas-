@@ -62,7 +62,17 @@
 }
 
 /* Línea de tiempo */
-.vg-linea { width: 100%; max-width: 980px; }
+.vg-linea { width: 100%; max-width: 980px; position: relative; }
+/* Marcas arrastrables (editor de video y de podcast). */
+.vg-marca.movible, .vg-marca-img.movible { cursor: grab; touch-action: none; }
+.vg-linea.arrastrando, .vg-linea.arrastrando * { cursor: grabbing !important; user-select: none; }
+.vg-marca.moviendo { transition: none; transform: translate(-50%, -50%) scale(1.25); box-shadow: 0 0 0 3px var(--vigia-naranja, #FF8A00), 0 6px 18px rgba(0,0,0,.5); z-index: 5; }
+.vg-marca-img.moviendo { transition: none; border-color: var(--vigia-naranja, #FF8A00); z-index: 5; box-shadow: 0 6px 18px rgba(0,0,0,.5); }
+.vg-marca-hora {
+  position: absolute; top: -26px; transform: translateX(-50%); z-index: 6; pointer-events: none;
+  padding: 2px 8px; border-radius: 7px; font-size: 12px; font-weight: 800; font-variant-numeric: tabular-nums;
+  background: var(--vigia-naranja, #FF8A00); color: #140800; white-space: nowrap;
+}
 .vg-linea-barra {
   position: relative; height: 40px; cursor: pointer; border-radius: 10px;
   background: linear-gradient(var(--surface2), var(--surface2)) center / 100% 8px no-repeat;
@@ -183,7 +193,6 @@
   position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
   width: min(100vw, 177.78vh); aspect-ratio: 16 / 9; background: #000;
 }
-.vg-presentar-capa { position: absolute; inset: 0; z-index: 1; cursor: pointer; }
 .vg-presentar-error { position: fixed; z-index: 5; }
 
 .vg-portada {
@@ -217,6 +226,49 @@
   border: 2px solid #000; box-shadow: 0 0 10px currentColor; pointer-events: none;
 }
 .vg-salir { position: fixed; top: 18px; right: 18px; z-index: 20; transition: opacity .3s ease; }
+/* Video: la barra de la app tiene su PROPIA franja abajo y el video ocupa el
+   resto. Así nada de la app queda encima del reproductor de YouTube (que pone
+   volumen, subtítulos y configuración arriba o abajo según su versión). */
+.vg-video-zona { position: absolute; left: 0; right: 0; top: 0; bottom: 64px; }
+.vg-video-zona .vg-presentar-video { width: min(100vw, calc((100vh - 64px) * 1.7778)); }
+.vg-barra-video {
+  position: fixed; left: 0; right: 0; bottom: 0; height: 64px; z-index: 20;
+  display: flex; align-items: center; gap: 8px; padding: 0 16px;
+  background: #0A0604; border-top: 1px solid rgba(255,138,0,.25);
+  transition: opacity .3s ease;
+}
+/* Oculta: invisible pero sigue en su franja, para reaparecer al pasar el mouse. */
+.vg-barra-video.oculta { opacity: 0; }
+.vg-barra-video .vg-hud-tiempo { font-size: 14px; min-width: 46px; }
+.vg-ctrl-cc { font-size: 13px; letter-spacing: .04em; border: 1.5px solid rgba(255,255,255,.35); height: 32px; min-width: 40px; border-radius: 8px; }
+.vg-ctrl-cc.on { background: #FFF3E6; color: #140800; border-color: #FFF3E6; }
+.vg-ctrl-chico { font-size: 13px; min-width: 34px; padding: 0 6px; }
+.vg-volumen { width: 96px; accent-color: var(--vigia-naranja); cursor: pointer; }
+/* Marcas de la barra en Presentar: botones (clic = abrir esa tarjeta), con
+   área de clic más grande que el punto visible. */
+.vg-hud-marca.vg-hud-marca-boton {
+  pointer-events: auto; cursor: pointer; padding: 0; width: 18px; height: 18px; z-index: 2;
+  transition: transform .12s ease;
+}
+.vg-hud-marca.vg-hud-marca-boton::after { content: ""; position: absolute; inset: -9px; border-radius: 50%; }
+.vg-hud-marca.vg-hud-marca-boton:hover { transform: translate(-50%, -50%) scale(1.35); box-shadow: 0 0 0 3px #fff; }
+
+/* Editor de video: "Insertar en el minuto [mm:ss]" + ajuste fino. */
+.vg-minuto-exacto { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.vg-minuto-campo {
+  width: 92px; padding: 6px 10px; border-radius: 9px; border: 1.5px solid var(--line); background: var(--bg);
+  color: var(--ink); font-family: var(--font-display); font-weight: 800; font-size: 15px; text-align: center;
+  font-variant-numeric: tabular-nums; outline: none;
+}
+.vg-minuto-campo:focus { border-color: var(--vigia-naranja); }
+.vg-minuto-campo.error { border-color: #F53711; }
+.vg-minuto-exacto-caja { display: flex; flex-direction: column; gap: 8px; }
+.vg-minuto-aviso {
+  font-size: 12.5px; line-height: 1.45; color: #F3DCC6; max-width: 640px;
+  padding: 8px 12px; border-radius: 10px; background: rgba(245,194,17,.08); border: 1px solid rgba(245,194,17,.35);
+}
+.vg-minuto-aviso strong { color: #FFD43B; }
+.vg-mini-accion.on { color: #140800; background: var(--vigia-naranja); border-color: var(--vigia-naranja); }
 
 /* Velo + "¡ALTO!" + tarjeta */
 .vg-velo {
@@ -234,7 +286,9 @@
 }
 .vg-tarjeta-marco {
   --tipo: #FF8A00;
-  position: relative; width: min(1180px, 94vw); max-height: calc(100vh - 130px); padding: 4px; border-radius: 30px;
+  /* --ancho (presentar.jsx): crece con el tamaño de letra elegido (A+), hasta el 96% de la pantalla. */
+  position: relative; width: min(calc(1180px * var(--ancho, 1)), 96vw); max-height: calc(100vh - 130px); padding: 4px; border-radius: 30px;
+  transition: width .3s ease;
   overflow: hidden; display: flex;
   box-shadow: 0 0 70px -12px var(--tipo), 0 0 140px -40px #4D94FF;
   animation: vgEntra .7s cubic-bezier(.2,1.2,.35,1) .85s both;
@@ -249,7 +303,7 @@
   /* Capa propia en la GPU: el giro no repinta la tarjeta (sin temblores). */
   will-change: transform; pointer-events: none;
 }
-.vg-tarjeta-marco:not(.con-ruleta) { width: min(1040px, 94vw); }
+.vg-tarjeta-marco:not(.con-ruleta) { width: min(calc(1040px * var(--ancho, 1)), 96vw); }
 .vg-tarjeta {
   position: relative; flex: 1; min-width: 0; border-radius: 26px; overflow-y: auto;
   padding: clamp(24px, 3.2vw, 48px);
@@ -261,14 +315,46 @@
     #0C0806;
   color: #FFF3E6;
 }
+/* Títulos de la tarjeta ("¡Pregunta!", "¿Quién responde?"…): Fraunces en
+   cursiva suave (elegante y juguetona), degradado del color del tipo y dos
+   destellos discretos. Sin mayúsculas sostenidas: se lee de un vistazo. */
 .vg-tarjeta-kicker {
-  display: flex; align-items: center; justify-content: center; gap: 14px;
-  font-family: var(--font-display); font-weight: 800; font-size: clamp(20px, 1.8vw, 28px);
-  letter-spacing: .14em; text-transform: uppercase;
+  display: flex; align-items: center; justify-content: center; gap: 12px;
+  font-family: 'Fraunces', Georgia, 'Times New Roman', serif; font-style: italic; font-weight: 800;
+  font-variation-settings: "SOFT" 100, "WONK" 1; font-size: clamp(30px, 2.8vw, 46px);
+  letter-spacing: 0; text-transform: none; line-height: 1.1;
 }
+.vg-titulo-texto {
+  background: linear-gradient(100deg, var(--tipo, #FF8A00) 15%, color-mix(in oklch, var(--tipo, #FF8A00) 55%, #FFFFFF) 95%);
+  -webkit-background-clip: text; background-clip: text; color: transparent; -webkit-text-fill-color: transparent;
+  padding: 0 .1em .08em; filter: drop-shadow(0 2px 10px color-mix(in srgb, var(--tipo, #FF8A00) 35%, transparent));
+}
+.vg-destello {
+  font-style: normal; font-size: .42em; color: var(--tipo, #FF8A00); opacity: .85;
+  animation: vgDestello 2.4s ease-in-out infinite;
+}
+.vg-destello.dos { font-size: .3em; animation-delay: 1.2s; align-self: flex-start; }
+@keyframes vgDestello { 0%, 100% { opacity: .35; transform: scale(.8) rotate(0deg); } 50% { opacity: 1; transform: scale(1.1) rotate(20deg); } }
 .vg-tarjeta-ico {
   width: 48px; height: 48px; border-radius: 14px; display: grid; place-items: center; color: #140800;
-  box-shadow: 0 0 22px -2px var(--tipo); animation: vgLatido 1.6s ease-in-out infinite;
+  transform: rotate(-7deg); margin-right: 4px;
+  box-shadow: 0 0 22px -2px var(--tipo); animation: vgLatidoInclinado 1.6s ease-in-out infinite;
+}
+@keyframes vgLatidoInclinado { 0%, 100% { transform: rotate(-7deg) scale(1); } 50% { transform: rotate(-7deg) scale(1.08); } }
+
+/* Cabecera con reemplazo: "¡Pregunta!" sube y se desvanece; desde abajo
+   entra "¿Quién responde?" + el recuadro de nombres (mismo lugar). */
+.vg-cabecera { display: grid; place-items: center; min-height: clamp(60px, 7vh, 76px); }
+.vg-cabecera > * { grid-area: 1 / 1; }
+.vg-cabecera .vg-tarjeta-kicker { cursor: pointer; }
+.vg-tarjeta-kicker.sale { animation: vgTituloSale .6s cubic-bezier(.5,0,.8,.4) forwards; pointer-events: none; }
+.vg-cabecera-quien { animation: vgTituloEntra .7s cubic-bezier(.2,.8,.3,1) .25s both; width: 100%; }
+@keyframes vgTituloSale { to { opacity: 0; transform: translateY(-70%); filter: blur(4px); } }
+@keyframes vgTituloEntra { from { opacity: 0; transform: translateY(70%); filter: blur(4px); } to { opacity: 1; transform: none; filter: none; } }
+.vg-selector.en-cabecera { margin: 0 auto; }
+.vg-selector.en-cabecera .vg-selector-titulo, .vg-selector.lateral .vg-selector-titulo {
+  font-family: 'Fraunces', Georgia, serif; font-style: italic; font-weight: 800;
+  font-variation-settings: "SOFT" 100, "WONK" 1; font-size: clamp(24px, 2.2vw, 36px); --tipo: #4D94FF;
 }
 /* El contenido ocupa todo el alto restante y queda centrado en ambos ejes. */
 .vg-tarjeta-cuerpo { flex: 1; display: grid; place-items: center; }
@@ -674,12 +760,17 @@
 .vg-texto-pregunta, .vg-texto-grande, .vg-texto-contexto, .vg-cita, .vg-glosario-termino { overflow-wrap: anywhere; }
 
 /* ============ Tono de pantalla ("Exceso de luz") ============
-   La clase tono-* va en la raíz de Presentar (presentar.jsx: useTonoPresentar).
-   Los filtros se aplican al documento, al video y a las tarjetas: no a los
-   controles del docente. */
+   OBLIGATORIO en TODOS los modos Presentar del Modo Vigía (Video, Documento
+   PDF/EPUB y los que vengan: Podcast, Imágenes…). Ver LEEME.md.
+   · La clase tono-<id> va en la raíz de Presentar (presentar.jsx: useTonoPresentar).
+   · Lo que se proyecta lleva una de estas dos clases genéricas:
+       vg-proyectado-doc   -> páginas, textos e IMÁGENES (más contraste)
+       vg-proyectado-medio -> video, portada/animación del podcast (más brillo)
+   · Las tarjetas de activación (vg-tarjeta) ya cambian solas.
+   Los filtros nunca tocan los controles del docente. */
 /* Exceso de luz: tarjetas claras, texto oscuro y documento con más contraste. */
-.tono-luz .vg-pdf-lienzo, .tono-luz .vg-epub-hoja { filter: contrast(1.35) brightness(1.03); }
-.tono-luz .vg-presentar-video { filter: brightness(1.15) contrast(1.2) saturate(1.1); }
+.tono-luz .vg-proyectado-doc, .tono-luz .vg-pdf-lienzo, .tono-luz .vg-epub-hoja { filter: contrast(1.35) brightness(1.03); }
+.tono-luz .vg-proyectado-medio, .tono-luz .vg-presentar-video { filter: brightness(1.15) contrast(1.2) saturate(1.1); }
 .tono-luz .vg-tarjeta {
   background: radial-gradient(700px 260px at 0% 0%, color-mix(in oklch, var(--tipo) 14%, transparent), transparent 60%), #FFFCF5;
   color: #120E0A;
@@ -688,15 +779,19 @@
 .tono-luz .vg-texto-contexto { color: #1C1712; }
 .tono-luz .vg-cita { color: #4A3A2C; background: rgba(0,0,0,.05); }
 .tono-luz .vg-glosario-pista { color: #3A2E24; }
-.tono-luz .vg-tarjeta-kicker { filter: brightness(.72) saturate(1.3); }
+/* Títulos sobre fondo claro: degradado del color del tipo hacia más oscuro. */
+.tono-luz .vg-titulo-texto {
+  background: linear-gradient(100deg, color-mix(in oklch, var(--tipo, #FF8A00) 70%, #000) 15%, var(--tipo, #FF8A00) 95%);
+  -webkit-background-clip: text; background-clip: text;
+}
 .tono-luz .vg-opcion { color: #120E0A; background: rgba(0,0,0,.04); border-color: rgba(0,0,0,.2); }
 .tono-luz .vg-ruleta-titulo { color: #1E4FD8; }
 .tono-luz .vg-ruleta-elegido { color: #0B0805; background: #FFFFFF; }
 .tono-luz .vg-girar-otra { color: #1E4FD8; background: rgba(30,79,216,.08); }
 .tono-luz .vg-pdf-marca::before { background: color-mix(in srgb, var(--tipo) 46%, transparent); }
 /* Alto contraste: negro puro, blanco puro y resaltados más fuertes. */
-.tono-contraste .vg-pdf-lienzo, .tono-contraste .vg-epub-hoja { filter: contrast(1.7) grayscale(.15); }
-.tono-contraste .vg-presentar-video { filter: contrast(1.35) saturate(1.25); }
+.tono-contraste .vg-proyectado-doc, .tono-contraste .vg-pdf-lienzo, .tono-contraste .vg-epub-hoja { filter: contrast(1.7) grayscale(.15); }
+.tono-contraste .vg-proyectado-medio, .tono-contraste .vg-presentar-video { filter: contrast(1.35) saturate(1.25); }
 .tono-contraste .vg-tarjeta { background: #000; color: #FFF; }
 .tono-contraste .vg-texto-pregunta, .tono-contraste .vg-texto-grande, .tono-contraste .vg-texto-contexto,
 .tono-contraste .vg-cita, .tono-contraste .vg-glosario-pista, .tono-contraste .vg-glosario-termino { color: #FFF; }
@@ -705,6 +800,7 @@
 .tono-contraste .vg-pdf-marca, .tono-contraste .vg-epub-marca { border-width: 3px; }
 .tono-contraste .vg-epub-marca { background: color-mix(in srgb, var(--tipo) 50%, transparent); }
 /* Tono cálido: menos azul (más suave en televisores muy fríos). */
+.tono-calido .vg-proyectado-doc, .tono-calido .vg-proyectado-medio,
 .tono-calido .vg-pdf-lienzo, .tono-calido .vg-epub-hoja, .tono-calido .vg-presentar-video, .tono-calido .vg-tarjeta {
   filter: sepia(.28) saturate(1.05) brightness(.98);
 }
@@ -734,6 +830,488 @@
 .vg-tono-muestra.tono-contraste { background: linear-gradient(135deg, #000 50%, #FFF 50%); }
 .vg-tono-muestra.tono-calido { background: linear-gradient(135deg, #F3E2C4 50%, #C9792B 50%); }
 .vg-tono-ayuda { font-size: 11.5px; color: #B39A86; padding: 6px 8px 4px; line-height: 1.4; }
-/* En el video, el botón ☀ va en la barra inferior. */
-.vg-hud .vg-tono .vg-ctrl { height: 46px; min-width: 46px; background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.16); border-radius: 12px; }
-.vg-hud .vg-tono .vg-ctrl.on { background: #F5C211; }
+/* Botón ☀ en el BORDE IZQUIERDO (TonoLateral): una franja invisible de la
+   altura de la pantalla; al acercar el mouse aparece el botón y al retirarlo
+   se oculta (salvo con el menú abierto). Por encima de la tarjeta, para
+   poder probar el tono con ella a la vista. */
+/* Solo la parte central del borde: arriba queda libre la barra de la app y
+   abajo los controles del video de YouTube (su botón de reproducir). */
+.vg-tono-lateral {
+  position: fixed; left: 0; top: 18vh; bottom: 22vh; width: 84px; z-index: 45;
+  display: flex; align-items: center; justify-content: flex-start; padding-left: 14px;
+}
+.vg-tono-lateral-boton {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 8px 6px; border-radius: 16px;
+  background: rgba(10,6,4,.85); backdrop-filter: blur(8px); border: 1px solid rgba(255,138,0,.4);
+  box-shadow: 0 10px 30px -10px rgba(0,0,0,.8);
+  opacity: 0; transform: translateX(-24px); pointer-events: none;
+  transition: opacity .2s ease, transform .2s ease;
+}
+.vg-tono-lateral.visible .vg-tono-lateral-boton { opacity: 1; transform: none; pointer-events: auto; }
+.vg-tono-lateral-etiqueta { font-size: 10.5px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: #B39A86; }
+.vg-tono-lateral .vg-ctrl { width: 46px; height: 46px; }
+/* Desde el borde izquierdo, el menú se abre hacia la derecha. */
+.vg-tono.hacia-derecha .vg-tono-menu { left: calc(100% + 16px); right: auto; bottom: auto; top: 50%; transform: translateY(-50%); }
+
+/* ============ Pregunta cerrada: una columna y letra ajustada ============
+   Sin ruleta (va el recuadro de nombres), la pregunta y sus opciones usan
+   todo el ancho; la letra baja según el largo para que nada quede cortado. */
+.vg-tarjeta-marco.cerrada { width: min(calc(1200px * var(--ancho, 1)), 96vw); }
+.vg-texto-pregunta.cerrada:not(.largo):not(.muy-largo):not(.extra) { font-size: clamp(26px, 2.8vw, 46px); }
+.vg-tarjeta-marco.cerrada .vg-opciones { margin-top: clamp(12px, 1.8vh, 22px); gap: 12px; }
+.vg-opciones.largo .vg-opcion { font-size: clamp(16px, 1.35vw, 22px); padding: 12px 14px; }
+.vg-opciones.muy-largo .vg-opcion { font-size: clamp(15px, 1.15vw, 19px); padding: 10px 12px; line-height: 1.3; }
+.vg-opciones.extra .vg-opcion { font-size: clamp(14px, 1vw, 17px); padding: 9px 12px; line-height: 1.3; }
+.vg-opciones.largo .vg-opcion-letra, .vg-opciones.muy-largo .vg-opcion-letra, .vg-opciones.extra .vg-opcion-letra { width: 34px; height: 34px; }
+
+/* ============ Recuadro de nombres (SelectorNombres, ruleta.jsx) ============
+   Cada nombre sale por arriba desvaneciéndose y el siguiente entra por abajo;
+   --dur (ms) lo fija el componente: rápido al principio, lento al final. */
+.vg-selector {
+  display: flex; align-items: center; justify-content: center; gap: 14px; flex-wrap: wrap;
+  margin: clamp(10px, 1.6vh, 18px) auto 0;
+}
+.vg-selector-titulo { font-family: var(--font-display); font-weight: 800; font-size: clamp(15px, 1.25vw, 20px); color: var(--vigia-azul); }
+.vg-selector-caja {
+  position: relative; width: min(440px, 60vw); height: clamp(48px, 6vh, 62px); overflow: hidden;
+  border-radius: 14px; border: 2px solid var(--vigia-azul);
+  background: linear-gradient(100deg, rgba(255,138,0,.16), rgba(77,148,255,.16));
+  box-shadow: 0 0 22px -6px rgba(77,148,255,.8);
+  -webkit-mask-image: linear-gradient(transparent, #000 22%, #000 78%, transparent);
+  mask-image: linear-gradient(transparent, #000 22%, #000 78%, transparent);
+}
+.vg-selector-nombre {
+  position: absolute; inset: 0; display: grid; place-items: center; padding: 0 14px;
+  font-family: var(--font-display); font-weight: 800; font-size: clamp(20px, 1.9vw, 30px); color: #FFF;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.vg-selector-nombre.espera { color: #B39A86; letter-spacing: .3em; }
+.vg-selector-nombre.entra { animation: vgSelEntra var(--dur, 300ms) cubic-bezier(.2,.7,.3,1) both; }
+.vg-selector-nombre.sale { animation: vgSelSale var(--dur, 300ms) cubic-bezier(.5,0,.8,.4) both; }
+@keyframes vgSelEntra { from { transform: translateY(100%); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes vgSelSale { from { transform: none; opacity: 1; } to { transform: translateY(-100%); opacity: 0; } }
+/* Al detenerse: el recuadro brilla y el nombre late una vez. */
+.vg-selector.listo .vg-selector-caja { border-color: #3DDC97; box-shadow: 0 0 30px -4px rgba(61,220,151,.9); -webkit-mask-image: none; mask-image: none; }
+.vg-selector.listo .vg-selector-nombre.entra { animation: vgPop .55s cubic-bezier(.2,1.6,.4,1) both; }
+.vg-selector-btn { padding: 11px 22px; font-size: 15px; }
+
+/* Pregunta abierta: el recuadro va a la DERECHA (donde iba la ruleta), en vertical y más grande. */
+.vg-selector.lateral { flex-direction: column; gap: 16px; width: min(380px, 30vw); margin: 0; }
+.vg-selector.lateral .vg-selector-caja { width: 100%; height: clamp(64px, 9vh, 92px); }
+.vg-selector.lateral .vg-selector-nombre { font-size: clamp(24px, 2.2vw, 38px); }
+.vg-selector.lateral .vg-selector-btn { min-width: 180px; padding: 13px 26px; font-size: 16px; }
+
+/* Tamaño de la letra de la tarjeta (A− / Aa / A+), esquina superior derecha.
+   Discreto (semitransparente) hasta pasar el mouse. */
+.vg-tarjeta-letra {
+  position: absolute; top: 14px; right: 16px; z-index: 3; display: flex; gap: 2px; padding: 3px;
+  border-radius: 999px; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.14);
+  opacity: .55; transition: opacity .2s ease;
+}
+.vg-tarjeta-letra:hover, .vg-tarjeta-letra:focus-within { opacity: 1; }
+.vg-tarjeta-letra button {
+  min-width: 38px; height: 32px; padding: 0 8px; border: none; border-radius: 999px; cursor: pointer;
+  background: transparent; color: #FFF3E6; font-family: var(--font-display); font-weight: 800; font-size: 14px;
+}
+.vg-tarjeta-letra button.normal { font-size: 12px; color: #B39A86; }
+.vg-tarjeta-letra button:hover:not(:disabled) { background: rgba(255,255,255,.14); }
+.vg-tarjeta-letra button:disabled { opacity: .35; cursor: default; }
+.tono-luz .vg-tarjeta-letra { background: rgba(0,0,0,.05); border-color: rgba(0,0,0,.14); }
+.tono-luz .vg-tarjeta-letra button { color: #1C1712; }
+.tono-luz .vg-tarjeta-letra button:hover:not(:disabled) { background: rgba(0,0,0,.08); }
+.tono-luz .vg-selector-nombre { color: #0B0805; }
+.tono-luz .vg-selector-caja { background: linear-gradient(100deg, rgba(255,138,0,.12), rgba(77,148,255,.12)), #FFFFFF; }
+@media (prefers-reduced-motion: reduce) {
+  .vg-selector-nombre.entra, .vg-selector-nombre.sale { animation: none; }
+  .vg-selector-nombre.sale { display: none; }
+  .vg-destello, .vg-tarjeta-ico { animation: none; }
+  .vg-tarjeta-kicker.sale { animation: none; opacity: 0; }
+  .vg-cabecera-quien { animation: none; }
+}
+
+/* ---------- Podcast (editor-podcast.jsx, presentar-podcast.jsx) ----------
+   La imagen tapa al reproductor de YouTube (si el audio viene de ahí);
+   con .ver-yt se aparta para ver el video (omitir un anuncio). */
+.vg-podcast-portada { position: absolute; inset: 0; overflow: hidden; background: #0A0604; }
+.vg-podcast-imagen {
+  position: absolute; inset: 0; z-index: 2; display: grid; place-items: center; cursor: pointer;
+  transition: opacity .3s;
+}
+.vg-podcast-portada.grande .vg-podcast-imagen { cursor: default; }
+.vg-podcast-portada.ver-yt .vg-podcast-imagen { opacity: 0; pointer-events: none; }
+/* Cada imagen es una capa; la nueva entra con un fundido sobre la anterior. */
+/* container-type: size -> la imagen usa cqw/cqh (% del espacio disponible) para su tamaño. */
+.vg-podcast-capa { position: absolute; inset: 0; display: grid; place-items: center; overflow: hidden; container-type: size; }
+/* Varias imágenes en el mismo segundo: lado a lado, cada una en su hueco
+   (el hueco es el "contenedor": su tamaño en % es del hueco). */
+.vg-podcast-grupo { position: relative; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
+.vg-podcast-grupo.varias { gap: 2%; padding: 0 2%; }
+.vg-podcast-hueco { flex: 1 1 0; min-width: 0; height: 100%; display: grid; place-items: center; container-type: size; }
+.vg-podcast-capa.entra { animation: vgImagenEntra .8s ease both; }
+@keyframes vgImagenEntra { from { opacity: 0; transform: scale(1.02); } to { opacity: 1; transform: none; } }
+.vg-podcast-fondo {
+  position: absolute; inset: -40px; background: center / cover no-repeat;
+  filter: blur(36px) brightness(.45) saturate(1.2);
+}
+.vg-podcast-img {
+  position: relative; display: block; object-fit: contain; border-radius: 14px;
+  box-shadow: 0 24px 70px -20px rgba(0,0,0,.9), 0 0 0 1px rgba(255,138,0,.25);
+  transition: width .25s ease;
+}
+.vg-podcast-portada.grande .vg-podcast-img { border-radius: 20px; }
+
+/* Control de tamaño (− 90% +), arriba a la derecha. En el editor aparece al
+   pasar el mouse por la imagen; al presentar, al acercarse a esa esquina. */
+.vg-tam-imagen {
+  position: absolute; top: 12px; right: 12px; z-index: 4; display: flex; align-items: center; gap: 2px;
+  padding: 4px; border-radius: 12px; background: rgba(10,6,4,.78); border: 1px solid rgba(255,138,0,.35);
+  color: #FFF3E6; opacity: 0; transition: opacity .25s; cursor: default;
+}
+.vg-tam-imagen span { position: relative; font-size: 12px; font-weight: 700; padding: 0 6px; color: #F3DCC6; }
+.vg-tam-imagen button {
+  position: relative;   /* encima de la zona invisible (::before) que lo hace aparecer */
+  min-width: 30px; height: 30px; border: 0; border-radius: 8px; background: transparent; color: inherit;
+  font-size: 18px; font-weight: 800; cursor: pointer;
+}
+.vg-tam-imagen button.valor { font-size: 13px; min-width: 50px; }
+.vg-tam-imagen button:hover:not(:disabled) { background: rgba(255,255,255,.14); }
+.vg-tam-imagen button:disabled { opacity: .35; cursor: default; }
+.vg-podcast-portada:hover .vg-tam-imagen { opacity: 1; }
+.vg-podcast-portada.grande .vg-tam-imagen { top: 18px; right: 18px; opacity: 0; }
+.vg-podcast-portada.grande .vg-tam-imagen::before { content: ''; position: absolute; inset: -40px -18px -60px -80px; }
+.vg-podcast-portada.grande .vg-tam-imagen:hover { opacity: 1; }
+.vg-podcast-portada.ver-yt .vg-tam-imagen { display: none; }
+/* Editor de una imagen (y de la imagen inicial): miniatura a la izquierda y
+   datos compactos a la derecha, en pocas filas. */
+.config-card.vg-img-editor {
+  display: flex; flex-direction: row; gap: 14px; align-items: center; padding: 14px 14px 16px; width: 100%; max-width: 980px;
+  border-color: rgba(77,148,255,.45); flex-shrink: 0;
+  margin-bottom: 28px;   /* respiro: que no quede pegada al borde inferior */
+}
+/* Miniatura: pequeña, la imagen COMPLETA y centrada (sin recortar). */
+.vg-img-editor .vg-img-mini {
+  flex: 0 0 150px; width: 150px; height: 100px; border-radius: 10px; overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(127,127,127,.10); border: 1px solid var(--line); text-align: center;
+}
+.vg-img-editor .vg-img-mini img {
+  width: auto !important; height: auto !important; max-width: 100% !important; max-height: 100% !important;
+  object-fit: contain !important; display: block; margin: 0; border-radius: 0;
+}
+.vg-img-mini span { font-size: 11.5px; color: var(--muted); padding: 8px; line-height: 1.3; }
+.vg-img-mini.falla { border-color: var(--naranja-ink, #C25E00); }
+.vg-img-mini.falla span { color: var(--naranja-ink, #C25E00); }
+.vg-img-datos { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; justify-content: center; }
+.vg-img-cabeza { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.vg-img-cabeza strong { font-family: var(--font-display); font-size: 14.5px; white-space: nowrap; }
+.vg-img-nota { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.vg-img-ico { width: 24px; height: 24px; border-radius: 7px; display: grid; place-items: center; color: #fff; flex-shrink: 0; }
+.vg-ayuda {
+  width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; flex-shrink: 0;
+  font-size: 11px; font-weight: 800; color: var(--muted); border: 1px solid var(--line); cursor: help;
+}
+.vg-img-fila { display: flex; align-items: center; gap: 6px 14px; flex-wrap: wrap; }
+.vg-img-fila > .vg-img-etiqueta { margin-right: -8px; }
+.vg-img-minuto { display: flex; align-items: center; gap: 6px; }
+.vg-img-etiqueta { font-size: 12px; font-weight: 700; color: var(--muted); min-width: 52px; }
+.vg-img-minuto input {
+  width: 70px; padding: 5px 8px; font-size: 13px; text-align: center; font-variant-numeric: tabular-nums;
+  background: rgba(127,127,127,.10); color: var(--ink); border: 1px solid var(--line); border-radius: 8px;
+}
+.vg-img-minuto input::placeholder { color: var(--muted); }
+.vg-img-rango { flex: 1; min-width: 90px; max-width: 220px; }
+.vg-img-pct { min-width: 48px; font-variant-numeric: tabular-nums; }
+.vg-url-corta { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.vg-url-corta input { flex: 1; min-width: 0; padding: 6px 10px; font-size: 13px; }
+.vg-url-texto {
+  flex: 1; min-width: 0; font-size: 12.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  padding: 5px 10px; border-radius: 8px; background: rgba(127,127,127,.08);
+}
+@media (max-width: 700px) { .config-card.vg-img-editor { flex-direction: column; } }
+
+/* Presentar podcast: ícono de imagen sobre la línea de reproducción. */
+.vg-hud-img {
+  position: absolute; bottom: 60%; transform: translateX(-50%); z-index: 3; padding: 0;
+  width: 22px; height: 20px; display: grid; place-items: center; border-radius: 6px; cursor: pointer;
+  background: #0A1426; color: var(--vigia-azul, #4D94FF); border: 1.5px solid rgba(77,148,255,.8);
+  box-shadow: 0 0 8px rgba(77,148,255,.55); transition: transform .12s ease;
+}
+.vg-hud-img::after { content: ''; position: absolute; left: 50%; top: 100%; width: 1.5px; height: 6px; background: rgba(77,148,255,.8); transform: translateX(-50%); }
+.vg-hud-img:hover { transform: translateX(-50%) scale(1.2); color: #fff; }
+.vg-img-tramo {
+  position: absolute; top: 13px; height: 4px; border-radius: 2px; background: rgba(77,148,255,.45);
+}
+.vg-img-tramo.sel { background: var(--vigia-naranja, #FF8A00); }
+.vg-podcast-sin { position: relative; display: flex; flex-direction: column; align-items: center; gap: 10px; color: #FFD3A3; font-weight: 600; text-align: center; padding: 20px; }
+.vg-podcast-sin img { width: 30%; max-width: 220px; min-width: 90px; border-radius: 20%; opacity: .85; }
+.vg-podcast-titulo {
+  position: absolute; left: 0; right: 0; bottom: 64px; text-align: center; padding: 0 30px;
+  font-family: 'Fraunces', Georgia, serif; font-weight: 800; font-size: clamp(22px, 2.6vw, 42px);
+  color: #FFF3E6; text-shadow: 0 2px 18px rgba(0,0,0,.8);
+}
+.vg-podcast-ondas {
+  position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%);
+  display: flex; align-items: flex-end; gap: 5px; height: 34px; opacity: .25; transition: opacity .4s;
+}
+.vg-podcast-portada.grande .vg-podcast-ondas { bottom: 20px; height: 40px; }
+.vg-podcast-ondas span {
+  width: 6px; height: 30%; border-radius: 3px;
+  background: linear-gradient(to top, var(--vigia-naranja, #FF8A00), var(--vigia-azul, #4D94FF));
+}
+.vg-podcast-portada.sonando .vg-podcast-ondas { opacity: .95; }
+.vg-podcast-portada.sonando .vg-podcast-ondas span { animation: vgOnda 1s ease-in-out infinite alternate; }
+@keyframes vgOnda { 0% { height: 20%; } 50% { height: 100%; } 100% { height: 40%; } }
+.vg-presentar-podcast .vg-video-zona { overflow: hidden; }
+
+.vg-controles-audio { display: flex; align-items: center; gap: 8px; width: 100%; max-width: 980px; flex-wrap: wrap; }
+.vg-controles-audio .vg-volumen { width: 120px; }
+.vg-campo-imagen { width: 100%; max-width: 980px; }
+.vg-paso-etiqueta { display: block; font-weight: 700; font-size: 13px; margin-bottom: 6px; }
+.vg-plataformas { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+.vg-plataformas span {
+  font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px;
+  border: 1px solid var(--line); color: var(--muted); transition: all .2s;
+}
+.vg-plataformas span.on { border-color: var(--vigia-naranja, #FF8A00); color: var(--vigia-naranja, #FF8A00); background: rgba(255,138,0,.1); }
+
+/* Imágenes en el tiempo: miniaturas bajo la línea, en la lista y en los tipos. */
+.vg-linea-imagenes { position: relative; height: 34px; margin: 6px 0 -2px; }
+.vg-marca-img {
+  position: absolute; top: 0; transform: translateX(-50%); width: 40px; height: 28px; padding: 0;
+  border-radius: 6px; overflow: hidden; cursor: pointer; display: grid; place-items: center;
+  background: #0A1426; color: var(--vigia-azul, #4D94FF); border: 2px solid rgba(77,148,255,.6);
+}
+.vg-marca-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.vg-marca-img.sel, .vg-marca-img:hover { border-color: var(--vigia-naranja, #FF8A00); z-index: 2; }
+.vg-thumb-foto { width: 100%; height: 54px; object-fit: cover; border-radius: 6px; display: block; }
+.vg-dot-img { background: var(--vigia-azul, #4D94FF); border-radius: 2px; }
+.vg-ico-img { background: linear-gradient(135deg, var(--vigia-azul, #4D94FF), #7B5CFF); }
+.tono-luz .vg-podcast-titulo { color: #fff; }
+@media (prefers-reduced-motion: reduce) {
+  .vg-podcast-portada.sonando .vg-podcast-ondas span { animation: none; height: 60%; }
+  .vg-podcast-capa.entra { animation: none; }
+}
+
+/* ---------- Herramientas de Presentar (herramientas.jsx) ----------
+   Van en un portal en <body> (fuera de .vigia): colores con valor de respaldo. */
+.vg-herr-capa { position: fixed; inset: 0; z-index: 90; pointer-events: none; }
+.vg-herr-lienzo { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.vg-herr-capa.activa-marcador .vg-herr-lienzo { pointer-events: auto; cursor: crosshair; touch-action: none; }
+.vg-herr-superficie { position: absolute; inset: 0; pointer-events: auto; }
+.vg-herr-capa.activa-lupa .vg-herr-superficie { cursor: zoom-in; }
+.vg-herr-capa.activa-lupa.acercada .vg-herr-superficie { cursor: zoom-out; }
+.vg-herr-capa.activa-texto .vg-herr-superficie { cursor: text; }
+.vg-herr-texto {
+  position: absolute; min-width: 160px; max-width: min(640px, 70vw); padding: 4px 8px; margin: -18px 0 0 -4px;
+  background: transparent; border: 2px dashed transparent; border-radius: 8px; outline: none; overflow: hidden;
+  font-family: 'Fraunces', Georgia, serif; font-weight: 800; font-size: clamp(22px, 2.4vw, 40px); line-height: 1.2;
+  text-shadow: 0 2px 6px rgba(0,0,0,.55); pointer-events: none;
+}
+.vg-herr-texto.editable { pointer-events: auto; border-color: rgba(255,255,255,.45); background: rgba(0,0,0,.25); }
+.vg-herr-texto::placeholder { color: rgba(255,255,255,.6); }
+.vg-herr-puntero {
+  position: absolute; width: 18px; height: 18px; margin: -9px 0 0 -9px; border-radius: 50%; pointer-events: none;
+  background: radial-gradient(circle, #fff 0 20%, #FF2D2D 35%, rgba(255,45,45,.9) 55%, rgba(255,45,45,0) 72%);
+  box-shadow: 0 0 18px 6px rgba(255,45,45,.65), 0 0 40px 12px rgba(255,45,45,.3);
+}
+html.vg-sin-cursor, html.vg-sin-cursor * { cursor: none !important; }
+
+.vg-herr { position: fixed; left: 16px; bottom: 84px; z-index: 95; display: flex; align-items: center; gap: 10px; }
+.vg-herr-boton {
+  display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  min-width: 52px; height: 52px; padding: 4px 6px; border-radius: 14px; border: 0; cursor: pointer;
+  background: transparent; color: #FFF3E6; font-family: inherit; transition: background .15s, color .15s, transform .12s;
+}
+.vg-herr-boton:hover:not(:disabled) { background: rgba(255,255,255,.12); }
+.vg-herr-boton:disabled { opacity: .35; cursor: default; }
+.vg-herr-boton.on { background: #FF8A00; color: #140800; }
+.vg-herr-nombre { font-size: 10.5px; font-weight: 700; letter-spacing: .02em; }
+.vg-herr-pincel {
+  width: 50px; min-width: 50px; height: 50px; border-radius: 50%;
+  background: rgba(10,6,4,.8); border: 1.5px solid rgba(255,138,0,.45); box-shadow: 0 8px 22px rgba(0,0,0,.5);
+  opacity: .55; transition: opacity .2s, transform .2s, background .2s;
+}
+.vg-herr-pincel:hover, .vg-herr.abierta .vg-herr-pincel { opacity: 1; }
+.vg-herr-pincel:hover { transform: rotate(-12deg) scale(1.05); }
+.vg-herr-pincel.on { background: #FF8A00; color: #140800; border-color: #FF8A00; }
+.vg-herr-panel {
+  display: flex; align-items: center; gap: 4px; padding: 6px 8px; border-radius: 18px;
+  background: rgba(10,6,4,.88); border: 1px solid rgba(255,138,0,.35); backdrop-filter: blur(8px);
+  box-shadow: 0 14px 34px rgba(0,0,0,.55); animation: vgHerrAbre .25s cubic-bezier(.2,1.3,.4,1) both;
+  transform-origin: left center;
+}
+@keyframes vgHerrAbre { from { opacity: 0; transform: translateX(-10px) scaleX(.85); } to { opacity: 1; transform: none; } }
+.vg-herr-sep { width: 1px; height: 30px; background: rgba(255,255,255,.18); margin: 0 4px; }
+.vg-herr-colores { display: flex; align-items: center; gap: 6px; padding: 0 6px; }
+.vg-herr-color { width: 22px; height: 22px; border-radius: 50%; border: 2px solid rgba(255,255,255,.35); cursor: pointer; padding: 0; }
+.vg-herr-color.on { border-color: #fff; box-shadow: 0 0 0 2px #FF8A00; transform: scale(1.15); }
+
+/* ---------- Imágenes (editor-imagenes.jsx, presentar-imagenes.jsx) ---------- */
+/* Lienzo: la imagen completa ajustada al espacio; la "hoja" tiene el tamaño
+   exacto de la imagen y sobre ella van los íconos (left/top en %). */
+.vg-lienzo { position: relative; width: 100%; height: 100%; container-type: size; display: grid; place-items: center; overflow: hidden; }
+.vg-lienzo-hoja { position: relative; }
+.vg-lienzo-hoja > img { display: block; width: 100%; height: 100%; user-select: none; -webkit-user-drag: none; border-radius: 6px; }
+.vg-lienzo-falla { display: flex; flex-direction: column; align-items: center; gap: 10px; color: #FFD3A3; text-align: center; padding: 20px; font-weight: 600; }
+.vg-lienzo-falla img { width: 72px; height: 72px; border-radius: 16px; opacity: .8; }
+
+/* Editor */
+.vg-lienzo-marco {
+  position: relative; width: 100%; max-width: 980px; height: min(60vh, 560px); flex-shrink: 0;
+  background: #0A0604; border-radius: 14px; overflow: hidden; padding: 12px;
+  border: 1px solid rgba(255,138,0,.35); box-shadow: 0 0 40px -18px rgba(255,138,0,.7);
+}
+.vg-lienzo-vacio { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; text-align: center; color: #F3DCC6; padding: 30px; }
+.vg-lienzo-vacio span { max-width: 420px; font-size: 14px; color: #B39A86; }
+
+.vg-punto {
+  position: absolute; width: 42px; height: 42px; transform: translate(-50%, -50%); z-index: 2;
+  display: grid; place-items: center; border-radius: 50%; cursor: grab; touch-action: none; padding: 0;
+  background: var(--tipo); color: #140800; border: 3px solid #fff;
+  box-shadow: 0 4px 14px rgba(0,0,0,.55), 0 0 0 0 transparent; transition: transform .12s ease, box-shadow .12s ease;
+}
+.vg-punto:hover { transform: translate(-50%, -50%) scale(1.1); }
+.vg-punto.chica { border-style: dashed; }
+.vg-punto.sel { box-shadow: 0 0 0 4px var(--vigia-naranja, #FF8A00), 0 0 22px 4px rgba(255,138,0,.55); z-index: 3; }
+.vg-punto.moviendo { cursor: grabbing; transition: none; transform: translate(-50%, -50%) scale(1.2); z-index: 4; }
+
+.vg-diapo-thumb { position: relative; gap: 6px; }
+.vg-diapo-thumb .vg-img-mini {
+  width: 100%; height: 86px; border-radius: 8px; overflow: hidden; display: flex; align-items: center; justify-content: center;
+  background: rgba(127,127,127,.10); border: 1px solid var(--line);
+}
+.vg-diapo-thumb .vg-img-mini img { max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain; display: block; }
+.vg-diapo-thumb .vg-img-mini span { font-size: 11.5px; color: var(--muted); }
+.vg-diapo-num {
+  position: absolute; top: 6px; left: 6px; z-index: 2; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px;
+  display: grid; place-items: center; font-size: 12px; font-weight: 800; background: var(--vigia-naranja, #FF8A00); color: #140800;
+}
+.vg-diapo-pie { display: flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; min-width: 0; }
+.vg-diapo-cuenta {
+  margin-left: auto; flex-shrink: 0; font-size: 11px; font-weight: 800; padding: 1px 7px; border-radius: 999px;
+  color: var(--vigia-azul, #4D94FF); border: 1px solid rgba(77,148,255,.5);
+}
+.vg-agregar-imagen { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
+.vg-agregar-imagen input { width: 100%; padding: 7px 10px; font-size: 13px; }
+.vg-diapo-titulo { width: 100%; padding: 6px 10px; font-size: 13.5px; }
+
+/* Música de fondo (columna derecha del editor) */
+.vg-musica {
+  margin-top: 14px; padding: 12px; border-radius: 14px; display: flex; flex-direction: column; gap: 8px;
+  border: 1px solid rgba(77,148,255,.4); background: linear-gradient(135deg, rgba(77,148,255,.08), rgba(255,138,0,.06));
+}
+.vg-musica-cabeza { display: flex; align-items: center; gap: 10px; }
+.vg-musica-ico {
+  width: 32px; height: 32px; border-radius: 9px; display: grid; place-items: center; flex-shrink: 0;
+  font-size: 18px; font-weight: 800; color: #fff; background: linear-gradient(135deg, var(--vigia-azul, #4D94FF), #7B5CFF);
+}
+.vg-musica-fila { display: flex; align-items: center; gap: 8px; }
+.vg-interruptor {
+  position: relative; width: 42px; height: 24px; border-radius: 999px; border: 0; cursor: pointer; flex-shrink: 0;
+  background: rgba(127,127,127,.35); transition: background .2s;
+}
+.vg-interruptor span { position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: left .2s; }
+.vg-interruptor.on { background: var(--vigia-naranja, #FF8A00); }
+.vg-interruptor.on span { left: 21px; }
+/* El reproductor de la música existe pero no se ve. */
+.vg-musica-oculta { position: fixed; right: 0; bottom: 0; width: 220px; height: 124px; opacity: 0; pointer-events: none; z-index: -1; overflow: hidden; }
+
+/* Presentar */
+.vg-presentar-imagenes { background: #050302; }
+.vg-diapo { position: absolute; inset: 0; animation: vgDiapoEntra .6s cubic-bezier(.2,.8,.2,1) both; }
+.vg-diapo.desde-izquierda { animation-name: vgDiapoEntraIzq; }
+@keyframes vgDiapoEntra { from { opacity: 0; transform: translateX(40px) scale(.98); } to { opacity: 1; transform: none; } }
+@keyframes vgDiapoEntraIzq { from { opacity: 0; transform: translateX(-40px) scale(.98); } to { opacity: 1; transform: none; } }
+.vg-diapo-fondo { position: absolute; inset: -60px; background: center / cover no-repeat; filter: blur(40px) brightness(.35) saturate(1.2); }
+.vg-lienzo.grande { position: absolute; inset: 3vh 3vw 84px; width: auto; height: auto; overflow: visible; }
+.vg-lienzo.grande .vg-lienzo-hoja > img { border-radius: 12px; box-shadow: 0 30px 80px -30px rgba(0,0,0,.9); }
+.vg-diapo-titulo-pres {
+  position: absolute; left: 50%; bottom: 80px; transform: translateX(-50%); z-index: 3; max-width: 80vw;
+  padding: 8px 22px; border-radius: 14px; background: rgba(10,6,4,.72); backdrop-filter: blur(6px);
+  font-family: 'Fraunces', Georgia, serif; font-weight: 800; font-size: clamp(18px, 1.9vw, 30px); color: #FFF3E6;
+  text-align: center; pointer-events: none;
+}
+
+.vg-punto-pres { position: absolute; z-index: 3; width: 0; height: 0; animation: vgPuntoEntra .5s cubic-bezier(.2,1.6,.4,1) both; }
+@keyframes vgPuntoEntra { from { opacity: 0; transform: scale(.3); } to { opacity: 1; transform: none; } }
+.vg-punto.vg-punto-boton { left: 0; top: 0; width: clamp(40px, 3.4vw, 56px); height: clamp(40px, 3.4vw, 56px); cursor: pointer; }
+/* Onda que late alrededor del ícono hasta que se abre. */
+.vg-punto-boton::before {
+  content: ''; position: absolute; inset: -3px; border-radius: 50%; border: 3px solid var(--tipo);
+  animation: vgLatido 1.8s ease-out infinite; pointer-events: none;
+}
+@keyframes vgLatido { 0% { transform: scale(1); opacity: .9; } 100% { transform: scale(1.9); opacity: 0; } }
+.vg-punto-pres.visto .vg-punto-boton { opacity: .7; }
+.vg-punto-pres.visto .vg-punto-boton::before { animation: none; opacity: 0; }
+.vg-punto-pres.abierto .vg-punto-boton { box-shadow: 0 0 0 4px #fff, 0 0 26px 6px var(--tipo); opacity: 1; }
+
+/* Primer vistazo (al pasar el mouse) */
+.vg-vistazo {
+  position: absolute; left: 0; transform: translateX(-50%); z-index: 6; width: max-content; max-width: 280px;
+  display: flex; flex-direction: column; gap: 4px; padding: 10px 14px; border-radius: 12px; pointer-events: none;
+  background: rgba(12,8,5,.92); border: 1.5px solid var(--tipo); color: #FFF3E6; text-align: left;
+  box-shadow: 0 12px 30px -10px rgba(0,0,0,.8); opacity: 0; transition: opacity .18s, margin .18s;
+}
+.vg-vistazo.arriba { bottom: calc(clamp(40px, 3.4vw, 56px) / 2 + 12px); margin-bottom: -6px; }
+.vg-vistazo.abajo { top: calc(clamp(40px, 3.4vw, 56px) / 2 + 12px); margin-top: -6px; }
+.vg-vistazo.a-la-izquierda { transform: translateX(calc(-100% + 24px)); }
+.vg-vistazo.a-la-derecha { transform: translateX(-24px); }
+.vg-punto-pres:hover .vg-vistazo { opacity: 1; margin: 0; }
+.vg-punto-pres.abierto .vg-vistazo { opacity: 0; }
+.vg-vistazo-tipo { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--tipo); }
+.vg-vistazo-texto { font-family: var(--font-display); font-weight: 700; font-size: 15px; line-height: 1.3; }
+
+/* Tarjeta pequeña (junto al ícono) */
+.vg-mini-tarjeta {
+  position: fixed; z-index: 30; max-height: calc(100vh - 110px); overflow-y: auto; border-radius: 20px;
+  padding: 16px 18px 18px; display: flex; flex-direction: column; gap: 10px;
+  background: radial-gradient(420px 180px at 0% 0%, color-mix(in oklch, var(--tipo) 22%, transparent), transparent 70%), #140C07;
+  border: 2px solid var(--tipo); color: #FFF3E6; text-align: center;
+  box-shadow: 0 30px 70px -20px rgba(0,0,0,.9), 0 0 40px -12px var(--tipo);
+  animation: vgMiniEntra .35s cubic-bezier(.2,1.4,.4,1) both;
+}
+@keyframes vgMiniEntra { from { opacity: 0; transform: translateY(10px) scale(.94); } to { opacity: 1; transform: none; } }
+.vg-mini-cabeza { display: flex; align-items: center; gap: 10px; text-align: left; }
+.vg-mini-cabeza .vg-tarjeta-ico { width: 32px; height: 32px; border-radius: 10px; display: grid; place-items: center; color: #140800; animation: none; }
+.vg-mini-titulo {
+  font-family: 'Fraunces', Georgia, serif; font-style: italic; font-weight: 800; font-size: 22px;
+  font-variation-settings: "SOFT" 100, "WONK" 1; color: var(--tipo);
+}
+.vg-mini-cerrar { width: 32px; height: 32px; border-radius: 50%; border: 0; cursor: pointer; background: rgba(255,255,255,.1); color: inherit; font-size: 15px; font-weight: 800; }
+.vg-mini-cerrar:hover { background: rgba(255,255,255,.2); }
+.vg-mini-cuerpo { display: flex; flex-direction: column; gap: 12px; }
+/* El contenido de la tarjeta grande, a escala de tarjeta pequeña. */
+.vg-mini-contenido { zoom: .58; }
+.vg-mini-tarjeta .vg-selector .vg-selector-caja { width: 100%; }
+.vg-mini-tarjeta .vg-selector { margin-top: 2px; }
+.tono-luz .vg-mini-tarjeta {
+  background: radial-gradient(420px 180px at 0% 0%, color-mix(in oklch, var(--tipo) 14%, transparent), transparent 70%), #FFFCF5;
+  color: #120E0A;
+}
+.tono-luz .vg-mini-cerrar { background: rgba(0,0,0,.07); }
+
+/* Navegación entre imágenes */
+.vg-nav-diapos {
+  position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 20;
+  display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px;
+  background: rgba(10,6,4,.78); border: 1px solid rgba(255,138,0,.3); backdrop-filter: blur(8px);
+  opacity: .45; transition: opacity .25s;
+}
+.vg-nav-diapos:hover { opacity: 1; }
+.vg-nav-diapos .vg-ctrl:disabled { opacity: .3; cursor: default; }
+.vg-nav-puntos { display: flex; align-items: center; gap: 7px; padding: 0 6px; max-width: 50vw; overflow-x: auto; }
+.vg-nav-punto {
+  width: 10px; height: 10px; border-radius: 999px; border: 0; padding: 0; cursor: pointer; flex-shrink: 0;
+  background: rgba(255,255,255,.35); transition: width .25s, background .25s;
+}
+.vg-nav-punto.completa { background: #3DDC97; }
+.vg-nav-punto.on { width: 28px; background: var(--vigia-naranja, #FF8A00); }
+.vg-nav-num { font-size: 13px; font-weight: 700; color: #B39A86; min-width: 44px; text-align: center; font-variant-numeric: tabular-nums; }
+.vg-ctrl-musica { position: relative; }
+.vg-ctrl-musica.on { color: var(--vigia-azul, #4D94FF); text-shadow: 0 0 12px rgba(77,148,255,.8); }
+.vg-tachado { position: absolute; left: 25%; right: 25%; top: 50%; height: 2px; background: currentColor; transform: rotate(-35deg); }
+@media (prefers-reduced-motion: reduce) {
+  .vg-diapo, .vg-punto-pres, .vg-mini-tarjeta { animation: none; }
+  .vg-punto-boton::before { animation: none; opacity: 0; }
+}

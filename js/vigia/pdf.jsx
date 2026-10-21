@@ -400,7 +400,7 @@ function PaginaPdf({ pdf, numero, ancho, proporcionInicial, marcas, numeros, sel
     <div className={'vg-pdf-pagina' + (modoMarcar ? ' marcando' : '')} style={{ width: ancho, height: alto }}
       ref={(el) => { caja.current = el; if (refNodo) refNodo(el); }} onPointerDown={iniciar}
       onClick={(e) => { if (onClickFondo && !modoMarcar && e.target === e.currentTarget) onClickFondo(); }}>
-      <canvas ref={lienzo} className="vg-pdf-lienzo" style={{ width: ancho, height: alto }} />
+      <canvas ref={lienzo} className="vg-pdf-lienzo vg-proyectado-doc" style={{ width: ancho, height: alto }} />
       {capaTexto && <div ref={capa} className="textLayer vg-pdf-texto" onClick={(e) => { if (onClickFondo && !modoMarcar && !String(window.getSelection())) onClickFondo(); e.stopPropagation(); }}></div>}
       {!visible && <div className="vg-pdf-cargando">Página {numero}</div>}
       {marcas.map((a) => {
