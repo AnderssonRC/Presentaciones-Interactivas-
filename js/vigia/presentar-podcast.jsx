@@ -46,6 +46,12 @@ function VigiaPresentarPodcast({ act, onExit, onChange }) {
     if (document.activeElement && document.activeElement.tagName === 'IFRAME') document.activeElement.blur();
     if (raiz.current) raiz.current.focus();
   };
+  // Con una tarjeta o un reto en pantalla, el audio queda DETENIDO.
+  React.useEffect(() => {
+    if (activa && rep.reproduciendo) rep.pause();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activa, rep.reproduciendo]);
+
   const continuar = () => {
     prevT.current = activa ? activa.t + 0.1 : rep.tiempo;
     setActiva(null);
@@ -94,6 +100,23 @@ function VigiaPresentarPodcast({ act, onExit, onChange }) {
     rep.seek(t);
   };
 
+  // --- Mando a distancia (celular) ---
+  const mando = useMandoVigia({
+    recurso: 'podcast', titulo: act.titulo || '', empezado, reproduciendo: rep.reproduciendo,
+    tiempo: Math.floor(rep.tiempo), duracion: Math.floor(rep.duracion || 0), volumen: rep.conVolumen ? (rep.silencio ? 0 : rep.volumen) : null,
+    activa: activa ? { id: activa.id, tipo: activa.tipo } : null,
+    lista: lista.map((a) => itemMando(a, fmtT(a.t))),
+  }, (accion, o) => {
+    if (accion === 'comenzar') { if (!empezado) comenzar(); }
+    else if (accion === 'alternar') alternar();
+    else if (accion === 'continuar') { if (activa && activa.tipo !== 'reto') continuar(); }
+    else if (accion === 'saltar') { const t = Math.max(0, rep.tiempo + (o.seg || 0)); prevT.current = t; rep.seek(t); }
+    else if (accion === 'abrir') { const a = lista.find((x) => x.id === o.id); if (a) abrir(a); }
+    else if (accion === 'volumen') rep.setVolumen((rep.silencio ? 0 : rep.volumen) + (o.delta || 0));
+    else if (accion === 'silencio') rep.alternarSilencio();
+    else if (accion === 'salir') onExit();
+  });
+
   return (
     <div className={'vigia vg-presentar vg-presentar-podcast tono-' + tono} data-screen-label="Modo Vigía · Presentar podcast"
       ref={raiz} tabIndex={-1} style={{ outline: 'none' }}>
@@ -124,7 +147,7 @@ function VigiaPresentarPodcast({ act, onExit, onChange }) {
           usados={usados} onUsado={marcarUsado} onContinuar={continuar} textoContinuar="Continuar el podcast" />
       )}
 
-      {!activa && (
+      {(!activa || activa.tipo === 'reto') && (
         <div className={'vg-barra-video' + (barraVisible ? '' : ' oculta')}
           onMouseEnter={mantenerBarra} onMouseMove={mantenerBarra} onMouseLeave={() => mostrarBarra(900)}>
           <button className="vg-ctrl" onClick={alternar} title="Reproducir / pausar (espacio)" aria-label="Reproducir o pausar">
@@ -182,6 +205,8 @@ function VigiaPresentarPodcast({ act, onExit, onChange }) {
       <TonoLateral tono={tono} setTono={setTono} />
       {/* Herramientas (pincel, abajo a la izquierda): lupa, marcador, puntero, texto. */}
       <HerramientasPresentar />
+      {/* Mando a distancia: chip arriba a la derecha (QR y código). */}
+      <MandoBadge mando={mando} />
     </div>
   );
 }

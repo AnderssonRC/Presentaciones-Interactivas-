@@ -108,6 +108,26 @@ function VigiaPresentarEpub({ act, onExit, onChange }) {
   const conteo = {};
   lista.forEach((a) => { conteo[a.cap] = (conteo[a.cap] || 0) + 1; });
 
+  // --- Mando a distancia (celular) ---
+  const abrirDesdeMando = (p) => {
+    if (activa) cerrar();
+    if (typeof p.cap === 'number' && p.cap !== capitulo) setCapitulo(p.cap);
+    setIrA((x) => ({ id: p.id, n: (x ? x.n : 0) + 1 }));
+    setTimeout(() => abrir(p.id), 750);
+  };
+  const mando = useMandoVigia({
+    recurso: 'documento', formato: 'epub', titulo: act.titulo || '', letra: tamano, pendientes, capitulo: capitulo + 1,
+    activa: activa ? { id: activa.id, tipo: activa.tipo } : null,
+    lista: lista.map((a) => itemMando(a, 'N.º ' + numeros[a.id] + ' · cap. ' + ((a.cap || 0) + 1), vistos.includes(a.id))),
+  }, (accion, o) => {
+    if (accion === 'siguiente' || accion === 'alternar') { if (activa) { if (activa.tipo !== 'reto') cerrar(); } else siguiente(); }
+    else if (accion === 'abrir') { const p = lista.find((x) => x.id === o.id); if (p) abrirDesdeMando(p); }
+    else if (accion === 'continuar') { if (activa && activa.tipo !== 'reto') cerrar(); }
+    else if (accion === 'zoom') cambiarTamano(o.dir || 0);
+    else if (accion === 'desplazar') { if (scroll.current) scroll.current.scrollBy({ top: (o.dir || 1) * scroll.current.clientHeight * 0.6, behavior: 'smooth' }); }
+    else if (accion === 'salir') onExit();
+  });
+
   return (
     <div className={'vigia vg-presentar vg-presentar-pdf vg-presentar-epub tono-' + tono} data-screen-label="Modo Vigía · Presentar EPUB"
       onMouseMove={mostrarControles} onWheel={mostrarControles}>
@@ -124,7 +144,7 @@ function VigiaPresentarEpub({ act, onExit, onChange }) {
         )}
       </div>
 
-      {!activa && libro && (
+      {(!activa || activa.tipo === 'reto') && libro && (
         <div className={'vg-pdf-controles' + (controles ? '' : ' oculto')} onMouseEnter={mostrarControles}>
           <NavCapitulos libro={libro} capitulo={capitulo} setCapitulo={irCapitulo} conteo={conteo} compacto />
           <span className="vg-ctrl-sep"></span>
@@ -154,6 +174,8 @@ function VigiaPresentarEpub({ act, onExit, onChange }) {
       <TonoLateral tono={tono} setTono={setTono} />
       {/* Herramientas (pincel, abajo a la izquierda): lupa, marcador, puntero, texto. */}
       <HerramientasPresentar />
+      {/* Mando a distancia: chip arriba a la derecha (QR y código). */}
+      <MandoBadge mando={mando} />
     </div>
   );
 }

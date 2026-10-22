@@ -229,7 +229,7 @@ function VigiaEditorVideo({ act, onChange, onBack, onPresent }) {
                 Se agrega en el segundo actual del video (lo pausa). Recurso: <strong style={{ color: 'var(--ink)' }}>{rec.nombre}</strong>.
               </p>
             </div>
-            {TIPOS.map((t) => {
+            <TiposAgrupados lista={TIPOS} render={(t) => {
               const habilitado = rec.tipos.includes(t.id);
               return (
                 <button key={t.id} className={'tool-card vg-tipo' + (habilitado ? '' : ' tool-soon')} disabled={!habilitado}
@@ -243,7 +243,7 @@ function VigiaEditorVideo({ act, onChange, onBack, onPresent }) {
                   <span className="tool-add">+</span>
                 </button>
               );
-            })}
+            }} />
           </div>
         </div>
       )}
@@ -284,6 +284,25 @@ function PasoEnlace({ actual, onListo, onCancelar }) {
       </div>
     </div>
   );
+}
+
+/* Columna de tipos reunida por grupos: "Cognitivos" y "Físico-grupales"
+   (título antes del primero de cada grupo). `render(t)`: la tarjeta del tipo. */
+function TiposAgrupados({ lista, render }) {
+  return lista.map((t) => {
+    const g = VigiaTipos.inicioGrupo(t, lista);
+    return (
+      <React.Fragment key={t.id}>
+        {g && (
+          <div className={'vg-grupo-tipos ' + t.grupo}>
+            <span>{g.nombre}</span>
+            <small>{g.desc}</small>
+          </div>
+        )}
+        {render(t)}
+      </React.Fragment>
+    );
+  });
 }
 
 /* "Insertar en el minuto [mm:ss]": escribir un minuto exacto lleva el video
@@ -566,6 +585,33 @@ function ConfigActivacion({ a, onCambiar, onBorrar, tiempoActual, duracion, hayE
         </div>
       )}
 
+      {a.tipo === 'reto' && (
+        <div className="field">
+          <label>Reto</label>
+          <div className="vg-retos">
+            {VigiaTipos.RETOS.map((r) => (
+              <button key={r.id} type="button" className={'vg-reto-op' + ((a.reto || 'puesto') === r.id ? ' on' : '')}
+                onClick={() => set({ reto: r.id })} title={r.desc}>
+                <strong>{r.nombre}</strong>
+                <span>{r.desc}</span>
+              </button>
+            ))}
+          </div>
+          {VigiaTipos.reto(a.reto).usa === 'grupos' && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, fontSize: 13 }}>
+              <span>Estudiantes por grupo</span>
+              <input type="number" min="2" max="10" value={a.tamGrupo || 4} style={{ width: 70 }}
+                onChange={(e) => set({ tamGrupo: Math.max(2, Math.min(10, Number(e.target.value) || 4)) })} />
+            </div>
+          )}
+          <div style={{ fontSize: 12.5, color: hayEstudiantes ? 'var(--muted)' : 'var(--naranja-ink)', marginTop: 6 }}>
+            {hayEstudiantes
+              ? 'Al presentar, las ' + ({ parejas: 'parejas', grupos: 'grupos', orden: 'posiciones del salón' })[VigiaTipos.reto(a.reto).usa] + ' se sortean con la lista de estudiantes.'
+              : <React.Fragment>Sin estudiantes solo se muestra el reto. <button className="vg-btn-texto" onClick={onAbrirEstudiantes}>Agrégalos para sortear parejas o grupos</button></React.Fragment>}
+          </div>
+        </div>
+      )}
+
       {a.tipo === 'pregunta' && (
         <div className="field">
           <label>Tipo de pregunta</label>
@@ -639,4 +685,4 @@ function ConfigActivacion({ a, onCambiar, onBorrar, tiempoActual, duracion, hayE
   );
 }
 
-Object.assign(window, { AreaTexto, EtiquetaCampo, VigiaEditor, VigiaEditorVideo, RecursoChips, EstudiantesPopover, PasoEnlace, MinutoExacto, LineaTiempo, ConfigActivacion });
+Object.assign(window, { AreaTexto, EtiquetaCampo, VigiaEditor, VigiaEditorVideo, RecursoChips, EstudiantesPopover, PasoEnlace, MinutoExacto, LineaTiempo, ConfigActivacion, TiposAgrupados });

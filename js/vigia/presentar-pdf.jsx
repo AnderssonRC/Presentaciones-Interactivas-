@@ -119,6 +119,20 @@ function VigiaPresentarPdf({ act, onExit, onChange }) {
   const marcas = lista.map((a) => (vistos.includes(a.id) ? { ...a, _visto: true } : a));
   const zoomMin = zoom <= ZOOM_PASOS[0], zoomMax = zoom >= ZOOM_PASOS[ZOOM_PASOS.length - 1];
 
+  // --- Mando a distancia (celular) ---
+  const mando = useMandoVigia({
+    recurso: 'documento', formato: 'pdf', titulo: act.titulo || '', zoom: Math.round(zoom * 100), pendientes,
+    activa: activa ? { id: activa.id, tipo: activa.tipo } : null,
+    lista: lista.map((a) => itemMando(a, 'N.º ' + numeros[a.id] + ' · pág. ' + (a.pagina || 1), vistos.includes(a.id))),
+  }, (accion, o) => {
+    if (accion === 'siguiente' || accion === 'alternar') { if (activa) { if (activa.tipo !== 'reto') cerrar(); } else siguiente(); }
+    else if (accion === 'abrir') { const a = lista.find((x) => x.id === o.id); if (a) { if (activa) cerrar(); irA(a, () => abrir(a)); } }
+    else if (accion === 'continuar') { if (activa && activa.tipo !== 'reto') cerrar(); }
+    else if (accion === 'zoom') cambiarZoom(o.dir || 0);
+    else if (accion === 'desplazar') { if (scroll.current) scroll.current.scrollBy({ top: (o.dir || 1) * scroll.current.clientHeight * 0.6, behavior: 'smooth' }); }
+    else if (accion === 'salir') onExit();
+  });
+
   return (
     <div className={'vigia vg-presentar vg-presentar-pdf tono-' + tono} data-screen-label="Modo Vigía · Presentar PDF"
       onMouseMove={mostrarControles} onWheel={mostrarControles}>
@@ -137,7 +151,7 @@ function VigiaPresentarPdf({ act, onExit, onChange }) {
       </div>
 
       {/* Controles flotantes (se ocultan solos) */}
-      {!activa && (
+      {(!activa || activa.tipo === 'reto') && (
         <div className={'vg-pdf-controles' + (controles ? '' : ' oculto')} onMouseEnter={mostrarControles}>
           <button className="vg-ctrl" onClick={() => cambiarZoom(-1)} disabled={zoomMin} title="Alejar (−)" aria-label="Alejar">−</button>
           <button className="vg-ctrl vg-ctrl-zoom" onClick={() => cambiarZoom(0)} title="Tamaño normal (0)">{Math.round(zoom * 100)}%</button>
@@ -165,6 +179,8 @@ function VigiaPresentarPdf({ act, onExit, onChange }) {
       <TonoLateral tono={tono} setTono={setTono} />
       {/* Herramientas (pincel, abajo a la izquierda): lupa, marcador, puntero, texto. */}
       <HerramientasPresentar />
+      {/* Mando a distancia: chip arriba a la derecha (QR y código). */}
+      <MandoBadge mando={mando} />
     </div>
   );
 }

@@ -16,57 +16,95 @@
    (ContenidoActivacion) y, si tiene campos propios, en editor.jsx. */
 (function () {
   const RECURSOS = [
-    { id: 'video',     nombre: 'Video',     desc: 'YouTube: documentales, clases, videos', icon: 'play',     tipos: ['pregunta', 'instruccion', 'creacion', 'escritura', 'contexto'] },
-    { id: 'documento', nombre: 'Documento', desc: 'PDF o EPUB: lecturas, libros, guías',   icon: 'memorama', tipos: ['pregunta', 'instruccion', 'creacion', 'escritura', 'glosario'] },
-    { id: 'podcast',   nombre: 'Podcast',   desc: 'Audios y entrevistas, con su imagen',    icon: 'debate',   tipos: ['pregunta', 'instruccion', 'creacion', 'escritura', 'contexto'] },
+    { id: 'video',     nombre: 'Video',     desc: 'YouTube: documentales, clases, videos', icon: 'play',     tipos: ['pregunta', 'instruccion', 'creacion', 'escritura', 'contexto', 'reto'] },
+    { id: 'documento', nombre: 'Documento', desc: 'PDF o EPUB: lecturas, libros, guías',   icon: 'memorama', tipos: ['pregunta', 'instruccion', 'creacion', 'escritura', 'glosario', 'reto'] },
+    { id: 'podcast',   nombre: 'Podcast',   desc: 'Audios y entrevistas, con su imagen',    icon: 'debate',   tipos: ['pregunta', 'instruccion', 'creacion', 'escritura', 'contexto', 'reto'] },
     // Imágenes: activadores como íconos SOBRE la imagen (editor-imagenes.jsx).
-    { id: 'imagenes',  nombre: 'Imágenes',  desc: 'Mapas, infografías y fotos con activadores encima', icon: 'eye', tipos: ['pregunta', 'instruccion', 'creacion', 'escritura', 'contexto', 'glosario'] },
+    { id: 'imagenes',  nombre: 'Imágenes',  desc: 'Mapas, infografías y fotos con activadores encima', icon: 'eye', tipos: ['pregunta', 'instruccion', 'creacion', 'escritura', 'contexto', 'glosario', 'reto'] },
   ];
 
   const TIPOS = [
     {
-      id: 'pregunta', nombre: 'Pregunta', color: '#FF8A00', icon: 'pregunta',
+      id: 'pregunta', grupo: 'cognitivo', nombre: 'Pregunta', color: '#FF8A00', icon: 'pregunta',
       proposito: 'La ruleta elige al estudiante que responde. Abierta o de opción múltiple.',
       etiqueta: 'Pregunta', placeholder: '¿Qué crees que pasará después?',
       ruleta: true, ruletaPorDefecto: true,
       titular: '¡Pregunta!', preguntaRuleta: '¿Quién responde?',
     },
     {
-      id: 'instruccion', nombre: 'Instrucción', color: '#4D94FF', icon: 'rayo',
+      id: 'instruccion', grupo: 'cognitivo', nombre: 'Instrucción', color: '#4D94FF', icon: 'rayo',
       proposito: 'Lo que el grupo debe hacer ahora mismo.',
       etiqueta: 'Instrucción', placeholder: 'Anota en tu cuaderno tres ideas clave de lo que acabas de ver.',
       ruleta: false,
       titular: 'Instrucción',
     },
     {
-      id: 'creacion', nombre: 'Creación', color: '#FFC233', icon: 'bulb',
+      id: 'creacion', grupo: 'cognitivo', nombre: 'Creación', color: '#FFC233', icon: 'bulb',
       proposito: 'Algo que se crea después de ver: dibujo, esquema, frase…',
       etiqueta: '¿Qué se debe crear?', placeholder: 'Dibuja un esquema del proceso que explicó el video.',
       ruleta: true, ruletaPorDefecto: false,
       titular: '¡A crear!', preguntaRuleta: '¿Quién crea?',
     },
     {
-      id: 'escritura', nombre: 'Escritura', color: '#B28CFF', icon: 'letras',
+      id: 'escritura', grupo: 'cognitivo', nombre: 'Escritura', color: '#B28CFF', icon: 'letras',
       proposito: 'El estudiante copia lo que aparece en pantalla, grande y legible.',
       etiqueta: 'Texto para copiar', placeholder: 'La fotosíntesis transforma la luz del sol en energía química.',
       ruleta: false,
       titular: 'Escribe en tu cuaderno',
     },
     {
-      id: 'contexto', nombre: 'Nota de contexto', color: '#3DDC97', icon: 'eye',
+      id: 'contexto', grupo: 'cognitivo', nombre: 'Nota de contexto', color: '#3DDC97', icon: 'eye',
       proposito: 'Un párrafo que un estudiante lee en voz alta con el video detenido.',
       etiqueta: 'Párrafo de contexto', placeholder: 'Para entender esta parte, recordemos que en el siglo XIX…',
       ruleta: true, ruletaPorDefecto: true,
       titular: 'Nota de contexto', preguntaRuleta: '¿Quién lee?',
     },
     {
-      id: 'glosario', nombre: 'Glosario', color: '#FF5FA2', icon: 'debate',
+      id: 'glosario', grupo: 'cognitivo', nombre: 'Glosario', color: '#FF5FA2', icon: 'debate',
       proposito: 'Se señala una palabra y entre todos construyen su definición (el docente la escribe en vivo).',
       etiqueta: 'Pista o pregunta guía (opcional)', placeholder: '¿Qué crees que significa esta palabra en el texto?',
       ruleta: true, ruletaPorDefecto: false,
       titular: 'Glosario', preguntaRuleta: '¿Quién propone?',
     },
+    // ---- Físico-grupales: el cóndor retador irrumpe y lanza un reto (presentar-reto.jsx) ----
+    {
+      id: 'reto', grupo: 'fisico', nombre: 'Reto de activación', color: '#00D4FF', icon: 'user',
+      proposito: 'El cóndor retador irrumpe con rayos y lanza un reto para moverse: puestos, parejas, grupos…',
+      etiqueta: 'Indicaciones extra (opcional)', placeholder: 'Tienen 2 minutos. ¡En silencio!',
+      ruleta: false,
+      titular: '¡Reto de activación!',
+    },
   ];
+
+  /* Grupos de tipos (así se reúnen en la columna de tipos del editor). */
+  const GRUPOS = {
+    cognitivo: { nombre: 'Cognitivos', desc: 'Pensar, responder, escribir' },
+    fisico: { nombre: 'Físico-grupales', desc: 'Moverse, cambiar, crear en grupo' },
+  };
+  // Si `t` es el primero de su grupo en `lista`, el grupo (para poner su título antes).
+  function inicioGrupo(t, lista) {
+    const primero = (lista || TIPOS).find((x) => x.grupo === t.grupo);
+    return primero && primero.id === t.id ? GRUPOS[t.grupo] : null;
+  }
+
+  /* Retos preconfigurados del tipo "Reto de activación".
+     usa: 'parejas' | 'grupos' | 'orden' -> con la lista de estudiantes se
+     sortean parejas, grupos o un orden para el salón. */
+  const RETOS = [
+    { id: 'puesto',   nombre: 'Cambio de puesto',   titulo: '¡Cambio de puesto!',
+      desc: 'Cambia de puesto con el compañero que te tocó.', usa: 'parejas' },
+    { id: 'cuaderno', nombre: 'Cambia tu cuaderno', titulo: '¡Cambia tu cuaderno!',
+      desc: 'Intercambia tu cuaderno con el compañero que te tocó y revisa sus apuntes.', usa: 'parejas' },
+    { id: 'pregunta', nombre: 'Pregunta al compañero', titulo: '¡Crea una pregunta!',
+      desc: 'Crea una pregunta sobre lo visto para el compañero con el que te tocó. Luego respóndanse.', usa: 'parejas' },
+    { id: 'grupos',   nombre: 'Conforma el grupo',  titulo: '¡Conformen los grupos!',
+      desc: 'Formen el grupo según aparece en pantalla.', usa: 'grupos' },
+    { id: 'orden',    nombre: 'Organicen el salón', titulo: '¡Organicen el salón!',
+      desc: 'Organicen el salón según el siguiente orden.', usa: 'orden' },
+    { id: 'eslogan',  nombre: 'Eslogan en grupo',   titulo: '¡Creen un eslogan!',
+      desc: 'En grupos, creen un eslogan con la última frase y péguenlo en el tablero.', usa: 'grupos' },
+  ];
+  const reto = (id) => RETOS.find((r) => r.id === id) || RETOS[0];
 
   /* Frases que irrumpen en pantalla (al azar) justo antes de cada activación.
      Para agregar más, basta con sumarlas aquí. */
@@ -119,6 +157,7 @@
     if (ti.id === 'pregunta') { a.modo = 'abierta'; a.opciones = ['', '']; a.correcta = 0; }
     if (ti.id === 'glosario') { a.termino = (a.fragmento || '').trim(); a.definicion = ''; }
     if (ti.id === 'escritura' && a.fragmento) a.texto = a.fragmento;
+    if (ti.id === 'reto') { a.reto = RETOS[0].id; a.tamGrupo = 4; }
     return a;
   }
 
@@ -155,5 +194,5 @@
     return !!(d.video && d.video.id);
   }
 
-  window.VigiaTipos = { RECURSOS, TIPOS, FRASES_ALTO, fraseAlAzar, recurso, tipo, nuevaActivacion, ordenLectura, recursoListo, fmtT, parseT };
+  window.VigiaTipos = { RECURSOS, TIPOS, GRUPOS, inicioGrupo, RETOS, reto, FRASES_ALTO, fraseAlAzar, recurso, tipo, nuevaActivacion, ordenLectura, recursoListo, fmtT, parseT };
 })();

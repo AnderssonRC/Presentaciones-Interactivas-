@@ -93,6 +93,13 @@ function VigiaPresentarVideo({ act, onExit }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [yt.tiempo]);
 
+  // Mientras haya una tarjeta o un reto en pantalla, el video queda DETENIDO
+  // (aunque YouTube intente seguir tras el salto).
+  React.useEffect(() => {
+    if (activa && yt.reproduciendo) yt.pause();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activa, yt.reproduciendo]);
+
   const continuar = () => {
     prevT.current = activa ? activa.t + 0.1 : yt.tiempo;
     setActiva(null);
@@ -154,6 +161,23 @@ function VigiaPresentarVideo({ act, onExit }) {
     setActiva(a);
   };
 
+  // --- Mando a distancia (celular): estado que ve y órdenes que envía ---
+  const mando = useMandoVigia({
+    recurso: 'video', titulo: act.titulo || '', empezado, reproduciendo: yt.reproduciendo,
+    tiempo: Math.floor(yt.tiempo), duracion: Math.floor(yt.duracion || 0), volumen: yt.silencio ? 0 : yt.volumen,
+    activa: activa ? { id: activa.id, tipo: activa.tipo } : null,
+    lista: lista.map((a) => itemMando(a, fmtT(a.t))),
+  }, (accion, o) => {
+    if (accion === 'comenzar') { if (!empezado) comenzar(); }
+    else if (accion === 'alternar') alternar();
+    else if (accion === 'continuar') { if (activa && activa.tipo !== 'reto') continuar(); }
+    else if (accion === 'saltar') { const t = Math.max(0, yt.tiempo + (o.seg || 0)); prevT.current = t; yt.seek(t); }
+    else if (accion === 'abrir') { const a = lista.find((x) => x.id === o.id); if (a) abrirMarca(a); }
+    else if (accion === 'volumen') yt.setVolumen((yt.silencio ? 0 : yt.volumen) + (o.delta || 0));
+    else if (accion === 'silencio') yt.alternarSilencio();
+    else if (accion === 'salir') onExit();
+  });
+
   return (
     <div className={'vigia vg-presentar tono-' + tono} data-screen-label="Modo Vigía · Presentar"
       ref={raiz} tabIndex={-1} style={{ outline: 'none' }}>
@@ -192,7 +216,8 @@ function VigiaPresentarVideo({ act, onExit }) {
       {/* Barra de la app en su PROPIA franja inferior (fuera del video):
           reproducir, línea de tiempo con las activaciones, volumen,
           subtítulos y salir. */}
-      {!activa && (
+      {/* Con un reto en pantalla la barra sigue disponible (el reto deja libre esta franja). */}
+      {(!activa || activa.tipo === 'reto') && (
         <div className={'vg-barra-video' + (barraVisible ? '' : ' oculta')}
           onMouseEnter={mantenerBarra} onMouseMove={mantenerBarra} onMouseLeave={() => mostrarBarra(900)}>
           <button className="vg-ctrl" onClick={alternar} title="Reproducir / pausar (espacio)" aria-label="Reproducir o pausar">
@@ -231,13 +256,21 @@ function VigiaPresentarVideo({ act, onExit }) {
       <TonoLateral tono={tono} setTono={setTono} />
       {/* Herramientas (pincel, abajo a la izquierda): lupa, marcador, puntero, texto. */}
       <HerramientasPresentar />
+      {/* Mando a distancia: chip arriba a la derecha (QR y código). */}
+      <MandoBadge mando={mando} />
     </div>
   );
 }
 
 /* Tarjeta central con borde de luz giratoria. "Continuar el video" va fuera
    de la tarjeta, en la esquina inferior derecha, para dejarle todo el espacio. */
-function TarjetaActivacion({ a, frase, estudiantes, orden, usados, onUsado, onContinuar, textoContinuar, onCambiarActivacion }) {
+function TarjetaActivacion(props) {
+  // El "Reto de activación" (físico-grupal) tiene su propia escena: el cóndor
+  // retador con rayos y luego el reto a pantalla completa (presentar-reto.jsx).
+  if (props.a.tipo === 'reto') return <RetoActivacion {...props} />;
+  return <TarjetaActivacionBase {...props} />;
+}
+function TarjetaActivacionBase({ a, frase, estudiantes, orden, usados, onUsado, onContinuar, textoContinuar, onCambiarActivacion }) {
   const ti = VigiaTipos.tipo(a.tipo);
   const nombres = (estudiantes || []).map((s) => (s || '').trim()).filter(Boolean);
   const sorteo = ti.ruleta && a.ruleta && nombres.length > 0;
@@ -266,6 +299,8 @@ function TarjetaActivacion({ a, frase, estudiantes, orden, usados, onUsado, onCo
     const i = ESCALAS_TARJETA.indexOf(e);
     return ESCALAS_TARJETA[Math.max(0, Math.min(ESCALAS_TARJETA.length - 1, (i < 0 ? 3 : i) + dir))];
   });
+  // Desde el mando: letra más grande / normal / más pequeña.
+  useOrdenMando((o) => { if (o.accion === 'letra') cambiarEscala(o.dir || 0); });
   // "Girar otra vez" va debajo del texto: la ruleta avisa su estado y gira
   // cuando cambia `giro`.
   const [giro, setGiro] = React.useState(0);
@@ -449,6 +484,8 @@ function useTonoPresentar() {
     const i = TONOS_PANTALLA.findIndex((x) => x.id === tono);
     setTono(TONOS_PANTALLA[(i + 1) % TONOS_PANTALLA.length].id);
   };
+  // Desde el mando: siguiente tono.
+  useOrdenMando((o) => { if (o.accion === 'tono') siguienteTono(); });
   // Tecla L: pasa al siguiente tono.
   React.useEffect(() => {
     const onKey = (e) => {
@@ -520,5 +557,5 @@ function TonoLateral({ tono, setTono }) {
 
 Object.assign(window, {
   VigiaPresentar, VigiaPresentarVideo, usePantallaCompleta, useUsadosRuleta, TarjetaActivacion, ContenidoActivacion,
-  TONOS_PANTALLA, useTonoPresentar, SelectorTono, TonoLateral,
+  TONOS_PANTALLA, useTonoPresentar, SelectorTono, TonoLateral, ESCALAS_TARJETA,
 });

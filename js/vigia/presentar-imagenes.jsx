@@ -54,7 +54,8 @@ function VigiaPresentarImagenes({ act, onExit, onChange }) {
   const marcarVisto = (a) => setVistos((v) => (v.includes(a.id) ? v : [...v, a.id]));
   const abrir = (a, el) => {
     marcarVisto(a);
-    if ((a.tarjeta || 'grande') === 'grande') { setMini(null); setFrase((f) => fraseAlAzar(f)); setActiva(a); return; }
+    // Tarjeta grande (el reto siempre va a pantalla completa).
+    if ((a.tarjeta || 'grande') === 'grande' || a.tipo === 'reto') { setMini(null); setFrase((f) => fraseAlAzar(f)); setActiva(a); return; }
     const r = el.getBoundingClientRect();
     setMini((x) => (x && x.a.id === a.id ? null : { a, x: r.left + r.width / 2, y: r.top + r.height / 2 }));
   };
@@ -81,6 +82,38 @@ function VigiaPresentarImagenes({ act, onExit, onChange }) {
   });
 
   const total = (act.activaciones || []).filter((a) => diapos.some((d) => d.id === a.diapo)).length;
+
+  // --- Mando a distancia (celular) ---
+  // Abrir un activador de cualquier imagen (si es de otra, primero se va a ella).
+  const abrirDesdeMando = (id) => {
+    const a = (act.activaciones || []).find((x) => x.id === id);
+    const k = a ? diapos.findIndex((d) => d.id === a.diapo) : -1;
+    if (k < 0) return;
+    if (!empezado) setEmpezado(true);
+    const hacer = () => {
+      const el = document.querySelector('[data-punto="' + id + '"] .vg-punto-boton')
+        || { getBoundingClientRect: () => ({ left: window.innerWidth / 2 - 20, top: window.innerHeight / 2 - 20, width: 40, height: 40 }) };
+      abrir(a, el);
+    };
+    if (k !== i) { ir(k); setTimeout(hacer, 500); } else setTimeout(hacer, empezado ? 0 : 300);
+  };
+  const enOrden = diapos.flatMap((d, k) => (act.activaciones || []).filter((a) => a.diapo === d.id).map((a) => itemMando(a, 'Imagen ' + (k + 1), vistos.includes(a.id))));
+  const mando = useMandoVigia({
+    recurso: 'imagenes', titulo: act.titulo || '', empezado,
+    diapo: i + 1, total: diapos.length, diapoTitulo: (diapo && diapo.titulo) || '',
+    activa: activa ? { id: activa.id, tipo: activa.tipo } : mini ? { id: mini.a.id, tipo: mini.a.tipo, pequena: true } : null,
+    lista: enOrden, musica: m ? musicaOn : null,
+  }, (accion, o) => {
+    const abierta = (activa && activa.tipo !== 'reto') || mini;
+    if (accion === 'comenzar') setEmpezado(true);
+    else if (accion === 'siguiente') ir(i + 1);
+    else if (accion === 'anterior') ir(i - 1);
+    else if (accion === 'abrir') abrirDesdeMando(o.id);
+    else if (accion === 'continuar') { if (abierta) cerrar(); }
+    else if (accion === 'alternar') { if (!empezado) setEmpezado(true); else if (abierta) cerrar(); else if (!activa) ir(i + 1); }
+    else if (accion === 'musica') setMusicaOn((v) => !v);
+    else if (accion === 'salir') onExit();
+  });
 
   return (
     <div className={'vigia vg-presentar vg-presentar-imagenes tono-' + tono} data-screen-label="Modo Vigía · Presentar imágenes"
@@ -132,7 +165,7 @@ function VigiaPresentarImagenes({ act, onExit, onChange }) {
       )}
 
       {/* Navegación (se aclara al acercar el mouse) */}
-      {empezado && !activa && (
+      {empezado && (!activa || activa.tipo === 'reto') && (
         <div className="vg-nav-diapos">
           <button className="vg-ctrl" onClick={() => ir(i - 1)} disabled={diapos.length < 2} title="Imagen anterior (←)" aria-label="Anterior">‹</button>
           <div className="vg-nav-puntos">
@@ -164,6 +197,8 @@ function VigiaPresentarImagenes({ act, onExit, onChange }) {
       <TonoLateral tono={tono} setTono={setTono} />
       {/* Herramientas (pincel, abajo a la izquierda): lupa, marcador, puntero, texto. */}
       <HerramientasPresentar />
+      {/* Mando a distancia: chip arriba a la derecha (QR y código). */}
+      <MandoBadge mando={mando} />
     </div>
   );
 }
@@ -175,7 +210,7 @@ function PuntoActivador({ a, visto, abierto, retraso, onAbrir }) {
   const texto = vistazoDe(a);
   const arriba = a.y > 0.22;   // el vistazo va arriba del ícono (o abajo si está muy arriba)
   return (
-    <div className={'vg-punto-pres' + (visto ? ' visto' : '') + (abierto ? ' abierto' : '')}
+    <div className={'vg-punto-pres' + (visto ? ' visto' : '') + (abierto ? ' abierto' : '')} data-punto={a.id}
       style={{ left: a.x * 100 + '%', top: a.y * 100 + '%', '--tipo': ti.color, animationDelay: retraso + 's' }}>
       <button className="vg-punto vg-punto-boton" onClick={(e) => { e.stopPropagation(); onAbrir(a, e.currentTarget); }}
         aria-label={ti.nombre + (texto ? ': ' + texto : '')}>

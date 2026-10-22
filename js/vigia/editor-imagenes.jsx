@@ -230,7 +230,7 @@ function VigiaEditorImagenes({ act, onChange, onBack, onPresent }) {
               Se agrega como ícono sobre la imagen. Recurso: <strong style={{ color: 'var(--ink)' }}>{rec.nombre}</strong>.
             </p>
           </div>
-          {TIPOS.map((t) => {
+          <TiposAgrupados lista={TIPOS} render={(t) => {
             const habilitado = rec.tipos.includes(t.id) && !!diapo;
             return (
               <button key={t.id} className={'tool-card vg-tipo' + (habilitado ? '' : ' tool-soon')} disabled={!habilitado}
@@ -244,7 +244,7 @@ function VigiaEditorImagenes({ act, onChange, onBack, onPresent }) {
                 <span className="tool-add">+</span>
               </button>
             );
-          })}
+          }} />
           <MusicaFondo musica={g.musica} onCambiar={(musica) => setGaleria({ musica })} />
         </div>
       </div>
@@ -287,13 +287,13 @@ function ConfigPunto({ a, onCambiar, onBorrar, hayEstudiantes, onAbrirEstudiante
           <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 15.5 }}>{ti.nombre}</div>
           <div style={{ fontSize: 13, color: 'var(--muted)' }}>{ti.proposito}</div>
         </div>
-        <div className="vg-segmento" role="radiogroup" aria-label="Tamaño de la tarjeta">
+        {a.tipo !== 'reto' && <div className="vg-segmento" role="radiogroup" aria-label="Tamaño de la tarjeta">
           {[['pequena', 'Tarjeta pequeña'], ['grande', 'Tarjeta grande']].map(([v, t]) => (
             <button key={v} role="radio" aria-checked={tarjeta === v} className={tarjeta === v ? 'on' : ''}
               onClick={() => onCambiar({ ...a, tarjeta: v })}
               title={v === 'pequena' ? 'Se abre junto al ícono, sin tapar la imagen' : 'La tarjeta central, con la frase que irrumpe'}>{t}</button>
           ))}
-        </div>
+        </div>}
       </div>
       <div className="field">
         <label>Primer vistazo (al pasar el mouse)</label>

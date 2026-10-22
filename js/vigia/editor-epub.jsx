@@ -241,7 +241,7 @@ function VigiaEditorEpub({ act, onChange, onBack, onPresent }) {
                   : 'Selecciona un texto del libro y toca un tipo (o toca el tipo y luego selecciona).'}
               </p>
             </div>
-            {TIPOS.filter((t) => rec.tipos.includes(t.id)).map((t) => (
+            <TiposAgrupados lista={TIPOS.filter((t) => rec.tipos.includes(t.id))} render={(t) => (
               <button key={t.id} className={'tool-card vg-tipo' + (tipoMarcar === t.id ? ' on' : '')}
                 onMouseDown={(e) => e.preventDefault()}   /* no perder la selección del texto al hacer clic */
                 onClick={() => elegirTipo(t.id)} title={'Marcar como ' + t.nombre}>
@@ -252,7 +252,7 @@ function VigiaEditorEpub({ act, onChange, onBack, onPresent }) {
                 </span>
                 <span className="tool-add">+</span>
               </button>
-            ))}
+            )} />
             {sel && (
               <div style={{ marginTop: 10 }}>
                 <ConfigActivacion key={sel.id} a={sel} onCambiar={cambiar} onBorrar={() => borrar(sel.id)}

@@ -22,6 +22,29 @@ if (!window.hashPin) {
   };
 }
 
+/* Mando del Modo Vigía: su pantalla (js/vigia/mando-celular.jsx) se carga
+   solo cuando hace falta, para no pesar en la página. */
+function CargadorMandoVigia(props) {
+  const [listo, setListo] = React.useState(!!window.VigiaMandoCelular);
+  const [error, setError] = React.useState(false);
+  React.useEffect(() => {
+    if (listo) return;
+    const v = typeof VIGIA_MANDO_VERSION !== 'undefined' ? VIGIA_MANDO_VERSION : '1';
+    Actividades.ejecutarJSX('js/vigia/mando-celular.jsx?v=' + v)
+      .then(() => setListo(true))
+      .catch((e) => { console.error('[mando vigía]', e); setError(true); });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  if (listo && window.VigiaMandoCelular) return <window.VigiaMandoCelular {...props} />;
+  return (
+    <div style={rcWrap}>
+      <div style={{ textAlign: 'center', color: error ? '#F53711' : '#9AA396' }}>
+        {error ? 'No se pudo cargar el mando. Revisa tu conexión y recarga.' : 'Preparando el mando…'}
+      </div>
+    </div>
+  );
+}
+
 function RemoteControl({ initialCode }) {
   const [code, setCode] = React.useState(initialCode || '');
   const [input, setInput] = React.useState('');
@@ -54,6 +77,11 @@ function RemoteControl({ initialCode }) {
     });
     return unsub;
   }, [connected, code]);
+
+  // Modo Vigía sin PIN: no hay estudiantes, se entra directo como mando.
+  React.useEffect(() => {
+    if (connected && !rol && state && state.clase === 'vigia' && !state.mandoHash) setRol('docente');
+  }, [connected, rol, state]);
 
   async function tryConnect(c) {
     const clean = String(c || '').trim();
@@ -156,6 +184,11 @@ function RemoteControl({ initialCode }) {
         </div>
       </div>
     );
+  }
+
+  // ----- Modo Vigía: su propio mando (se carga aparte, solo aquí) -----
+  if (connected && rol === 'docente' && state && state.clase === 'vigia') {
+    return <CargadorMandoVigia code={code} state={state} send={send} />;
   }
 
   // ----- Modo estudiante: vista propia -----

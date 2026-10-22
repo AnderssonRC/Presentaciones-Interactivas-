@@ -26,6 +26,7 @@ Vuelve interactivos los recursos "cerrados" (videos, documentales, podcast…): 
 | `presentar-podcast.jsx` | Presentar de **podcast**: la imagen a pantalla completa, mismas tarjetas y barra que el video; «YT» muestra el video de YouTube (anuncios). |
 | `editor-imagenes.jsx` | Editor de **imágenes** (estilo Genially): imágenes como diapositivas (`galeria.diapos`), activadores como íconos arrastrables sobre la imagen (`x`, `y` en 0–1, `tarjeta: 'pequena'|'grande'`, `titulo` = primer vistazo), `LienzoImagen` y `MusicaFondo` (`galeria.musica`, mismas plataformas que el podcast). |
 | `presentar-imagenes.jsx` | Presentar **imágenes**: íconos que laten, vistazo al pasar el mouse, `MiniTarjeta` junto al ícono o `TarjetaActivacion` grande, navegación ← → con puntos, música de fondo que baja al abrir una tarjeta. |
+| `presentar-reto.jsx` | Tipo **físico-grupal** «Reto de activación»: escena del cóndor retador (`condor-retador.png`, rayos y ojos que se encienden) y el reto a pantalla completa con sorteo de parejas, grupos u orden. Los retos preconfigurados están en `tipos.js` (`RETOS`); los grupos de tipos, en `GRUPOS`. |
 | `drive.jsx` | Google Drive del docente: sesión con Google Identity Services (`DriveAuth`, `<DriveSesion />`), carpeta «Res Cogitans/PDFs», subida del PDF, lista de PDF ya subidos y el JSON de marcas (`useSincronizarMarcas`). |
 
 ### Sobre el PDF (Google Drive)
@@ -85,6 +86,7 @@ En un documento (`recurso: 'documento'`), en lugar de `video` hay `pdf: { url, n
   - `const [tono, setTono] = useTonoPresentar();` (recuerda el tono en ese computador y activa la tecla **L**).
   - En la raíz: `className={'vigia vg-presentar … tono-' + tono}`.
   - Al final de la raíz: `<TonoLateral tono={tono} setTono={setTono} />` (botón ☀ en el borde izquierdo: aparece al acercar el mouse y se oculta al retirarlo).
+  - Mando a distancia (mando.jsx): `const mando = useMandoVigia(estado, manejar)` y `<MandoBadge mando={mando} />`. `estado` es lo que ve el celular (recurso, lista con `itemMando`, activa…); `manejar(accion)` recibe 'alternar', 'continuar', 'abrir', 'siguiente', 'saltar', 'zoom', 'salir'… La pantalla del celular es `mando-celular.jsx` (la carga remote.jsx; versión en `VIGIA_MANDO_VERSION` de vigia.jsx).
   - Y después: `<HerramientasPresentar />` (herramientas.jsx: pincel abajo a la izquierda con lupa, marcador, puntero y texto; la lupa escala `.vg-presentar`).
   - Lo que se proyecta lleva una clase genérica para que los tonos lo afecten:
     - `vg-proyectado-doc`: páginas, textos e **imágenes** (Imágenes y Documento).

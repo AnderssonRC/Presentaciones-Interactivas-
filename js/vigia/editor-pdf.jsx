@@ -242,7 +242,7 @@ function VigiaEditorPdf({ act, onChange, onBack, onPresent }) {
                 Elige uno y arrastra sobre el texto del PDF. Recurso: <strong style={{ color: 'var(--ink)' }}>{rec.nombre}</strong>.
               </p>
             </div>
-            {TIPOS.filter((t) => rec.tipos.includes(t.id)).map((t) => (
+            <TiposAgrupados lista={TIPOS.filter((t) => rec.tipos.includes(t.id))} render={(t) => (
               <button key={t.id} className={'tool-card vg-tipo' + (tipoMarcar === t.id ? ' on' : '')}
                 onClick={() => setTipoMarcar((m) => (m === t.id ? null : t.id))}
                 title={'Marcar en el PDF: ' + t.nombre}>
@@ -253,7 +253,7 @@ function VigiaEditorPdf({ act, onChange, onBack, onPresent }) {
                 </span>
                 <span className="tool-add">+</span>
               </button>
-            ))}
+            )} />
             {sel && (
               <div style={{ marginTop: 10 }}>
                 <ConfigActivacion key={sel.id} a={sel} onCambiar={cambiar} onBorrar={() => borrar(sel.id)} onReleer={() => releer(sel)}
