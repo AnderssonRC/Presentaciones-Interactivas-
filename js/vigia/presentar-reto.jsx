@@ -10,7 +10,9 @@
    funciona en todos los modos Presentar. Deja libre la franja inferior (la
    barra con las demás activaciones) y queda por debajo del tono de pantalla. */
 
-const RETO_CONDOR = 'condor-retador.png';
+// Versión SIN fondo (el negro pasó a transparencia conservando el brillo neón);
+// el original con fondo negro sigue en condor-retador.png.
+const RETO_CONDOR = 'condor-retador-transparente.png';
 const RETO_ESCENA_MS = 3200;
 const RETO_CIERRE_MS = 2600;
 
@@ -147,6 +149,7 @@ function RetoActivacion({ a, estudiantes, orden, onContinuar, textoContinuar }) 
           <h1 className="vg-reto-titulo">{r.titulo}</h1>
           <p className="vg-reto-desc">{r.desc}</p>
           {a.texto && a.texto.trim() && <p className="vg-reto-extra">{a.texto}</p>}
+          <ImagenActivacion a={a} />
 
           {sorteo && (
             <div className={'vg-reto-sorteo ' + sorteo.tipo + (muchos ? ' muchos' : '')} key={semilla}>

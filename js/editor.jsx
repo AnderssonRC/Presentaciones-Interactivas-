@@ -952,13 +952,14 @@ function EjemploCard({ tool, current, curIdx, updateSlide }) {
   const [abierto, setAbierto] = React.useState(false);
   if (!guia) return null;
 
-  const usarEjemplo = () => {
+  const usarEjemplo = async () => {
     const ej = guia.ejemplo || {};
     const hayContenido =
       (current.config.items && current.config.items.length &&
         current.config.items.some((x) => (x || '').trim())) ||
       (current.config.titulo && current.config.titulo.trim());
-    if (hayContenido && !window.confirm('Esto reemplazará lo que ya escribiste con el ejemplo. ¿Continuar?')) return;
+    if (hayContenido && !(await aipConfirmar('Esto reemplazará lo que ya escribiste con el ejemplo.',
+      { titulo: '¿Usar el ejemplo?', aceptar: 'Usar el ejemplo' }))) return;
     updateSlide(curIdx, {
       ...current,
       config: { ...current.config, ...ej, items: ej.items ? ej.items.slice() : current.config.items },

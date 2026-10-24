@@ -14,12 +14,25 @@
    que es el que muestra el paso de subir el archivo. */
 function VigiaEditor(props) {
   const { act } = props;
-  if (act.recurso === 'podcast') return <VigiaEditorPodcast {...props} />;
-  if (act.recurso === 'imagenes') return <VigiaEditorImagenes {...props} />;
-  if (act.recurso !== 'documento') return <VigiaEditorVideo {...props} />;
-  return act.pdf && act.pdf.formato === 'epub' && (act.pdf.driveId || act.pdf.local)
+  let editor;
+  if (act.recurso === 'podcast') editor = <VigiaEditorPodcast {...props} />;
+  else if (act.recurso === 'imagenes') editor = <VigiaEditorImagenes {...props} />;
+  else if (act.recurso !== 'documento') editor = <VigiaEditorVideo {...props} />;
+  else editor = act.pdf && act.pdf.formato === 'epub' && (act.pdf.driveId || act.pdf.local)
     ? <VigiaEditorEpub {...props} /> : <VigiaEditorPdf {...props} />;
+  // Las listas de estudiantes guardadas llegan a EstudiantesPopover por contexto.
+  return (
+    <ListasCtx.Provider value={{ listas: props.listas || [], guardar: props.onGuardarListas || null }}>
+      {editor}
+    </ListasCtx.Provider>
+  );
 }
+
+/* Listas de estudiantes guardadas (un solo documento 'vigia-listas', ver
+   app.jsx): [{ id, nombre, estudiantes: [nombres], orden }]. Solo nombres. */
+const ListasCtx = React.createContext({ listas: [], guardar: null });
+const limpiarNombres = (arr) => (arr || []).map((s) => (s || '').trim()).filter(Boolean);
+const mismaLista = (a, b) => { const x = limpiarNombres(a), y = limpiarNombres(b); return x.length === y.length && x.every((n, i) => n === y[i]); };
 
 /* Selector de recurso de la barra superior. Solo deja cambiarlo mientras la
    activación está vacía (sin recurso ni activadores), porque cada recurso
@@ -51,20 +64,84 @@ function EstudiantesPopover({ act, update, abierto, setAbierto }) {
   const estudiantes = (act.estudiantes || []).map((s) => (s || '').trim()).filter(Boolean);
   React.useEffect(() => {
     if (!abierto) return;
-    const fuera = (e) => { if (ref.current && !ref.current.contains(e.target)) setAbierto(false); };
-    const esc = (e) => { if (e.key === 'Escape') setAbierto(false); };
+    // Los cuadros de diálogo (vigiaPreguntar…) no cierran el panel.
+    const enDialogo = (e) => !!(e.target && e.target.closest && e.target.closest('.vgd-fondo'));
+    const fuera = (e) => { if (ref.current && !ref.current.contains(e.target) && !enDialogo(e)) setAbierto(false); };
+    const esc = (e) => { if (e.key === 'Escape' && !document.querySelector('.vgd-fondo')) setAbierto(false); };
     document.addEventListener('mousedown', fuera);
     document.addEventListener('keydown', esc);
     return () => { document.removeEventListener('mousedown', fuera); document.removeEventListener('keydown', esc); };
   }, [abierto]);
   const orden = act.ordenNombres || 'apellidos';
+
+  // --- Listas guardadas ---
+  const { listas, guardar } = React.useContext(ListasCtx);
+  const vinculada = listas.find((l) => l.id === act.listaId) || null;
+  const cambiada = vinculada && !mismaLista(vinculada.estudiantes, act.estudiantes);
+  const usarLista = (id) => {
+    const l = listas.find((x) => x.id === id);
+    if (!l) return;
+    const cargar = () => update({ estudiantes: l.estudiantes.slice(), ordenNombres: l.orden || 'apellidos', listaId: l.id });
+    if (estudiantes.length && !mismaLista(l.estudiantes, act.estudiantes) && !vinculada) {
+      vigiaConfirmar('Los nombres que tiene ahora esta activación se reemplazarán por los de «' + l.nombre + '».',
+        { titulo: 'Usar otra lista', aceptar: 'Usar «' + l.nombre + '»' }).then((ok) => { if (ok) cargar(); });
+    } else cargar();
+  };
+  const guardarComoNueva = () => {
+    if (!guardar || !estudiantes.length) return;
+    vigiaPreguntar('Ponle un nombre para encontrarla rápido en cualquier activación.',
+      { titulo: 'Guardar lista de estudiantes', placeholder: 'Ej.: 10°A, Filosofía 11°B', aceptar: 'Guardar lista' })
+      .then((nombre) => {
+        if (!nombre) return;
+        const nueva = { id: AIP.uid(), nombre, estudiantes: estudiantes.slice(), orden };
+        guardar([...listas, nueva]);
+        update({ listaId: nueva.id });
+      });
+  };
+  const actualizarVinculada = () => {
+    if (!guardar || !vinculada) return;
+    guardar(listas.map((l) => (l.id === vinculada.id ? { ...l, estudiantes: estudiantes.slice(), orden } : l)));
+  };
+  const borrarVinculada = async () => {
+    if (!guardar || !vinculada) return;
+    vigiaConfirmar('Se borrará la lista guardada «' + vinculada.nombre + '». Esta activación conserva sus nombres.',
+      { titulo: 'Borrar lista', aceptar: 'Borrar', peligro: true }).then((ok) => {
+      if (!ok) return;
+      guardar(listas.filter((l) => l.id !== vinculada.id));
+      update({ listaId: null });
+    });
+  };
+
   return (
     <div ref={ref} style={{ position: 'relative' }}>
       <button className="btn" onClick={() => setAbierto((o) => !o)} title="Lista de estudiantes para la ruleta">
-        <Icon name="user" size={15} /> Estudiantes · {estudiantes.length}
+        <Icon name="user" size={15} /> {vinculada ? vinculada.nombre : 'Estudiantes'} · {estudiantes.length}
       </button>
       {abierto && (
         <div className="vg-popover">
+          {/* Listas guardadas: elegir una la carga aquí */}
+          <div className="vg-listas">
+            <div style={{ fontWeight: 800, fontSize: 13 }}>Listas guardadas</div>
+            <select className="vg-listas-select" value={vinculada ? vinculada.id : ''} onChange={(e) => usarLista(e.target.value)}>
+              <option value="" disabled>{listas.length ? 'Elegir una lista…' : 'Aún no hay listas guardadas'}</option>
+              {listas.map((l) => <option key={l.id} value={l.id}>{l.nombre} · {limpiarNombres(l.estudiantes).length}</option>)}
+            </select>
+            <div className="vg-listas-acciones">
+              {vinculada && cambiada && (
+                <button type="button" className="vg-mini-accion on" onClick={actualizarVinculada} title="Guardar los cambios de abajo en la lista">
+                  ↑ Actualizar «{vinculada.nombre}»
+                </button>
+              )}
+              <button type="button" className="vg-mini-accion" onClick={guardarComoNueva} disabled={!estudiantes.length || !guardar}>
+                + Guardar como lista nueva
+              </button>
+              {vinculada && (
+                <button type="button" className="vg-mini-accion" onClick={borrarVinculada} title="Borrar esta lista guardada">Borrar lista</button>
+              )}
+            </div>
+            {vinculada && !cambiada && <div style={{ fontSize: 12, color: 'var(--muted)' }}>Usando «{vinculada.nombre}».</div>}
+            {cambiada && <div style={{ fontSize: 12, color: 'var(--naranja-ink)' }}>Cambiaste nombres: puedes actualizar la lista guardada.</div>}
+          </div>
           <div style={{ fontWeight: 800, marginBottom: 4 }}>Estudiantes para la ruleta</div>
           <div style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 10 }}>
             Uno por línea (puedes pegarlos desde Excel). La ruleta no repite a nadie hasta que todos hayan pasado.
@@ -130,8 +207,8 @@ function VigiaEditorVideo({ act, onChange, onBack, onPresent }) {
     setSelId(a.id);
   };
   const cambiar = (a) => setActivaciones((act.activaciones || []).map((x) => (x.id === a.id ? a : x)));
-  const borrar = (id) => {
-    if (!window.confirm('¿Eliminar esta activación?')) return;
+  const borrar = async (id) => {
+    if (!await vigiaConfirmar('¿Eliminar esta activación?', { aceptar: 'Sí, eliminar', peligro: true })) return;
     setActivaciones((act.activaciones || []).filter((x) => x.id !== id));
     if (selId === id) setSelId(null);
   };
@@ -289,20 +366,38 @@ function PasoEnlace({ actual, onListo, onCancelar }) {
 /* Columna de tipos reunida por grupos: "Cognitivos" y "Físico-grupales"
    (título antes del primero de cada grupo). `render(t)`: la tarjeta del tipo. */
 function TiposAgrupados({ lista, render }) {
-  return lista.map((t) => {
-    const g = VigiaTipos.inicioGrupo(t, lista);
-    return (
-      <React.Fragment key={t.id}>
-        {g && (
-          <div className={'vg-grupo-tipos ' + t.grupo}>
-            <span>{g.nombre}</span>
-            <small>{g.desc}</small>
-          </div>
-        )}
-        {render(t)}
-      </React.Fragment>
-    );
+  // Un bloque por grupo, en el orden en que aparecen.
+  const grupos = [];
+  lista.forEach((t) => {
+    const ultimo = grupos[grupos.length - 1];
+    if (ultimo && ultimo.id === t.grupo) ultimo.tipos.push(t);
+    else grupos.push({ id: t.grupo, tipos: [t] });
   });
+  return grupos.map((g) => <GrupoTipos key={g.id} grupo={g.id} tipos={g.tipos} render={render} />);
+}
+
+/* Tarjeta desplegable de un grupo ("Activadores Cognitivos"…). Abierta o
+   cerrada se recuerda en este computador. */
+function GrupoTipos({ grupo, tipos, render }) {
+  const info = VigiaTipos.GRUPOS[grupo] || { nombre: grupo, desc: '' };
+  const clave = 'vigia_grupo_' + grupo;
+  const [abierto, setAbiertoEstado] = React.useState(() => { try { return localStorage.getItem(clave) !== '0'; } catch (e) { return true; } });
+  const setAbierto = (v) => { setAbiertoEstado(v); try { localStorage.setItem(clave, v ? '1' : '0'); } catch (e) { /* */ } };
+  return (
+    <div className={'vg-grupo-card ' + grupo + (abierto ? ' abierto' : '')}>
+      <button type="button" className="vg-grupo-cabeza" onClick={() => setAbierto(!abierto)} aria-expanded={abierto}>
+        <span className="vg-grupo-iconos" aria-hidden="true">
+          {tipos.slice(0, 3).map((t) => <span key={t.id} style={{ background: t.color }}><Icon name={t.icon} size={11} /></span>)}
+        </span>
+        <span style={{ minWidth: 0, flex: 1, textAlign: 'left' }}>
+          <span className="vg-grupo-nombre">{info.titulo || 'Activadores ' + info.nombre}</span>
+          <small>{info.desc} · {tipos.length}</small>
+        </span>
+        <span className="vg-grupo-flecha" aria-hidden="true">▾</span>
+      </button>
+      {abierto && <div className="vg-grupo-cuerpo">{tipos.map((t) => <React.Fragment key={t.id}>{render(t)}</React.Fragment>)}</div>}
+    </div>
+  );
 }
 
 /* "Insertar en el minuto [mm:ss]": escribir un minuto exacto lleva el video
@@ -524,6 +619,10 @@ function ConfigActivacion({ a, onCambiar, onBorrar, tiempoActual, duracion, hayE
     set({ t: Math.max(0, Math.min(duracion || v, v)) });
   };
 
+  // Imagen opcional (solo por URL): se activa con un botón y se muestra en la tarjeta.
+  const [conImagen, setConImagen] = React.useState(!!a.imagen || !!ti.pideImagen);
+  const quitarImagen = () => { const { imagen, ...resto } = a; onCambiar(resto); setConImagen(false); };
+
   const opciones = a.opciones && a.opciones.length ? a.opciones : ['', ''];
   const setOpcion = (i, v) => set({ opciones: opciones.map((o, j) => (j === i ? v : o)) });
   // Al quitar una opción, la correcta sigue apuntando a la misma (o a la A si era esa).
@@ -582,6 +681,52 @@ function ConfigActivacion({ a, onCambiar, onBorrar, tiempoActual, duracion, hayE
         <div className="field">
           <EtiquetaCampo texto="Palabra o término" valor={a.termino} onBorrar={() => set({ termino: '' })} />
           <input type="text" value={a.termino || ''} onChange={(e) => set({ termino: e.target.value })} placeholder="Ej.: fotosíntesis" />
+        </div>
+      )}
+
+      {/* Modo Jaguar: equipos, duelo por un punto, palabra secreta o actividad propia */}
+      {ti.jaguar && (
+        <div className="field vg-jaguar-config">
+          <div className="vg-jaguar-aviso">
+            <span className="vg-jaguar-aviso-ico"><Icon name="puno" size={16} /></span>
+            <span>
+              <strong>El Modo Jaguar dura toda la presentación.</strong> Empieza con el primer desafío (el jaguar con su voz),
+              los equipos y sus puntos se mantienen en los siguientes («¡Que siga la LUCHA!») y <strong>termina mostrando al equipo ganador</strong> al salir de Presentar.
+            </span>
+          </div>
+          {ti.propia && (
+            <React.Fragment>
+              <label>Nombre de tu actividad</label>
+              <input type="text" value={a.tituloPropio || ''} maxLength={70} placeholder="Ej.: Carrera de conceptos"
+                onChange={(e) => set({ tituloPropio: e.target.value })} />
+            </React.Fragment>
+          )}
+          {ti.palabra && (
+            <React.Fragment>
+              <label style={{ marginTop: ti.propia ? 10 : 0 }}>Palabra secreta</label>
+              <input type="text" value={a.palabra || ''} maxLength={40} placeholder="Ej.: democracia"
+                onChange={(e) => set({ palabra: e.target.value })} />
+              <span className="vg-jaguar-nota">Se muestra como espacios _ _ _ y los equipos proponen letras.</span>
+            </React.Fragment>
+          )}
+          <div className="vg-jaguar-fila">
+            <span title="Los equipos se forman en el primer desafío y se mantienen toda la presentación">Equipos (se forman en el primer desafío)</span>
+            <div className="vg-segmento" role="radiogroup" aria-label="Número de equipos">
+              {[2, 3, 4, 5, 6].map((n) => (
+                <button key={n} role="radio" aria-checked={(a.equipos || 2) === n} className={(a.equipos || 2) === n ? 'on' : ''}
+                  onClick={() => set({ equipos: n })}>{n}</button>
+              ))}
+            </div>
+          </div>
+          <label className="vg-jaguar-duelo">
+            <input type="checkbox" checked={!!a.duelo} onChange={(e) => set({ duelo: e.target.checked })} />
+            <span>⚔ Se enfrentan dos equipos por un punto</span>
+          </label>
+          <span className="vg-jaguar-nota" style={{ color: hayEstudiantes ? undefined : 'var(--naranja-ink)' }}>
+            {hayEstudiantes
+              ? 'Al presentar, los estudiantes se reparten al azar en los equipos. Los puntos se suman en el desafío, en el marcador (arriba a la izquierda) o desde el celular.'
+              : <React.Fragment>Sin estudiantes, los equipos aparecen sin nombres. <button className="vg-btn-texto" onClick={onAbrirEstudiantes}>Agrégalos</button></React.Fragment>}
+          </span>
         </div>
       )}
 
@@ -663,6 +808,29 @@ function ConfigActivacion({ a, onCambiar, onBorrar, tiempoActual, duracion, hayE
           </div>
         </div>
       )}
+
+      {/* Imagen del activador (opcional, por URL) */}
+      <div className="field">
+        {!conImagen ? (
+          <button type="button" className="vg-mini-accion vg-agregar-img" onClick={() => setConImagen(true)}
+            title="Mostrar una imagen en la tarjeta al presentar">🖼 Agregar imagen (URL)</button>
+        ) : (
+          <div className="vg-act-img-editor">
+            <div className="vg-etiqueta-campo">
+              <label>Imagen en la tarjeta (URL)</label>
+              <span style={{ flex: 1 }}></span>
+              <button type="button" className="vg-mini-accion" onClick={quitarImagen}>✕ Quitar imagen</button>
+            </div>
+            <div className="vg-act-img-fila">
+              <MiniImagen src={a.imagen ? urlImagen(a.imagen) : ''} vacia="Pega la URL →" />
+              <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <CampoUrlImagen valor={a.imagen || ''} onCambiar={(url) => set({ imagen: url })} autoFocus={!a.imagen} />
+                <span style={{ fontSize: 12, color: 'var(--muted)' }}>Se muestra en la tarjeta al presentar. {AYUDA_IMAGEN}</span>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
 
       {ti.ruleta && (
         <div className="field">

@@ -363,7 +363,7 @@ function RemoteControl({ initialCode }) {
         )}
 
         {/* Salir */}
-        <button onClick={() => { if (window.confirm('¿Terminar la presentación en el televisor?')) send('exit'); }}
+        <button onClick={() => aipConfirmar('Se cerrará la presentación en el televisor.', { titulo: '¿Terminar la presentación?', aceptar: 'Terminar' }).then((ok) => { if (ok) send('exit'); })}
           style={{
             width: '100%', padding: '12px 0', marginTop: 8, fontSize: 15, fontWeight: 700,
             fontFamily: 'var(--font-display)', borderRadius: 12, border: '1px solid #2A2F29',

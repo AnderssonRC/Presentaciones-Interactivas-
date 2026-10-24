@@ -89,7 +89,7 @@ function UserMenu({ profile, esAdmin, onAdmin, onLogout, theme, setTheme, sinTem
               <Icon name="user" size={17} /> Administración
             </button>
           )}
-          {/* `sinTema`: pantallas con entorno propio (Modo Vigía) no ofrecen Modo Día. */}
+          {/* `sinTema`: pantallas que no ofrecen Modo Día. */}
           {!sinTema && (
             <button className="user-menu-item" role="menuitemcheckbox" aria-checked={dia}
               onClick={() => setTheme(dia ? 'tonos' : 'dia')}>
@@ -301,7 +301,7 @@ function AdminPanel({ onBack }) {
   React.useEffect(cargar, []);
   const resolver = (uid, estado) => {
     AIP.resolverSolicitud(uid, estado).then(cargar)
-      .catch((e) => { console.error(e); window.alert('No se pudo actualizar la solicitud.'); });
+      .catch((e) => { console.error(e); aipAviso('Revisa tu conexión e inténtalo de nuevo.', { titulo: 'No se pudo actualizar la solicitud' }); });
   };
   const pend = (lista || []).filter((s) => s.estado === 'pendiente');
   const resueltas = (lista || []).filter((s) => s.estado !== 'pendiente');

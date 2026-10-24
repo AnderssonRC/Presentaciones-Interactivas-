@@ -61,13 +61,13 @@ function VigiaEditorPodcast({ act, onChange, onBack, onPresent }) {
     const { esImagen, ...limpia } = x;   // la marca de la lista no se guarda
     setImagenes(imagenes.map((y) => (y.id === x.id ? limpia : y)));
   };
-  const borrar = (id) => {
-    if (!window.confirm('¿Eliminar esta activación?')) return;
+  const borrar = async (id) => {
+    if (!await vigiaConfirmar('¿Eliminar esta activación?', { aceptar: 'Sí, eliminar', peligro: true })) return;
     setActivaciones((act.activaciones || []).filter((x) => x.id !== id));
     if (selId === id) setSelId(null);
   };
-  const borrarImagen = (id) => {
-    if (!window.confirm('¿Quitar esta imagen del podcast?')) return;
+  const borrarImagen = async (id) => {
+    if (!await vigiaConfirmar('¿Quitar esta imagen del podcast?', { aceptar: 'Sí, eliminar', peligro: true })) return;
     setImagenes(imagenes.filter((x) => x.id !== id));
     if (selId === id) setSelId(null);
   };

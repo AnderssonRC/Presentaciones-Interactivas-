@@ -84,9 +84,9 @@ function VigiaEditorImagenes({ act, onChange, onBack, onPresent }) {
     const arr = diapos.slice(); [arr[i], arr[j]] = [arr[j], arr[i]];
     setDiapos(arr);
   };
-  const borrarDiapo = (id) => {
+  const borrarDiapo = async (id) => {
     const n = (act.activaciones || []).filter((a) => a.diapo === id).length;
-    if (!window.confirm('¿Quitar esta imagen' + (n ? ' y sus ' + n + ' activador' + (n === 1 ? '' : 'es') : '') + '?')) return;
+    if (!await vigiaConfirmar('¿Quitar esta imagen' + (n ? ' y sus ' + n + ' activador' + (n === 1 ? '' : 'es') : '') + '?', { aceptar: 'Sí, eliminar', peligro: true })) return;
     onChange({ ...act, galeria: { ...g, diapos: diapos.filter((x) => x.id !== id) }, activaciones: (act.activaciones || []).filter((a) => a.diapo !== id) });
     if (diapoId === id) { const resto = diapos.filter((x) => x.id !== id); setDiapoId(resto[0] ? resto[0].id : null); }
     setSelId(null);
@@ -102,8 +102,8 @@ function VigiaEditorImagenes({ act, onChange, onBack, onPresent }) {
     update({ activaciones: [...(act.activaciones || []), a] });
     setSelId(a.id);
   };
-  const borrar = (id) => {
-    if (!window.confirm('¿Eliminar este activador?')) return;
+  const borrar = async (id) => {
+    if (!await vigiaConfirmar('¿Eliminar este activador?', { aceptar: 'Sí, eliminar', peligro: true })) return;
     update({ activaciones: (act.activaciones || []).filter((x) => x.id !== id) });
     if (selId === id) setSelId(null);
   };
@@ -287,7 +287,7 @@ function ConfigPunto({ a, onCambiar, onBorrar, hayEstudiantes, onAbrirEstudiante
           <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 15.5 }}>{ti.nombre}</div>
           <div style={{ fontSize: 13, color: 'var(--muted)' }}>{ti.proposito}</div>
         </div>
-        {a.tipo !== 'reto' && <div className="vg-segmento" role="radiogroup" aria-label="Tamaño de la tarjeta">
+        {!esEscena(a) && <div className="vg-segmento" role="radiogroup" aria-label="Tamaño de la tarjeta">
           {[['pequena', 'Tarjeta pequeña'], ['grande', 'Tarjeta grande']].map(([v, t]) => (
             <button key={v} role="radio" aria-checked={tarjeta === v} className={tarjeta === v ? 'on' : ''}
               onClick={() => onCambiar({ ...a, tarjeta: v })}

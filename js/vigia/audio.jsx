@@ -428,4 +428,26 @@ function usePodcast(p, playerVars) {
   });
 }
 
-Object.assign(window, { resolverPodcast, plataformaPodcast, urlImagen, imagenPodcast, TAM_IMAGEN, imagenesDe, imagenEn, conTamImagen, useAudio, useSpotify, useSoundCloud, usePodcast });
+/* Música de fondo al presentar (Documento; Imágenes tiene la suya en su modo).
+   `m`: { url, fuente, src, activa, volumen } | null. Suena mientras `activo`;
+   con `bajar` (una tarjeta abierta) baja al 30 %. Se repite al terminar.
+   Devuelve { hay, on, setOn, rep } — rep.montaje va en un <div> oculto. */
+function useMusicaFondo(m, activo, bajar) {
+  const musica = m && m.activa && m.url ? m : null;
+  const rep = usePodcast(musica, { controls: 0 });
+  const [on, setOn] = React.useState(true);
+  const vol = (musica && musica.volumen) || 40;
+  const sonar = on && activo && !!musica;
+  React.useEffect(() => {
+    if (!rep.listo) return;
+    if (sonar) { rep.setVolumen(bajar ? Math.round(vol * 0.3) : vol); rep.play(); } else rep.pause();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rep.listo, sonar, !!bajar, vol]);
+  React.useEffect(() => {
+    if (sonar && rep.duracion && rep.tiempo >= rep.duracion - 0.6 && !rep.reproduciendo) { rep.seek(0); rep.play(); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rep.tiempo, rep.reproduciendo]);
+  return { hay: !!musica, on, setOn, rep };
+}
+
+Object.assign(window, { useMusicaFondo, resolverPodcast, plataformaPodcast, urlImagen, imagenPodcast, TAM_IMAGEN, imagenesDe, imagenEn, conTamImagen, useAudio, useSpotify, useSoundCloud, usePodcast });

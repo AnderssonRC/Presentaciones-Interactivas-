@@ -443,7 +443,23 @@
    ============================================================ */
 /* Editor: la columna derecha es más ancha (tipos + configuración). */
 .vg-editor-pdf { grid-template-columns: 230px minmax(0, 1fr) 360px; }
-.vg-pdf-col { align-items: center; padding: 18px 24px 60px; }
+/* safe center: si el PDF agrandado es más ancho que la columna, se desplaza
+   a los lados sin cortarse por la izquierda. */
+.vg-pdf-col { align-items: safe center; padding: 18px 24px 60px; overflow-x: auto; }
+/* Tamaño del PDF en el editor: abajo a la izquierda, fijo al desplazar. */
+.vg-zoom-editor {
+  position: sticky; bottom: 10px; left: 0; align-self: flex-start; z-index: 6; margin-top: -40px;
+  display: flex; align-items: center; gap: 2px; padding: 4px; border-radius: 999px;
+  background: rgba(10,6,4,.88); border: 1px solid rgba(255,138,0,.45); box-shadow: 0 8px 22px rgba(0,0,0,.45);
+  backdrop-filter: blur(6px);
+}
+.vg-zoom-editor button {
+  min-width: 38px; height: 34px; padding: 0 8px; border: 0; border-radius: 999px; cursor: pointer;
+  background: transparent; color: #FFF3E6; font-family: var(--font-display); font-weight: 800; font-size: 19px;
+}
+.vg-zoom-editor button.valor { font-size: 13px; min-width: 56px; font-variant-numeric: tabular-nums; }
+.vg-zoom-editor button:hover:not(:disabled) { background: rgba(255,255,255,.14); }
+.vg-zoom-editor button:disabled { opacity: .35; cursor: default; }
 .vg-tipo.on { border-color: var(--vigia-naranja); box-shadow: 0 0 0 3px rgba(255,138,0,.25); }
 .vg-num-mini {
   min-width: 18px; height: 18px; padding: 0 4px; border-radius: 6px; display: inline-grid; place-items: center;
@@ -1100,6 +1116,364 @@
 .vg-grupo-tipos.fisico span { color: #00D4FF; text-shadow: 0 0 10px rgba(0,212,255,.5); }
 .vg-grupo-tipos small { font-size: 11.5px; color: var(--muted); }
 
+/* ============ MODO JAGUAR (presentar-jaguar.jsx) ============
+   Verde neón intenso, azul y amarillo. z 40 como el Reto: por debajo del
+   tono de pantalla; la barra inferior del modo queda por encima. */
+.vg-jaguar { position: fixed; inset: 0; z-index: 40; overflow: hidden; --jv: #39FF14; --ja: #2F80FF; --jy: #FFE600; }
+.vg-presentar:has(.vg-jaguar) .vg-barra-video,
+.vg-presentar:has(.vg-jaguar) .vg-pdf-controles,
+.vg-presentar:has(.vg-jaguar) .vg-nav-diapos { z-index: 50; }
+
+/* 1) Intro: el jaguar irrumpe y sus ojos se encienden en llamas amarillas */
+.vg-jaguar-intro { display: grid; place-items: center; cursor: pointer;
+  background: radial-gradient(circle at 50% 45%, #06210A 0%, #020905 55%, #000 100%); }
+.vg-jaguar-destello { position: absolute; inset: 0; pointer-events: none; opacity: 0;
+  background: radial-gradient(circle at 50% 45%, rgba(57,255,20,.55), rgba(47,128,255,.25) 40%, transparent 70%);
+  animation: vgJaguarPulso 2.4s ease-out both; }
+@keyframes vgJaguarPulso { 0%, 8% { opacity: 0; } 12% { opacity: 1; } 30% { opacity: .2; } 55% { opacity: .7; } 70%, 100% { opacity: .15; } }
+.vg-jaguar-cabeza { position: relative; width: min(64vh, 72vw); aspect-ratio: 1; animation: vgJaguarIrrumpe 2.4s cubic-bezier(.2,.9,.2,1) both; }
+.vg-jaguar-cabeza img { width: 100%; height: 100%; display: block; user-select: none; filter: drop-shadow(0 0 28px rgba(57,255,20,.55)); }
+@keyframes vgJaguarIrrumpe {
+  0% { opacity: 0; transform: scale(.4) translateY(40px); filter: brightness(.2); }
+  14% { opacity: 1; transform: scale(1.1); filter: brightness(1.7); }
+  20% { transform: scale(1) translateX(-10px) rotate(-1deg); } 24% { transform: translateX(10px) rotate(1deg); } 28% { transform: none; filter: brightness(1); }
+  70% { transform: scale(1.04); } 100% { transform: scale(1.14); }
+}
+/* Ojos (posición sobre la imagen, en % del cuadro) */
+.vg-jaguar-ojo { position: absolute; width: 12%; aspect-ratio: 1; transform: translate(-50%, -50%); pointer-events: none; }
+.vg-jaguar-ojo.izq { left: 35.6%; top: 45.2%; }
+.vg-jaguar-ojo.der { left: 64.4%; top: 45.1%; }
+/* Brillo base: empieza azul y se vuelve amarillo fuego */
+.vg-jaguar-ojo::before {
+  content: ''; position: absolute; inset: -20%; border-radius: 50%; mix-blend-mode: screen;
+  background: radial-gradient(circle, #FFFFFF 0 10%, var(--c1, #6FB6FF) 26%, var(--c2, rgba(47,128,255,.7)) 46%, transparent 70%);
+  animation: vgOjoFuego 2.4s ease-in both;
+}
+@keyframes vgOjoFuego {
+  0%, 25% { opacity: 0; transform: scale(.4); --c1: #6FB6FF; --c2: rgba(47,128,255,.7); }
+  40% { opacity: 1; transform: scale(1); background: radial-gradient(circle, #FFF 0 10%, #6FB6FF 26%, rgba(47,128,255,.7) 46%, transparent 70%); }
+  60%, 100% { opacity: 1; transform: scale(1.5); background: radial-gradient(circle, #FFFFFF 0 10%, #FFF36B 24%, rgba(255,200,0,.85) 44%, rgba(255,120,0,.35) 60%, transparent 72%); }
+}
+/* Llamas: tres lenguas que suben y titilan */
+.vg-jaguar-ojo i {
+  position: absolute; left: 50%; bottom: 40%; width: 46%; height: 120%; margin-left: -23%; border-radius: 50% 50% 40% 40% / 70% 70% 30% 30%;
+  background: radial-gradient(ellipse at 50% 85%, #FFFFFF 0 12%, #FFF36B 28%, #FFC400 48%, rgba(255,110,0,.6) 66%, transparent 76%);
+  mix-blend-mode: screen; filter: blur(1.5px); opacity: 0; transform-origin: 50% 100%;
+  animation: vgLlamaAparece 2.4s ease-in both, vgLlama .42s ease-in-out infinite alternate;
+}
+.vg-jaguar-ojo i:nth-child(2) { width: 34%; margin-left: -40%; height: 90%; animation-delay: 0s, .14s; }
+.vg-jaguar-ojo i:nth-child(3) { width: 34%; margin-left: 6%; height: 95%; animation-delay: 0s, .26s; }
+@keyframes vgLlamaAparece { 0%, 45% { opacity: 0; } 65%, 100% { opacity: .95; } }
+@keyframes vgLlama { from { transform: scaleY(.85) scaleX(1.05) skewX(-4deg); } to { transform: scaleY(1.25) scaleX(.9) skewX(5deg); } }
+.vg-jaguar-marca {
+  position: absolute; left: 0; right: 0; bottom: 6vh; text-align: center; pointer-events: none;
+  font-family: var(--font-display, 'Sora', sans-serif); font-weight: 900; letter-spacing: .3em; font-size: clamp(26px, 4.5vw, 72px);
+  color: #EFFFE8; text-shadow: 0 0 14px var(--jv), 0 0 40px rgba(57,255,20,.7), 0 0 80px rgba(47,128,255,.55);
+  animation: vgJaguarMarca 2.4s ease both;
+}
+@keyframes vgJaguarMarca { 0%, 50% { opacity: 0; letter-spacing: .9em; } 72% { opacity: 1; letter-spacing: .3em; } 100% { opacity: 1; } }
+
+/* 2) La frase, de adentro hacia afuera, al ritmo de la voz */
+.vg-jaguar-frase { display: grid; place-items: center; cursor: pointer;
+  background: radial-gradient(circle at 50% 50%, #041A08 0%, #01060A 60%, #000 100%); }
+.vg-jaguar-fondo-img { position: absolute; width: min(110vh, 100vw); opacity: .12; filter: blur(2px); animation: vgJaguarRespira 3s ease-in-out infinite alternate; }
+@keyframes vgJaguarRespira { from { transform: scale(1); } to { transform: scale(1.06); } }
+.vg-jaguar-lineas { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2vh; text-align: center; padding: 0 4vw; }
+.vg-jaguar-linea { font-family: var(--font-display, 'Sora', sans-serif); font-weight: 900; line-height: 1.05; text-transform: uppercase; }
+.vg-jaguar-linea.l0 { font-size: clamp(36px, 6.4vw, 110px); color: #EFFFE8; text-shadow: 0 0 16px var(--jv), 0 0 46px rgba(57,255,20,.75); }
+.vg-jaguar-linea.l1 { font-size: clamp(32px, 5.6vw, 96px); color: #E6F0FF; text-shadow: 0 0 16px var(--ja), 0 0 46px rgba(47,128,255,.8); }
+.vg-jaguar-linea.l2 { font-size: clamp(26px, 4.4vw, 76px); color: #FFFBE0; text-shadow: 0 0 16px var(--jy), 0 0 46px rgba(255,230,0,.7); }
+/* Golpe: nace pequeño en el centro y sale con fuerza (sobrepasa y se asienta) */
+.vg-jaguar-golpe { display: inline-block; animation: vgGolpe .55s cubic-bezier(.15,1.6,.35,1) both; }
+@keyframes vgGolpe {
+  0% { opacity: 0; transform: scale(.15); filter: blur(10px); }
+  55% { opacity: 1; transform: scale(1.22); filter: blur(0); }
+  70% { transform: scale(.96) translateX(-6px); } 82% { transform: scale(1.03) translateX(5px); } 100% { transform: none; }
+}
+
+/* 3) El desafío y los equipos */
+.vg-jaguar-equipos { display: flex; flex-direction: column; padding: 3vh 3vw 72px; animation: vgRetoEntra .55s cubic-bezier(.2,1.2,.4,1) both;
+  background: radial-gradient(circle at 15% 10%, rgba(57,255,20,.16), transparent 50%), radial-gradient(circle at 85% 90%, rgba(47,128,255,.18), transparent 50%), #030805; }
+.vg-jaguar-tarjeta {
+  position: relative; flex: 1; min-height: 0; overflow-y: auto; border-radius: 28px; display: flex; flex-direction: column;
+  padding: clamp(20px, 3.4vh, 44px) clamp(20px, 3.6vw, 60px); text-align: center; color: #EFFFE8;
+  background: linear-gradient(160deg, rgba(57,255,20,.08), transparent 40%, rgba(47,128,255,.10)), #050B07;
+  box-shadow: 0 0 0 3px var(--jv), 0 0 30px 4px rgba(57,255,20,.5), 0 0 0 7px rgba(47,128,255,.9), 0 0 70px 12px rgba(47,128,255,.4);
+  animation: vgJaguarNeon 2.4s ease-in-out infinite alternate;
+}
+@keyframes vgJaguarNeon {
+  from { box-shadow: 0 0 0 3px #39FF14, 0 0 30px 4px rgba(57,255,20,.5), 0 0 0 7px rgba(47,128,255,.9), 0 0 70px 12px rgba(47,128,255,.4); }
+  to { box-shadow: 0 0 0 3px #7CFF5A, 0 0 44px 8px rgba(57,255,20,.7), 0 0 0 7px #4D9BFF, 0 0 100px 18px rgba(47,128,255,.55); }
+}
+.vg-jaguar-contenido { margin: auto 0; width: 100%; display: flex; flex-direction: column; align-items: center; gap: clamp(10px, 1.8vh, 20px); padding-top: 8px; }
+.vg-jaguar-cabecera { display: flex; align-items: center; gap: 10px; }
+.vg-jaguar-cabecera img { width: clamp(44px, 4.6vw, 68px); filter: drop-shadow(0 0 10px rgba(57,255,20,.7)); }
+.vg-jaguar-cabecera span { font-weight: 900; letter-spacing: .26em; text-transform: uppercase; font-size: clamp(13px, 1.1vw, 17px); color: var(--jy); text-shadow: 0 0 12px rgba(255,230,0,.7); }
+.vg-jaguar-titulo {
+  margin: 0; font-family: var(--font-display, 'Sora', sans-serif); font-weight: 900; font-size: clamp(34px, 5.2vw, 90px); line-height: 1.04;
+  color: #FFFFFF; text-shadow: 0 0 14px var(--c, #39FF14), 0 0 40px var(--c, #39FF14);
+}
+.vg-jaguar-texto { margin: 0; max-width: 34em; font-weight: 700; font-size: clamp(19px, 2vw, 34px); line-height: 1.3; color: #EAF6FF; }
+.vg-jaguar-duelo { display: flex; align-items: center; justify-content: center; gap: clamp(10px, 2vw, 28px); flex-wrap: wrap; }
+.vg-jaguar-vs { font-weight: 900; font-size: clamp(28px, 3.4vw, 56px); color: var(--jy); text-shadow: 0 0 18px rgba(255,230,0,.8); font-style: italic; }
+.vg-jaguar-rival {
+  display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: clamp(180px, 20vw, 300px); padding: 14px 20px; border-radius: 18px; cursor: pointer;
+  background: rgba(255,255,255,.05); border: 2.5px solid var(--c); color: #fff; font-family: inherit;
+  box-shadow: 0 0 24px -6px var(--c); transition: transform .12s ease;
+}
+.vg-jaguar-rival strong { font-size: clamp(20px, 2vw, 32px); }
+.vg-jaguar-rival span { font-size: 13px; font-weight: 800; color: var(--c); letter-spacing: .08em; text-transform: uppercase; }
+.vg-jaguar-rival:hover { transform: translateY(-2px) scale(1.03); }
+.vg-jaguar-rival:active { transform: scale(.96); }
+.vg-jaguar-grilla { width: 100%; display: flex; flex-wrap: wrap; justify-content: center; align-items: stretch; gap: clamp(10px, 1.2vw, 18px); }
+.vg-jaguar-equipo {
+  flex: 0 1 clamp(220px, 19vw, 300px); min-width: 0; display: flex; flex-direction: column; border-radius: 18px; overflow: hidden;
+  background: rgba(255,255,255,.035); border: 2px solid var(--c); box-shadow: inset 0 0 22px -10px var(--c), 0 0 18px -8px var(--c);
+  animation: vgBloqueEntra .45s cubic-bezier(.2,1.4,.4,1) both;
+}
+.vg-jaguar-equipo.en-duelo { box-shadow: inset 0 0 22px -8px var(--c), 0 0 34px -4px var(--c); }
+.vg-jaguar-equipo-cabeza { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 14px; background: color-mix(in srgb, var(--c) 22%, transparent); }
+.vg-jaguar-equipo-cabeza span { font-weight: 900; font-size: clamp(15px, 1.4vw, 22px); color: #fff; text-shadow: 0 0 10px var(--c); }
+.vg-jaguar-equipo-cabeza b { min-width: 2em; padding: 2px 8px; border-radius: 999px; background: rgba(0,0,0,.35); color: #fff; font-size: clamp(15px, 1.4vw, 22px); text-align: center; }
+.vg-jaguar-miembros { display: flex; flex-direction: column; padding: 4px 12px 10px; }
+.vg-jaguar-miembros span { padding: 6px 2px; font-weight: 800; font-size: clamp(14px, 1.3vw, 21px); border-top: 1px solid color-mix(in srgb, var(--c) 30%, transparent); text-wrap: balance; }
+.vg-jaguar-miembros span:first-child { border-top: 0; }
+.vg-jaguar-sin { padding: 18px 12px; color: rgba(255,255,255,.55); font-weight: 700; }
+.vg-jaguar-acciones { display: flex; justify-content: flex-end; align-items: center; gap: 12px; padding: 14px 0 16px; }
+.vg-btn.vg-jaguar-btn { background: linear-gradient(135deg, #39FF14, #00C853); color: #021006; box-shadow: 0 0 24px -6px rgba(57,255,20,.9); }
+.vg-jaguar .vg-btn.vg-btn-sec { color: #E6F0FF; border-color: rgba(47,128,255,.7); }
+
+/* Ahorcado */
+.vg-ahorcado { display: flex; align-items: center; justify-content: center; gap: clamp(14px, 3vw, 40px); flex-wrap: wrap; width: 100%; }
+.vg-ahorcado-dibujo { width: clamp(120px, 14vw, 200px); fill: none; stroke: var(--jy); stroke-width: 4; stroke-linecap: round; filter: drop-shadow(0 0 6px rgba(255,230,0,.6)); }
+.vg-ahorcado-dibujo .poste { stroke: var(--ja); filter: drop-shadow(0 0 6px rgba(47,128,255,.7)); }
+.vg-ahorcado-derecha { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.vg-ahorcado-palabra { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.vg-ahorcado-palabra .letra {
+  width: clamp(30px, 3vw, 48px); height: clamp(40px, 4vw, 60px); display: grid; place-items: center;
+  border-bottom: 4px solid var(--jv); font-weight: 900; font-size: clamp(22px, 2.6vw, 42px); color: #fff; text-shadow: 0 0 12px var(--jv);
+}
+.vg-ahorcado-palabra .letra.faltaba { color: var(--jy); text-shadow: 0 0 12px var(--jy); }
+.vg-ahorcado-palabra .espacio { width: clamp(14px, 1.4vw, 24px); }
+.vg-ahorcado-estado { font-weight: 800; color: #CFE3FF; }
+.vg-ahorcado-teclas { display: flex; flex-wrap: wrap; justify-content: center; gap: 5px; max-width: 640px; }
+.vg-ahorcado-teclas button {
+  width: 38px; height: 40px; border-radius: 9px; border: 1.5px solid rgba(255,255,255,.25); background: rgba(255,255,255,.06);
+  color: #fff; font-family: inherit; font-weight: 800; font-size: 16px; cursor: pointer;
+}
+.vg-ahorcado-teclas button:hover:not(:disabled) { border-color: var(--jv); }
+.vg-ahorcado-teclas button.bien { background: var(--jv); color: #031006; border-color: var(--jv); opacity: 1; }
+.vg-ahorcado-teclas button.mal { background: rgba(255,60,60,.25); border-color: rgba(255,60,60,.5); opacity: .7; }
+.vg-ahorcado-teclas button:disabled { cursor: default; }
+
+/* Equipo al azar */
+.vg-azar-equipos { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.vg-azar-fila { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+.vg-azar-chip {
+  padding: 10px 18px; border-radius: 999px; font-weight: 900; font-size: clamp(16px, 1.5vw, 24px);
+  border: 2px solid var(--c); color: #fff; background: rgba(255,255,255,.04); transition: all .08s ease;
+}
+.vg-azar-chip.on { background: var(--c); color: #031006; box-shadow: 0 0 26px -2px var(--c); transform: scale(1.08); }
+.vg-azar-chip.elegido { animation: vgPop .55s cubic-bezier(.2,1.6,.4,1) both; }
+
+/* 4) Cierre: "¡A ganar!" */
+.vg-jaguar-cierre { display: grid; place-items: center; cursor: pointer;
+  background: radial-gradient(circle at 50% 50%, #052A0B 0%, #010805 60%, #000 100%); animation: vgCierreSale 2.4s ease both; }
+.vg-jaguar-cierre-img { position: absolute; width: min(70vh, 80vw); opacity: .35; animation: vgJaguarSeVa 2.4s ease both; }
+@keyframes vgJaguarSeVa { 0% { transform: scale(.7); opacity: 0; } 20% { opacity: .4; transform: scale(1); } 100% { transform: scale(1.3); opacity: 0; } }
+.vg-jaguar-ganar {
+  position: relative; font-family: var(--font-display, 'Sora', sans-serif); font-weight: 900; font-size: clamp(60px, 11vw, 200px);
+  color: #FFFFFF; letter-spacing: .02em;
+  text-shadow: 0 0 18px #39FF14, 0 0 50px rgba(57,255,20,.8), 0 0 90px rgba(47,128,255,.7), 0 6px 0 #FFE600;
+  animation: vgGanar 2.4s cubic-bezier(.15,1.6,.35,1) both;
+}
+@keyframes vgGanar { 0% { opacity: 0; transform: scale(.2) rotate(-6deg); } 22% { opacity: 1; transform: scale(1.15) rotate(2deg); } 32% { transform: scale(1) rotate(0); } 85% { opacity: 1; } 100% { opacity: 0; transform: scale(1.08); } }
+
+/* Duelo "todos contra todos": pie con el avance y "Enfrentar equipos" */
+.vg-jaguar-duelo-caja { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.vg-jaguar-duelo-pie { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; justify-content: center; }
+.vg-jaguar-duelo-pie span { font-weight: 800; font-size: 13.5px; color: #CFE3FF; letter-spacing: .04em; }
+/* Equipo al azar: el elegido y sus botones */
+.vg-azar-elegido { font-weight: 800; font-size: clamp(18px, 1.8vw, 28px); color: #EFFFE8; animation: vgPop .5s cubic-bezier(.2,1.6,.4,1) both; }
+.vg-azar-elegido strong { color: var(--c); text-shadow: 0 0 14px var(--c); }
+.vg-azar-botones { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+/* Sortear equipo desde el pincel de herramientas (Modo Jaguar en marcha) */
+.vg-sorteo-pantalla { position: fixed; inset: 0; z-index: 94; display: grid; place-items: center; padding: 3vh 3vw;
+  background: rgba(2,8,4,.78); backdrop-filter: blur(4px); animation: vgAparece .2s ease both; --jv: #39FF14; --ja: #2F80FF; --jy: #FFE600; }
+.vg-sorteo-caja {
+  position: relative; width: min(860px, 100%); padding: 28px 24px 24px; border-radius: 24px; text-align: center; color: #EFFFE8;
+  background: radial-gradient(500px 200px at 0% 0%, rgba(57,255,20,.14), transparent 70%), #04100A;
+  box-shadow: 0 0 0 2px #39FF14, 0 0 40px -6px rgba(57,255,20,.7), 0 30px 80px rgba(0,0,0,.6);
+  font-family: var(--font-display, 'Sora', sans-serif);
+}
+.vg-sorteo-titulo { display: flex; align-items: center; justify-content: center; gap: 10px; font-weight: 900; font-size: clamp(22px, 2.4vw, 38px); margin-bottom: 16px; }
+.vg-herr-boton.vg-herr-jaguar { color: #39FF14; }
+.vg-herr-boton.vg-herr-jaguar.on { background: #39FF14; color: #031006; }
+
+/* Desafíos siguientes: jaguar con ojos en llamas + "¡Que siga la LUCHA!" */
+.vg-jaguar-cabeza.chica { width: min(46vh, 56vw); animation-duration: 2.6s; }
+.vg-jaguar-sigue { gap: 2vh; align-content: center; }
+.vg-jaguar-lucha {
+  font-family: var(--font-display, 'Sora', sans-serif); font-weight: 900; font-size: clamp(34px, 6vw, 104px); text-align: center;
+  color: #FFFBE0; text-shadow: 0 0 16px #FFE600, 0 0 44px rgba(255,230,0,.6);
+  animation: vgGolpe .6s cubic-bezier(.15,1.6,.35,1) .9s both;
+}
+.vg-jaguar-lucha span { color: #EFFFE8; text-shadow: 0 0 18px #39FF14, 0 0 50px rgba(57,255,20,.8), 0 0 80px rgba(47,128,255,.6); letter-spacing: .04em; }
+/* Puño neón (insignia del Modo Jaguar) */
+.vg-jaguar-puno {
+  display: inline-grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; flex-shrink: 0;
+  background: #031006; color: #39FF14; border: 1.5px solid #39FF14; box-shadow: 0 0 14px -2px #39FF14, inset 0 0 10px -4px #39FF14;
+}
+/* Puntos −/+ en la cabecera de cada equipo */
+.vg-jaguar-puntos { display: inline-flex; align-items: center; gap: 4px; }
+.vg-jaguar-puntos button {
+  width: 30px; height: 30px; border-radius: 9px; border: 1.5px solid var(--c); cursor: pointer; font: inherit; font-weight: 900; font-size: 18px;
+  background: rgba(0,0,0,.35); color: #fff; line-height: 1;
+}
+.vg-jaguar-puntos button:last-child { background: var(--c); color: #031006; }
+.vg-jaguar-puntos button:disabled { opacity: .35; cursor: default; }
+.vg-jaguar-puntos button:active:not(:disabled) { transform: scale(.92); }
+
+/* Marcador flotante (arriba a la izquierda) */
+.vg-marcador { position: fixed; top: 14px; left: 16px; z-index: 91; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+.vg-presentar:has(.vg-jaguar-intro, .vg-jaguar-frase, .vg-jaguar-cierre) ~ .vg-marcador { display: none; }
+.vg-marcador-chip {
+  display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px 5px 5px; border-radius: 999px; cursor: pointer;
+  background: rgba(3,10,5,.82); border: 1px solid rgba(57,255,20,.5); backdrop-filter: blur(6px); opacity: .55; transition: opacity .2s;
+}
+.vg-marcador-chip .vg-jaguar-puno { width: 28px; height: 28px; border-radius: 50%; }
+.vg-marcador-chip:hover, .vg-marcador.abierto .vg-marcador-chip { opacity: 1; }
+.vg-marcador-mini { min-width: 26px; padding: 2px 6px; border-radius: 999px; text-align: center; font-weight: 900; font-size: 13px; background: var(--c); color: #031006; }
+.vg-marcador-panel {
+  width: 300px; padding: 14px; border-radius: 18px; display: flex; flex-direction: column; gap: 8px; color: #EFFFE8;
+  background: rgba(3,10,5,.95); border: 1px solid rgba(57,255,20,.45); box-shadow: 0 20px 50px rgba(0,0,0,.6), 0 0 30px -12px #39FF14;
+  animation: vgHerrAbre .25s ease both;
+}
+.vg-marcador-titulo { font-weight: 900; font-size: 13px; letter-spacing: .12em; text-transform: uppercase; color: #39FF14; }
+.vg-marcador-fila { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-radius: 12px; border: 1.5px solid color-mix(in srgb, var(--c) 55%, transparent); }
+.vg-marcador-fila.lider { border-color: var(--c); box-shadow: 0 0 16px -6px var(--c); }
+.vg-marcador-nombre { flex: 1; min-width: 0; font-weight: 800; color: var(--c); }
+.vg-marcador-fila button { width: 32px; height: 32px; border-radius: 9px; border: 1.5px solid var(--c); background: transparent; color: #fff; font: inherit; font-weight: 900; font-size: 17px; cursor: pointer; }
+.vg-marcador-fila button:last-child { background: var(--c); color: #031006; }
+.vg-marcador-fila button:disabled { opacity: .35; cursor: default; }
+.vg-marcador-fila b { min-width: 28px; text-align: center; font-size: 18px; }
+.vg-marcador-ganador { margin-top: 4px; justify-content: center; }
+
+/* Ganador: encima de todo (la presentación sigue montada debajo) */
+.vg-jaguar.vg-jaguar-final { z-index: 93; display: flex; align-items: center; justify-content: center; gap: 3vw; padding: 3vh 4vw; flex-wrap: wrap;
+  background: radial-gradient(circle at 30% 45%, #062B0C 0%, #020905 55%, #000 100%); animation: vgAparece .35s ease both; }
+.vg-jaguar-cabeza.final { width: min(52vh, 40vw); animation-duration: 2.4s; }
+.vg-jaguar-final-texto { display: flex; flex-direction: column; align-items: flex-start; gap: 1.6vh; max-width: min(640px, 92vw); color: #EFFFE8; }
+.vg-jaguar-final-kicker { font-weight: 900; letter-spacing: .24em; text-transform: uppercase; font-size: clamp(14px, 1.4vw, 22px); color: #FFE600; text-shadow: 0 0 12px rgba(255,230,0,.7); animation: vgAparece .5s ease .5s both; }
+.vg-jaguar-final-nombre { font-family: var(--font-display, 'Sora', sans-serif); font-weight: 900; font-size: clamp(40px, 6vw, 104px); line-height: 1.02; animation: vgGolpe .7s cubic-bezier(.15,1.6,.35,1) .7s both; }
+.vg-jaguar-final-nombre span { color: #fff; text-shadow: 0 0 18px var(--c), 0 0 50px var(--c); }
+.vg-jaguar-final-tabla { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+.vg-jaguar-final-fila {
+  display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 14px; border: 1.5px solid color-mix(in srgb, var(--c) 50%, transparent);
+  background: rgba(255,255,255,.03); font-size: clamp(16px, 1.5vw, 24px); animation: vgBloqueEntra .45s cubic-bezier(.2,1.4,.4,1) both;
+}
+.vg-jaguar-final-fila span { width: 1.8em; height: 1.8em; border-radius: 50%; display: grid; place-items: center; font-weight: 900; background: var(--c); color: #031006; font-size: .85em; }
+.vg-jaguar-final-fila strong { flex: 1; color: var(--c); }
+.vg-jaguar-final-fila.oro { border-color: var(--c); box-shadow: 0 0 22px -6px var(--c); }
+.vg-jaguar-final-acciones { display: flex; gap: 12px; margin-top: 1vh; flex-wrap: wrap; }
+
+/* Editor: aviso "dura toda la presentación" y el puño neón en los tipos del grupo */
+.vg-jaguar-aviso { display: flex; gap: 10px; align-items: flex-start; font-size: 12.5px; line-height: 1.45; padding: 8px 10px; border-radius: 10px; background: rgba(57,255,20,.08); border: 1px dashed rgba(57,255,20,.45); }
+.vg-jaguar-aviso-ico { display: inline-grid; place-items: center; width: 28px; height: 28px; flex-shrink: 0; border-radius: 8px; background: #031006; color: #39FF14; box-shadow: 0 0 10px -2px #39FF14; }
+.vg-grupo-card.jaguar .tool-ico { background: #031006 !important; color: #39FF14 !important; border: 1.5px solid #39FF14; box-shadow: 0 0 14px -3px #39FF14, inset 0 0 10px -4px #39FF14; }
+
+/* Editor: configuración del Modo Jaguar y su grupo de tipos */
+.vg-jaguar-config { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border-radius: 12px; border: 1px solid rgba(57,255,20,.35); background: rgba(57,255,20,.05); }
+.vg-jaguar-fila { display: flex; align-items: center; gap: 10px; margin-top: 4px; font-weight: 700; font-size: 13px; }
+.vg-jaguar-duelo { display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 700; font-size: 13.5px; margin-top: 4px; }
+.vg-jaguar-nota { font-size: 12px; color: var(--muted); }
+.vg-grupo-card.jaguar { border-color: rgba(57,255,20,.45); box-shadow: 0 0 18px -10px rgba(57,255,20,.8); }
+.vg-grupo-card.jaguar .vg-grupo-nombre { color: #39FF14; text-shadow: 0 0 10px rgba(57,255,20,.5); letter-spacing: .04em; }
+[data-theme="dia"] .vg-grupo-card.jaguar .vg-grupo-nombre { color: #148A00; text-shadow: none; }
+@media (prefers-reduced-motion: reduce) {
+  .vg-jaguar-destello, .vg-jaguar-cabeza, .vg-jaguar-ojo::before, .vg-jaguar-ojo i, .vg-jaguar-marca, .vg-jaguar-golpe,
+  .vg-jaguar-tarjeta, .vg-jaguar-equipo, .vg-jaguar-cierre, .vg-jaguar-cierre-img, .vg-jaguar-ganar, .vg-jaguar-fondo-img { animation-duration: .01s; animation-iteration-count: 1; }
+}
+
+/* ---------- Imagen opcional de un activador ---------- */
+/* Editor */
+.vg-agregar-img { font-size: 12.5px; padding: 6px 12px; }
+.vg-act-img-editor { display: flex; flex-direction: column; gap: 6px; }
+.vg-act-img-fila { display: flex; gap: 10px; align-items: flex-start; }
+.vg-act-img-fila .vg-img-mini {
+  flex: 0 0 110px; width: 110px; height: 76px; border-radius: 10px; overflow: hidden;
+  display: flex; align-items: center; justify-content: center; background: rgba(127,127,127,.10); border: 1px solid var(--line);
+}
+.vg-act-img-fila .vg-img-mini img { max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain; display: block; }
+.vg-act-img-fila .vg-img-mini span { font-size: 11px; color: var(--muted); padding: 6px; text-align: center; }
+/* Presentar: arriba del texto, completa y sin deformar; clic = pantalla completa */
+.vg-act-imagen { display: flex; justify-content: center; margin: 0 auto clamp(8px, 1.4vh, 16px); cursor: zoom-in; max-width: 100%; }
+.vg-act-imagen img {
+  display: block; max-width: 100%; max-height: min(34vh, 380px); width: auto; height: auto; object-fit: contain;
+  border-radius: 14px; box-shadow: 0 14px 34px -14px rgba(0,0,0,.7), 0 0 0 1px rgba(255,255,255,.12);
+}
+.vg-mini-tarjeta .vg-act-imagen img { max-height: 40vh; }
+.vg-act-imagen-grande {
+  position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; padding: 3vh 3vw; cursor: zoom-out;
+  background: rgba(0,0,0,.9); animation: vgAparece .2s ease both;
+}
+.vg-act-imagen-grande img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 12px; }
+
+/* ---------- Modo Día en los editores del Modo Vigía ----------
+   (las variables vienen de styles.css: [data-theme="dia"] .vigia…). */
+[data-theme="dia"] .vg-editor .editor-topbar { background: rgba(255,250,244,.94); }
+[data-theme="dia"] .vg-editor .editor-list, [data-theme="dia"] .vg-editor .editor-tools { background: rgba(255,246,236,.94); }
+[data-theme="dia"] .vg-marcar-aviso { background: #FFFFFF; }
+[data-theme="dia"] .vg-minuto-aviso { color: #5A4332; }
+[data-theme="dia"] .vg-minuto-aviso strong { color: #A86A00; }
+[data-theme="dia"] .vg-drive-btn.on { color: #0E7A4E; }
+[data-theme="dia"] .vg-btn-texto:hover { color: #1E4FC0; }
+[data-theme="dia"] .vg-card-head { background-color: #FFF0E0; }
+[data-theme="dia"] .vg-lienzo-marco { background: #F4EADF; border-color: rgba(255,138,0,.3); box-shadow: none; }
+[data-theme="dia"] .vg-lienzo-falla { color: #7A5E48; }
+[data-theme="dia"] .vg-popover { box-shadow: 0 20px 50px -20px rgba(80,40,0,.35); }
+[data-theme="dia"] .vg-modal-fondo { background: rgba(60,35,15,.35); }
+[data-theme="dia"] .vg-grupo-card { background: #FFFFFF; }
+[data-theme="dia"] .vg-grupo-cabeza:hover { background: #FFF6EC; }
+[data-theme="dia"] .vg-grupo-card.fisico .vg-grupo-nombre { color: #0088B0; text-shadow: none; }
+[data-theme="dia"] .vg-grupo-tipos.fisico span { color: #0088B0; text-shadow: none; }
+[data-theme="dia"] .vg-reto-op.on { border-color: #0099C6; }
+[data-theme="dia"] .vg-listas { background: rgba(47,111,224,.06); }
+
+/* Listas de estudiantes guardadas (panel "Estudiantes" del editor) */
+.vg-listas {
+  display: flex; flex-direction: column; gap: 8px; padding: 10px; margin-bottom: 12px; border-radius: 12px;
+  background: rgba(77,148,255,.07); border: 1px solid rgba(77,148,255,.3);
+}
+.vg-listas-select {
+  width: 100%; padding: 8px 10px; border-radius: 10px; font: inherit; font-size: 13.5px; font-weight: 600;
+  background: var(--surface2); color: var(--ink); border: 1px solid var(--line); cursor: pointer;
+}
+.vg-listas-acciones { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* Grupos de tipos como tarjetas desplegables ("Activadores Cognitivos"…). */
+.vg-grupo-card { border-radius: 16px; border: 1px solid var(--line); background: rgba(255,255,255,.02); margin-top: 8px; overflow: hidden; flex-shrink: 0; }
+.vg-grupo-card.cognitivo { border-color: rgba(255,138,0,.35); }
+.vg-grupo-card.fisico { border-color: rgba(0,212,255,.35); }
+.vg-grupo-cabeza {
+  width: 100%; display: flex; align-items: center; gap: 10px; padding: 11px 12px; border: 0; cursor: pointer;
+  background: transparent; color: var(--ink); font-family: inherit;
+}
+.vg-grupo-cabeza:hover { background: rgba(255,255,255,.04); }
+.vg-grupo-nombre { display: block; font-family: var(--font-display); font-weight: 800; font-size: 14px; }
+.vg-grupo-card.cognitivo .vg-grupo-nombre { color: var(--vigia-naranja, #FF8A00); }
+.vg-grupo-card.fisico .vg-grupo-nombre { color: #00D4FF; text-shadow: 0 0 10px rgba(0,212,255,.45); }
+.vg-grupo-cabeza small { display: block; font-size: 11.5px; color: var(--muted); }
+.vg-grupo-iconos { display: flex; flex-shrink: 0; }
+.vg-grupo-iconos span {
+  width: 24px; height: 24px; border-radius: 8px; display: grid; place-items: center; color: #140800;
+  border: 2px solid var(--surface, #120B07); margin-left: -6px;
+}
+.vg-grupo-iconos span:first-child { margin-left: 0; }
+.vg-grupo-flecha { font-size: 16px; color: var(--muted); transition: transform .2s; transform: rotate(-90deg); }
+.vg-grupo-card.abierto .vg-grupo-flecha { transform: none; }
+.vg-grupo-cuerpo { display: flex; flex-direction: column; gap: 8px; padding: 0 8px 8px; animation: vgAparece .2s ease both; }
+
 /* Editor: elegir el reto preconfigurado */
 .vg-retos { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; }
 .vg-reto-op {
@@ -1310,6 +1684,55 @@
 }
 .vg-mando-estado { font-size: 12.5px; font-weight: 700; color: #B39A86; }
 .vg-mando.conectado .vg-mando-estado { color: #3DDC97; }
+
+/* ---------- QR del material (herramientas.jsx · PantallaQr) ---------- */
+.vg-qr-pantalla {
+  position: fixed; inset: 0; z-index: 94; display: grid; place-items: center; padding: 3vh 3vw;
+  background: radial-gradient(circle at 20% 10%, rgba(255,138,0,.18), transparent 50%), radial-gradient(circle at 85% 90%, rgba(0,212,255,.16), transparent 50%), rgba(4,5,9,.96);
+  animation: vgAparece .3s ease both; overflow-y: auto;
+}
+.vg-qr-caja {
+  position: relative; width: min(1100px, 100%); display: flex; flex-direction: column; align-items: center; gap: clamp(8px, 1.6vh, 18px);
+  text-align: center; color: #FFF3E6; font-family: var(--font-display, 'Sora', sans-serif);
+}
+.vg-qr-cerrar {
+  position: absolute; top: 0; right: 0; width: 48px; height: 48px; border-radius: 50%; border: 0; cursor: pointer;
+  display: grid; place-items: center; background: rgba(255,255,255,.1); color: #FFF3E6;
+}
+.vg-qr-cerrar:hover { background: rgba(255,255,255,.2); }
+.vg-qr-kicker { font-size: clamp(12px, 1.1vw, 16px); font-weight: 800; letter-spacing: .22em; text-transform: uppercase; color: #00D4FF; text-shadow: 0 0 12px rgba(0,212,255,.7); }
+.vg-qr-titulo {
+  margin: 0; max-width: 22em; font-family: 'Fraunces', Georgia, serif; font-style: italic; font-weight: 900;
+  font-variation-settings: "SOFT" 100, "WONK" 1; font-size: clamp(28px, 3.8vw, 64px); line-height: 1.05;
+  text-shadow: 0 0 16px rgba(255,138,0,.7);
+}
+.vg-qr-nombre { font-size: clamp(15px, 1.4vw, 22px); font-weight: 700; color: #F3DCC6; word-break: break-word; }
+.vg-qr-opciones { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+.vg-qr-opciones button {
+  padding: 6px 14px; border-radius: 999px; cursor: pointer; font: inherit; font-size: 13px; font-weight: 700;
+  border: 1.5px solid rgba(255,255,255,.25); background: transparent; color: #FFF3E6;
+}
+.vg-qr-opciones button.on { background: #FF8A00; border-color: #FF8A00; color: #140800; }
+.vg-qr-marco {
+  padding: 14px; border-radius: 24px; background: #fff;
+  box-shadow: 0 0 0 4px #FF8A00, 0 0 0 9px rgba(0,212,255,.85), 0 0 70px 10px rgba(0,212,255,.35);
+}
+.vg-qr-marco img { display: block; width: min(46vh, 70vw); height: min(46vh, 70vw); image-rendering: pixelated; }
+.vg-qr-enlace {
+  display: flex; align-items: center; gap: 10px; max-width: min(900px, 100%); padding: 8px 8px 8px 16px; border-radius: 14px;
+  background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.18);
+}
+.vg-qr-enlace span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: clamp(13px, 1.2vw, 18px); color: #DDF6FF; user-select: all; }
+.vg-qr-enlace button {
+  flex-shrink: 0; padding: 10px 18px; border-radius: 10px; border: 0; cursor: pointer; font: inherit; font-weight: 800; font-size: 14px;
+  background: linear-gradient(135deg, #FF8A00, #FF5A1F); color: #140800;
+}
+.vg-qr-aviso { max-width: 44em; font-size: 13.5px; color: #FFD3A3; background: rgba(255,138,0,.1); border: 1px solid rgba(255,138,0,.35); padding: 8px 14px; border-radius: 12px; }
+.vg-qr-frase {
+  margin: 4px 0 0; max-width: 48em; font-family: 'Fraunces', Georgia, serif; font-style: italic; font-weight: 600;
+  font-size: clamp(16px, 1.6vw, 26px); line-height: 1.35; color: #FFF3E6;
+}
+.vg-qr-frase cite { display: block; margin-top: 6px; font-style: normal; font-family: var(--font-display, 'Sora', sans-serif); font-weight: 800; font-size: .7em; letter-spacing: .06em; color: #FF8A00; }
 
 /* ---------- Herramientas de Presentar (herramientas.jsx) ----------
    Van en un portal en <body> (fuera de .vigia): colores con valor de respaldo. */

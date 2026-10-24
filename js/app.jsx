@@ -163,13 +163,19 @@ React.useEffect(() => {
 
   const deletePres = (id) => {
     const esVigia = presentations.some((p) => p.id === id && p.clase === 'vigia');
-    if (window.confirm(esVigia
-      ? '¿Eliminar esta activación? Esta acción no se puede deshacer.'
-      : '¿Eliminar esta presentación? Esta acción no se puede deshacer.')) {
+    const borrar = () => {
       setPresentations((prev) => prev.filter((p) => p.id !== id));
       AIP.deletePresentation(id).catch((e) => console.error('No se pudo eliminar:', e));
       // Documento guardado en este computador para esa activación: también se borra.
       if (esVigia && window.borrarCopiaLocal) window.borrarCopiaLocal(id);
+    };
+    // Modo Vigía: cuadro propio (vigia.jsx); presentaciones: el de siempre.
+    if (esVigia && window.vigiaConfirmar) {
+      window.vigiaConfirmar('Esta acción no se puede deshacer.', { titulo: '¿Eliminar esta activación?', aceptar: 'Sí, eliminar', peligro: true })
+        .then((ok) => { if (ok) borrar(); });
+    } else {
+      aipConfirmar('Esta acción no se puede deshacer.', { titulo: '¿Eliminar esta presentación?', aceptar: 'Sí, eliminar', peligro: true })
+        .then((ok) => { if (ok) borrar(); });
     }
   };
 
@@ -248,9 +254,17 @@ if (adminOpen && AIP.esAdmin()) {
   const presenting = presentations.find((p) => p.id === presentingId);
 
   // Presentaciones y activaciones (Modo Vigía) comparten la colección; se separan aquí.
-  const presentaciones = presentations.filter((p) => p.clase !== 'vigia');
+  // 'vigia-listas': UN documento con las listas de estudiantes guardadas
+  // (solo nombres), para elegirlas rápido en cualquier activación.
+  const presentaciones = presentations.filter((p) => p.clase !== 'vigia' && p.clase !== 'vigia-listas');
   const activaciones = presentations.filter((p) => p.clase === 'vigia');
   const esVigia = (p) => !!p && p.clase === 'vigia';
+  const docListas = presentations.find((p) => p.clase === 'vigia-listas');
+  const listasEstudiantes = (docListas && docListas.listas) || [];
+  const guardarListas = (listas) => persist({
+    ...(docListas || { id: 'vigia-listas', clase: 'vigia-listas', titulo: 'Listas de estudiantes (Modo Vigía)' }),
+    listas,
+  });
 
   // Modo Vigía: interfaz aparte (js/vigia.jsx), con su carga del cóndor.
   if (modo === 'vigia' && (!editing || esVigia(editing)) && (!presenting || esVigia(presenting))) {
@@ -269,12 +283,14 @@ if (adminOpen && AIP.esAdmin()) {
       <React.Fragment>
         {editing ? (
           <VigiaEditor act={editing} onChange={changePres} onBack={() => setEditingId(null)}
+            listas={listasEstudiantes} onGuardarListas={guardarListas}
             onPresent={() => present(editing.id)} />
         ) : (
           <VigiaDashboard profile={profile} esAdmin={AIP.esAdmin()} onAdmin={() => setAdminOpen(true)}
             onLogout={logout} onSalir={() => setModo('interactivas')}
             activaciones={activaciones} onCrear={createActivacion} onAbrir={setEditingId}
-            onPresentar={present} onEliminar={deletePres} onImportar={persist} />
+            onPresentar={present} onEliminar={deletePres} onImportar={persist}
+            theme={theme} setTheme={setTheme} />
         )}
         <ResCogitasFooter />
         <AppTweaks t={t} setTweak={setTweak} />

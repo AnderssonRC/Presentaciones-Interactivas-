@@ -56,6 +56,8 @@ function useMandoVigia(estado, manejar) {
       const orden = cmd.payload || {};
       if (orden.accion === 'hola') { setConectado(true); return; }
       setConectado(true);
+      // Modo Jaguar: sumar / quitar puntos a un equipo.
+      if (orden.accion === 'punto' && window.jaguarPunto) { jaguarPunto(orden.i, orden.delta || 1); return; }
       // Primero los componentes internos (tono, tarjeta, reto); luego el modo.
       window.dispatchEvent(new CustomEvent('vigia-mando', { detail: orden }));
       try { manejarRef.current(orden.accion, orden); } catch (e) { console.error('[mando vigía]', e); }
@@ -64,7 +66,10 @@ function useMandoVigia(estado, manejar) {
 
   // Publicar el estado espejo cuando cambia algo importante (no el tiempo
   // segundo a segundo: el celular lo calcula con `en` y `reproduciendo`).
-  const clave = JSON.stringify({ ...estado, tiempo: undefined, pin });
+  // Marcador del Modo Jaguar (si está en marcha): también lo ve y lo edita el celular.
+  const sesionJaguar = window.useJaguarEstado ? useJaguarEstado() : null;
+  const marcador = sesionJaguar && window.jaguarResumen ? jaguarResumen(sesionJaguar) : null;
+  const clave = JSON.stringify({ ...estado, tiempo: undefined, pin, marcador });
   const ultimoTiempo = React.useRef({ t: 0, en: 0 });
   React.useEffect(() => {
     if (!code) return;
@@ -82,7 +87,7 @@ function useMandoVigia(estado, manejar) {
   function publicar() {
     ultimoTiempo.current = { t: estado.tiempo || 0, en: Date.now() };
     const hash = pin && typeof window.hashPin === 'function' ? window.hashPin(pin) : '';
-    AIP.updateRemoteState(code, { ...estado, clase: 'vigia', en: Date.now(), mandoHash: hash, permiteEstudiantes: false })
+    AIP.updateRemoteState(code, { ...estado, clase: 'vigia', en: Date.now(), mandoHash: hash, permiteEstudiantes: false, marcador })
       .catch((e) => console.error('[mando vigía] estado:', e));
   }
 

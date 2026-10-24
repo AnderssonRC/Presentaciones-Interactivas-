@@ -55,7 +55,7 @@ function VigiaPresentarImagenes({ act, onExit, onChange }) {
   const abrir = (a, el) => {
     marcarVisto(a);
     // Tarjeta grande (el reto siempre va a pantalla completa).
-    if ((a.tarjeta || 'grande') === 'grande' || a.tipo === 'reto') { setMini(null); setFrase((f) => fraseAlAzar(f)); setActiva(a); return; }
+    if ((a.tarjeta || 'grande') === 'grande' || esEscena(a)) { setMini(null); setFrase((f) => fraseAlAzar(f)); setActiva(a); return; }
     const r = el.getBoundingClientRect();
     setMini((x) => (x && x.a.id === a.id ? null : { a, x: r.left + r.width / 2, y: r.top + r.height / 2 }));
   };
@@ -104,7 +104,7 @@ function VigiaPresentarImagenes({ act, onExit, onChange }) {
     activa: activa ? { id: activa.id, tipo: activa.tipo } : mini ? { id: mini.a.id, tipo: mini.a.tipo, pequena: true } : null,
     lista: enOrden, musica: m ? musicaOn : null,
   }, (accion, o) => {
-    const abierta = (activa && activa.tipo !== 'reto') || mini;
+    const abierta = (activa && !esEscena(activa)) || mini;
     if (accion === 'comenzar') setEmpezado(true);
     else if (accion === 'siguiente') ir(i + 1);
     else if (accion === 'anterior') ir(i - 1);
@@ -165,7 +165,7 @@ function VigiaPresentarImagenes({ act, onExit, onChange }) {
       )}
 
       {/* Navegación (se aclara al acercar el mouse) */}
-      {empezado && (!activa || activa.tipo === 'reto') && (
+      {empezado && (!activa || esEscena(activa)) && (
         <div className="vg-nav-diapos">
           <button className="vg-ctrl" onClick={() => ir(i - 1)} disabled={diapos.length < 2} title="Imagen anterior (←)" aria-label="Anterior">‹</button>
           <div className="vg-nav-puntos">
@@ -196,7 +196,7 @@ function VigiaPresentarImagenes({ act, onExit, onChange }) {
       )}
       <TonoLateral tono={tono} setTono={setTono} />
       {/* Herramientas (pincel, abajo a la izquierda): lupa, marcador, puntero, texto. */}
-      <HerramientasPresentar />
+      <HerramientasPresentar act={act} />
       {/* Mando a distancia: chip arriba a la derecha (QR y código). */}
       <MandoBadge mando={mando} />
     </div>

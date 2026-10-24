@@ -43,6 +43,12 @@ const MANDO_CSS = `
 .vgm-pie .vgm-btn { min-height: 50px; font-size: 14px; }
 .vgm-centro { text-align: center; font-weight: 800; font-size: 18px; display: flex; flex-direction: column; justify-content: center; }
 .vgm-centro small { font-size: 12px; color: #B39A86; font-weight: 600; }
+.vgm-jaguar { border-color: rgba(57,255,20,.45); box-shadow: 0 0 24px -10px rgba(57,255,20,.8); }
+.vgm-equipo { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 14px; border: 1.5px solid var(--c); }
+.vgm-equipo-nombre { flex: 1; min-width: 0; font-weight: 800; font-size: 14px; color: var(--c); }
+.vgm-equipo .vgm-btn { min-height: 44px; min-width: 52px; padding: 8px; flex: 0 0 auto; }
+.vgm-equipo .vgm-btn:not(.borde) { background: var(--c); color: #031006; }
+.vgm-equipo b { min-width: 34px; text-align: center; font-size: 20px; }
 `;
 
 function fmtMando(s) {
@@ -103,10 +109,10 @@ function VigiaMandoCelular({ code, state, send }) {
         <div className="vgm-panel tarjeta" style={{ '--c': (itemActivo && itemActivo.color) || '#FF8A00' }}>
           <div className="vgm-kicker">En pantalla · {itemActivo ? itemActivo.nombre : 'Activación'}{activa.pequena ? ' (pequeña)' : ''}</div>
           {itemActivo && itemActivo.texto && <div style={{ fontWeight: 700, fontSize: 15 }}>{itemActivo.texto}</div>}
-          {activa.tipo === 'reto' ? (
+          {activa.tipo === 'reto' || /^jg-/.test(activa.tipo) ? (
             <div className="vgm-fila">
-              <button className="vgm-btn azul" onClick={() => orden('reto-sortear')}>↻ Sortear</button>
-              <button className="vgm-btn grande" onClick={() => orden('reto-terminar')}>Terminar reto</button>
+              <button className="vgm-btn azul" onClick={() => orden('reto-sortear')}>{activa.tipo === 'reto' ? '↻ Sortear' : '↻ Nuevos equipos'}</button>
+              <button className="vgm-btn grande" onClick={() => orden('reto-terminar')}>{activa.tipo === 'reto' ? 'Terminar reto' : 'Terminar desafío'}</button>
             </div>
           ) : (
             <button className="vgm-btn grande" onClick={() => orden('continuar')}>{esMedio ? '▶ Continuar' : '✓ Cerrar tarjeta'}</button>
@@ -156,6 +162,9 @@ function VigiaMandoCelular({ code, state, send }) {
             <button className="vgm-btn borde" onClick={() => orden('zoom', { dir: 0 })}>{st.formato === 'epub' ? (st.letra || '') + ' px' : (st.zoom || 100) + '%'}</button>
             <button className="vgm-btn borde" onClick={() => orden('zoom', { dir: 1 })}>+ Acercar</button>
           </div>
+          {st.musica !== null && st.musica !== undefined && (
+            <button className="vgm-btn borde" onClick={() => orden('musica')}>{st.musica ? '♪ Pausar la música' : '♪ Reanudar la música'}</button>
+          )}
         </div>
       )}
 
@@ -170,6 +179,22 @@ function VigiaMandoCelular({ code, state, send }) {
           {st.musica !== null && st.musica !== undefined && (
             <button className="vgm-btn borde" onClick={() => orden('musica')}>{st.musica ? '♪ Pausar la música' : '♪ Reanudar la música'}</button>
           )}
+        </div>
+      )}
+
+      {/* Modo Jaguar: marcador con − / + y el ganador */}
+      {st.marcador && st.marcador.length > 0 && (
+        <div className="vgm-panel vgm-jaguar">
+          <div className="vgm-kicker" style={{ color: '#39FF14' }}>✊ Marcador · Modo Jaguar</div>
+          {st.marcador.map((e, i) => (
+            <div key={i} className="vgm-equipo" style={{ '--c': e.color }}>
+              <span className="vgm-equipo-nombre">{e.nombre}</span>
+              <button className="vgm-btn borde" onClick={() => orden('punto', { i, delta: -1 })} disabled={!e.puntos}>−</button>
+              <b>{e.puntos}</b>
+              <button className="vgm-btn" onClick={() => orden('punto', { i, delta: 1 })}>+1</button>
+            </div>
+          ))}
+          <button className="vgm-btn borde" onClick={() => orden('jaguar-ganador')}>🏆 Mostrar ganador</button>
         </div>
       )}
 
@@ -195,7 +220,7 @@ function VigiaMandoCelular({ code, state, send }) {
 
       <div className="vgm-pie">
         <button className="vgm-btn borde" onClick={() => orden('tono')}>☀ Tono</button>
-        <button className="vgm-btn borde" onClick={() => { if (window.confirm('¿Salir del modo Presentar en el televisor?')) orden('salir'); }}>✕ Salir</button>
+        <button className="vgm-btn borde" onClick={() => vigiaConfirmar('Se cerrará el modo Presentar en el televisor.', { titulo: '¿Salir?', aceptar: 'Salir' }).then((ok) => { if (ok) orden('salir'); })}>✕ Salir</button>
       </div>
     </div>
   );

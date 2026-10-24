@@ -14,6 +14,9 @@
                                          las activaciones viejas pueden tener url o local)
      activaciones: [{ id, tipo, pagina, x, y, w, h, fragmento, texto, termino?, definicion?, … }] */
 
+// Pasos de tamaño del PDF en el editor (1 = ancho de la columna, hasta 1100 px).
+const ZOOM_EDITOR = [0.6, 0.75, 0.9, 1, 1.15, 1.3, 1.5, 1.75, 2, 2.5];
+
 function VigiaEditorPdf({ act, onChange, onBack, onPresent }) {
   const { TIPOS, recurso, tipo, nuevaActivacion, ordenLectura, recursoListo } = VigiaTipos;
   const rec = recurso(act.recurso);
@@ -31,7 +34,41 @@ function VigiaEditorPdf({ act, onChange, onBack, onPresent }) {
   const [recarga, setRecarga] = React.useState(0);
   const colRef = React.useRef(null);
   const refPaginas = React.useRef({});
-  const ancho = useAnchoDe(colRef, 64, 1100);
+  const anchoBase = useAnchoDe(colRef, 64, 1100);
+  // Tamaño del PDF en el editor (− / + abajo a la izquierda, o Ctrl + rueda):
+  // más grande = más fácil marcar con precisión. Se recuerda en este computador.
+  const [zoom, setZoomEstado] = React.useState(() => {
+    try { const z = Number(localStorage.getItem('vigia_zoom_editor_pdf')); return ZOOM_EDITOR.includes(z) ? z : 1; } catch (e) { return 1; }
+  });
+  const ancho = Math.round(anchoBase * zoom);
+  const proporcionZoom = React.useRef(null);
+  const cambiarZoom = (dir) => {
+    const col = colRef.current;
+    // Conserva a la vista la parte del PDF que se estaba mirando.
+    if (col && col.scrollHeight) proporcionZoom.current = (col.scrollTop + col.clientHeight / 2) / col.scrollHeight;
+    setZoomEstado((z) => {
+      const i = ZOOM_EDITOR.indexOf(z);
+      const n = dir === 0 ? 1 : ZOOM_EDITOR[Math.max(0, Math.min(ZOOM_EDITOR.length - 1, (i < 0 ? 3 : i) + dir))];
+      try { localStorage.setItem('vigia_zoom_editor_pdf', String(n)); } catch (e) { /* */ }
+      return n;
+    });
+  };
+  React.useLayoutEffect(() => {
+    const col = colRef.current, p = proporcionZoom.current;
+    if (!col || p === null) return;
+    proporcionZoom.current = null;
+    col.scrollTop = Math.max(0, p * col.scrollHeight - col.clientHeight / 2);
+    col.scrollLeft = Math.max(0, (col.scrollWidth - col.clientWidth) / 2);
+  }, [zoom]);
+  // Ctrl + rueda del mouse sobre el PDF: acercar / alejar.
+  React.useEffect(() => {
+    const col = colRef.current;
+    if (!col) return undefined;
+    const rueda = (e) => { if (!e.ctrlKey) return; e.preventDefault(); cambiarZoom(e.deltaY < 0 ? 1 : -1); };
+    col.addEventListener('wheel', rueda, { passive: false });
+    return () => col.removeEventListener('wheel', rueda);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [colRef.current]);
 
   const update = (patch) => onChange({ ...act, ...patch });
   const pdf = act.pdf || {};
@@ -92,8 +129,8 @@ function VigiaEditorPdf({ act, onChange, onBack, onPresent }) {
   const cambiar = (a) => setActivaciones((act.activaciones || []).map((x) => (x.id === a.id ? a : x)));
   // Mover / cambiar de tamaño una marca (arrastre o asas en el PDF).
   const cambiarMarca = (id, rect) => setActivaciones((act.activaciones || []).map((x) => (x.id === id ? { ...x, ...rect } : x)));
-  const borrar = (id) => {
-    if (!window.confirm('¿Eliminar este activador?')) return;
+  const borrar = async (id) => {
+    if (!await vigiaConfirmar('¿Eliminar este activador?', { aceptar: 'Sí, eliminar', peligro: true })) return;
     setActivaciones((act.activaciones || []).filter((x) => x.id !== id));
     if (selId === id) setSelId(null);
     if (editorId === id) setEditorId(null);
@@ -230,6 +267,14 @@ function VigiaEditorPdf({ act, onChange, onBack, onPresent }) {
                 editable capaTexto onCambiarMarca={cambiarMarca}
                 onClickFondo={() => setEditorId(null)} />
             )}
+            {/* Tamaño del PDF: fijo abajo a la izquierda mientras se desplaza. */}
+            {pdfDoc && !error && (
+              <div className="vg-zoom-editor" role="group" aria-label="Tamaño del PDF">
+                <button onClick={() => cambiarZoom(-1)} disabled={zoom <= ZOOM_EDITOR[0]} title="Achicar el PDF (Ctrl + rueda)">−</button>
+                <button className="valor" onClick={() => cambiarZoom(0)} title="Tamaño normal">{Math.round(zoom * 100)}%</button>
+                <button onClick={() => cambiarZoom(1)} disabled={zoom >= ZOOM_EDITOR[ZOOM_EDITOR.length - 1]} title="Agrandar el PDF (Ctrl + rueda)">+</button>
+              </div>
+            )}
           </div>
           </div>
 
@@ -254,6 +299,8 @@ function VigiaEditorPdf({ act, onChange, onBack, onPresent }) {
                 <span className="tool-add">+</span>
               </button>
             )} />
+            {/* Música de fondo (opcional), igual que en Imágenes. */}
+            <MusicaFondo musica={act.musica} onCambiar={(musica) => update({ musica })} />
             {sel && (
               <div style={{ marginTop: 10 }}>
                 <ConfigActivacion key={sel.id} a={sel} onCambiar={cambiar} onBorrar={() => borrar(sel.id)} onReleer={() => releer(sel)}

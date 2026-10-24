@@ -75,12 +75,13 @@ function importarRespaldo(archivo, existentes) {
       const conLocal = (pdf) => (bytes ? { ...(pdf || {}), local: true, formato } : pdf);
       const actual = (existentes || []).find((a) => a.id === act.id);
       if (!actual) return { ...act, clase: 'vigia', pdf: conLocal(act.pdf) };
-      const reemplazar = window.confirm(
+      return vigiaConfirmar(
         '«' + (act.titulo || 'Activación') + '» ya está en tu cuenta.' + (bytes ? ' Su documento quedó guardado en este computador.' : '') +
-        '\n\n¿Reemplazar también sus marcas con las del respaldo?\n(Cancelar = conservar las marcas actuales)');
-      return reemplazar
-        ? { ...act, clase: 'vigia', pdf: conLocal(act.pdf) }
-        : { ...actual, pdf: conLocal(actual.pdf) };
+        '\n\n¿Reemplazar también sus marcas con las del respaldo?',
+        { titulo: 'Importar respaldo', aceptar: 'Reemplazar marcas', cancelar: 'Conservar las actuales' })
+        .then((reemplazar) => (reemplazar
+          ? { ...act, clase: 'vigia', pdf: conLocal(act.pdf) }
+          : { ...actual, pdf: conLocal(actual.pdf) }));
     });
   });
 }
@@ -139,7 +140,7 @@ function BotonImportarRespaldo({ existentes, onImportado, onAviso }) {
     setOcupado(true);
     importarRespaldo(f, existentes)
       .then((act) => { onImportado(act); if (onAviso) onAviso('Respaldo importado: «' + (act.titulo || 'Activación') + '». Su documento quedó en este computador.'); })
-      .catch((er) => { if (onAviso) onAviso(er.message); else window.alert(er.message); })
+      .catch((er) => { if (onAviso) onAviso(er.message); else vigiaAviso(er.message, { titulo: 'No se pudo importar' }); })
       .finally(() => setOcupado(false));
   };
   return (
@@ -158,7 +159,7 @@ function BotonRespaldo({ act, compacto }) {
   const [ocupado, setOcupado] = React.useState(false);
   const bajar = () => {
     setOcupado(true);
-    descargarRespaldo(act).catch((e) => window.alert(e.message || 'No se pudo crear el respaldo.')).finally(() => setOcupado(false));
+    descargarRespaldo(act).catch((e) => vigiaAviso(e.message || 'No se pudo crear el respaldo.', { titulo: 'Respaldo' })).finally(() => setOcupado(false));
   };
   return compacto ? (
     <button className="btn btn-sm" onClick={bajar} disabled={ocupado} title="Descargar respaldo (.vigia.zip): documento + marcas, para llevar a otro computador">

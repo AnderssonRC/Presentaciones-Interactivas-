@@ -16,31 +16,32 @@ const VIGIA_LOGO = 'condor-vigia-icono.png';
 // Módulos del Modo Vigía, en orden. Al editar uno, sube su versión aquí
 // (y la de este archivo en index.html) para que el navegador no use la vieja.
 const VIGIA_MODULOS = [
-  ['js/vigia/tipos.js', '20261021d'],
+  ['js/vigia/tipos.js', '20261024m'],
   ['js/vigia/youtube.jsx', '20261020p'],
-  ['js/vigia/audio.jsx', '20261021a'],
+  ['js/vigia/audio.jsx', '20261024d'],
   ['js/vigia/drive.jsx', '20261020a'],
   ['js/vigia/pdf.jsx', '20261020f'],
   ['js/vigia/epub.jsx', '20261020f'],
-  ['js/vigia/respaldo.jsx', '20261020b'],
+  ['js/vigia/respaldo.jsx', '20261024h'],
   ['js/vigia/ruleta.jsx', '20261020l'],
-  ['js/vigia/editor.jsx', '20261021d'],
-  ['js/vigia/editor-pdf.jsx', '20261021d'],
-  ['js/vigia/editor-epub.jsx', '20261021d'],
-  ['js/vigia/editor-podcast.jsx', '20261021d'],
-  ['js/vigia/editor-imagenes.jsx', '20261021d'],
-  ['js/vigia/herramientas.jsx', '20261021c'],
-  ['js/vigia/mando.jsx', '20261021g'],
-  ['js/vigia/presentar.jsx', '20261021g'],
-  ['js/vigia/presentar-reto.jsx', '20261021g'],
-  ['js/vigia/presentar-pdf.jsx', '20261021g'],
-  ['js/vigia/presentar-epub.jsx', '20261021g'],
-  ['js/vigia/presentar-podcast.jsx', '20261021g'],
-  ['js/vigia/presentar-imagenes.jsx', '20261021g'],
+  ['js/vigia/editor.jsx', '20261024m'],
+  ['js/vigia/editor-pdf.jsx', '20261024h'],
+  ['js/vigia/editor-epub.jsx', '20261024h'],
+  ['js/vigia/editor-podcast.jsx', '20261024h'],
+  ['js/vigia/editor-imagenes.jsx', '20261024l'],
+  ['js/vigia/herramientas.jsx', '20261024n'],
+  ['js/vigia/mando.jsx', '20261024m'],
+  ['js/vigia/presentar.jsx', '20261024m'],
+  ['js/vigia/presentar-reto.jsx', '20261024k'],
+  ['js/vigia/presentar-jaguar.jsx', '20261024n'],
+  ['js/vigia/presentar-pdf.jsx', '20261024l'],
+  ['js/vigia/presentar-epub.jsx', '20261024l'],
+  ['js/vigia/presentar-podcast.jsx', '20261024l'],
+  ['js/vigia/presentar-imagenes.jsx', '20261024l'],
 ];
-const VIGIA_ESTILOS = ['js/vigia/estilos.css', '20261021g'];
+const VIGIA_ESTILOS = ['js/vigia/estilos.css', '20261024n'];
 // Pantalla del mando en el celular (la carga remote.jsx solo en el celular).
-const VIGIA_MANDO_VERSION = '20261021g';
+const VIGIA_MANDO_VERSION = '20261024m';
 let promesaVigia = null;
 // Tipografía de los títulos de las tarjetas (Fraunces, cursiva "suave"): elegante y juguetona.
 const VIGIA_FUENTE = 'https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT,WONK@1,9..144,600..900,100,1&display=swap';
@@ -59,6 +60,115 @@ function cargarEstilosVigia() {
     document.head.appendChild(l);
   });
 }
+/* ---------- Cuadros de diálogo propios del Modo Vigía ----------
+   Reemplazan a window.confirm / prompt / alert (que se ven con la estética
+   del navegador). Centrados, naranja + azul eléctrico, con el cóndor.
+     · vigiaConfirmar(mensaje, { titulo, aceptar, cancelar, peligro }) -> Promise<boolean>
+     · vigiaPreguntar(mensaje, { titulo, valor, placeholder, aceptar }) -> Promise<string|null>
+     · vigiaAviso(mensaje, { titulo })                                  -> Promise<void>
+   Enter = aceptar, Esc = cancelar. Traen sus propios estilos (sirven también
+   en el celular, que no carga estilos.css). */
+const VG_DIALOGO_CSS = `
+.vgd-fondo { position: fixed; inset: 0; z-index: 2000; display: grid; place-items: center; padding: 20px;
+  background: rgba(3,2,1,.72); backdrop-filter: blur(5px); animation: vgdAparece .18s ease both; }
+.vgd-caja { width: min(460px, 100%); border-radius: 22px; padding: 24px 24px 20px; text-align: center; color: #FFF3E6;
+  font-family: var(--font-display, 'Sora', system-ui, sans-serif);
+  background: radial-gradient(420px 180px at 0% 0%, rgba(255,138,0,.16), transparent 70%), radial-gradient(380px 200px at 100% 100%, rgba(0,212,255,.10), transparent 70%), #120B07;
+  border: 1px solid rgba(255,138,0,.45); box-shadow: 0 30px 80px -20px rgba(0,0,0,.85), 0 0 40px -14px rgba(255,138,0,.6);
+  animation: vgdEntra .26s cubic-bezier(.2,1.3,.4,1) both; }
+.vgd-caja.peligro { border-color: rgba(255,90,60,.6); box-shadow: 0 30px 80px -20px rgba(0,0,0,.85), 0 0 40px -14px rgba(255,90,60,.6); }
+.vgd-logo { width: 54px; height: 54px; border-radius: 14px; margin: 0 auto 10px; display: block; }
+.vgd-titulo { font-weight: 800; font-size: 19px; margin: 0 0 6px; }
+.vgd-mensaje { font-size: 14.5px; line-height: 1.45; color: #E9D6C4; margin: 0 0 16px; white-space: pre-line; }
+.vgd-campo { width: 100%; box-sizing: border-box; padding: 12px 14px; border-radius: 12px; font: inherit; font-size: 16px; font-weight: 700;
+  text-align: center; color: #FFF3E6; background: rgba(255,255,255,.06); border: 1.5px solid rgba(255,138,0,.45); outline: none; margin-bottom: 16px; }
+.vgd-campo:focus { border-color: #FF8A00; box-shadow: 0 0 0 3px rgba(255,138,0,.25); }
+.vgd-campo::placeholder { color: rgba(255,243,230,.4); font-weight: 600; }
+.vgd-botones { display: flex; gap: 10px; justify-content: center; }
+.vgd-btn { flex: 1; max-width: 190px; padding: 12px 16px; border-radius: 12px; border: 0; cursor: pointer; font: inherit; font-weight: 800; font-size: 15px; }
+.vgd-btn.cancelar { background: transparent; color: #FFF3E6; border: 1.5px solid rgba(255,255,255,.22); }
+.vgd-btn.cancelar:hover { background: rgba(255,255,255,.08); }
+.vgd-btn.aceptar { background: linear-gradient(135deg, #FF8A00, #FF5A1F); color: #140800; box-shadow: 0 10px 24px -10px rgba(255,138,0,.9); }
+.vgd-btn.aceptar.peligro { background: linear-gradient(135deg, #FF5A3C, #D9301A); color: #fff; }
+.vgd-btn:disabled { opacity: .45; cursor: default; }
+/* Variante "plataforma" (Actividades Interactivas): usa el tema activo
+   (claro u oscuro) y su color de acento. */
+.vgd-caja.plataforma { background: var(--surface, #141714); color: var(--ink, #F2F5EF); border-color: var(--line, #262B25);
+  box-shadow: 0 30px 80px -20px rgba(0,0,0,.55); }
+.vgd-caja.plataforma .vgd-logo { border-radius: 14px; }
+.vgd-caja.plataforma .vgd-mensaje { color: var(--muted, #9AA396); }
+.vgd-caja.plataforma .vgd-campo { color: var(--ink, #F2F5EF); background: var(--surface2, #1C201B); border-color: var(--line, #262B25); }
+.vgd-caja.plataforma .vgd-campo:focus { border-color: var(--acento, #11F555); box-shadow: 0 0 0 3px color-mix(in srgb, var(--acento, #11F555) 25%, transparent); }
+.vgd-caja.plataforma .vgd-campo::placeholder { color: var(--muted, #9AA396); }
+.vgd-caja.plataforma .vgd-btn.cancelar { color: var(--ink, #F2F5EF); border-color: var(--line, #262B25); }
+.vgd-caja.plataforma .vgd-btn.cancelar:hover { background: var(--surface2, #1C201B); }
+.vgd-caja.plataforma .vgd-btn.aceptar { background: var(--acento, #11F555); color: var(--acento-text, #06140A); box-shadow: none; }
+.vgd-caja.plataforma .vgd-btn.aceptar.peligro { background: linear-gradient(135deg, #FF5A3C, #D9301A); color: #fff; }
+.vgd-caja.plataforma.peligro { border-color: rgba(255,90,60,.55); }
+@keyframes vgdAparece { from { opacity: 0; } to { opacity: 1; } }
+@keyframes vgdEntra { from { opacity: 0; transform: translateY(12px) scale(.95); } to { opacity: 1; transform: none; } }
+`;
+function DialogoVigia({ tipo, titulo, mensaje, valor, placeholder, aceptar, cancelar, peligro, tema, onFin }) {
+  const plataforma = tema === 'plataforma';
+  const [texto, setTexto] = React.useState(valor || '');
+  const campo = React.useRef(null), boton = React.useRef(null);
+  React.useEffect(() => {
+    const foco = tipo === 'preguntar' ? campo.current : boton.current;
+    if (foco && document.activeElement !== foco && !foco.dataset.enfocado) { foco.dataset.enfocado = '1'; foco.focus(); }
+    // Captura: Enter / Esc no llegan a la presentación ni al editor de atrás.
+    const onKey = (e) => {
+      if (e.key === 'Escape') { e.stopPropagation(); e.preventDefault(); onFin(tipo === 'preguntar' ? null : false); }
+      else if (e.key === 'Enter') { e.stopPropagation(); e.preventDefault(); listo(); }
+      else e.stopPropagation();
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  });
+  const listo = () => {
+    if (tipo === 'preguntar') { if (texto.trim()) onFin(texto.trim()); }
+    else onFin(true);
+  };
+  return (
+    <div className="vgd-fondo" onMouseDown={(e) => { if (e.target === e.currentTarget) onFin(tipo === 'preguntar' ? null : false); }}>
+      <div className={'vgd-caja' + (peligro ? ' peligro' : '') + (plataforma ? ' plataforma' : '')} role="dialog" aria-modal="true"
+        aria-label={titulo || (plataforma ? 'Actividades Interactivas' : 'Modo Vigía')}>
+        <img src={plataforma ? 'logo-192.png' : VIGIA_LOGO} alt="" className="vgd-logo" />
+        {titulo && <h2 className="vgd-titulo">{titulo}</h2>}
+        {mensaje && <p className="vgd-mensaje">{mensaje}</p>}
+        {tipo === 'preguntar' && (
+          <input ref={campo} className="vgd-campo" value={texto} placeholder={placeholder || ''} maxLength={60}
+            onChange={(e) => setTexto(e.target.value)} />
+        )}
+        <div className="vgd-botones">
+          {tipo !== 'aviso' && <button className="vgd-btn cancelar" onClick={() => onFin(tipo === 'preguntar' ? null : false)}>{cancelar || 'Cancelar'}</button>}
+          <button ref={boton} className={'vgd-btn aceptar' + (peligro ? ' peligro' : '')} onClick={listo}
+            disabled={tipo === 'preguntar' && !texto.trim()}>{aceptar || (tipo === 'aviso' ? 'Entendido' : 'Aceptar')}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+function abrirDialogoVigia(props) {
+  if (!document.getElementById('vgd-css')) {
+    const s = document.createElement('style'); s.id = 'vgd-css'; s.textContent = VG_DIALOGO_CSS; document.head.appendChild(s);
+  }
+  return new Promise((resolve) => {
+    const nodo = document.createElement('div');
+    document.body.appendChild(nodo);
+    const raiz = ReactDOM.createRoot(nodo);
+    const onFin = (r) => { raiz.unmount(); nodo.remove(); resolve(r); };
+    raiz.render(<DialogoVigia {...props} onFin={onFin} />);
+  });
+}
+const vigiaConfirmar = (mensaje, op) => abrirDialogoVigia({ tipo: 'confirmar', titulo: '¿Seguro?', ...(op || {}), mensaje });
+const vigiaPreguntar = (mensaje, op) => abrirDialogoVigia({ tipo: 'preguntar', ...(op || {}), mensaje });
+const vigiaAviso = (mensaje, op) => abrirDialogoVigia({ tipo: 'aviso', titulo: 'Aviso', ...(op || {}), mensaje });
+// Los mismos cuadros con la estética de Actividades Interactivas (fuera del Modo Vigía).
+const aipConfirmar = (mensaje, op) => vigiaConfirmar(mensaje, { tema: 'plataforma', ...(op || {}) });
+const aipPreguntar = (mensaje, op) => vigiaPreguntar(mensaje, { tema: 'plataforma', ...(op || {}) });
+const aipAviso = (mensaje, op) => vigiaAviso(mensaje, { tema: 'plataforma', ...(op || {}) });
+Object.assign(window, { vigiaConfirmar, vigiaPreguntar, vigiaAviso, aipConfirmar, aipPreguntar, aipAviso });
+
 function cargarVigia() {
   if (!promesaVigia) {
     promesaVigia = cargarEstilosVigia()
@@ -121,7 +231,7 @@ function ElegirRecurso({ onElegir, onCerrar }) {
   );
 }
 
-function VigiaDashboard({ profile, esAdmin, onAdmin, onLogout, onSalir, activaciones, onCrear, onAbrir, onPresentar, onEliminar, onImportar }) {
+function VigiaDashboard({ profile, esAdmin, onAdmin, onLogout, onSalir, activaciones, onCrear, onAbrir, onPresentar, onEliminar, onImportar, theme, setTheme }) {
   const [eligiendo, setEligiendo] = React.useState(false);
   // Aviso breve (p. ej. "Respaldo importado").
   const [aviso, setAviso] = React.useState('');
@@ -158,7 +268,9 @@ function VigiaDashboard({ profile, esAdmin, onAdmin, onLogout, onSalir, activaci
         <button className="btn vigia-btn-crear" onClick={crear} style={{ borderRadius: 999 }}>
           <Icon name="mas" size={16} /> Crear Activaciones
         </button>
-        <UserMenu profile={profile} esAdmin={esAdmin} onAdmin={onAdmin} onLogout={onLogout} sinTema />
+        {/* Modo Día también en el Modo Vigía (crema + naranja y azul; Presentar sigue oscuro). */}
+        <UserMenu profile={profile} esAdmin={esAdmin} onAdmin={onAdmin} onLogout={onLogout}
+          theme={theme} setTheme={setTheme} sinTema={!setTheme} />
       </header>
 
       <main className="main-wrap">

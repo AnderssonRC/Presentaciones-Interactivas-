@@ -88,8 +88,8 @@ function VigiaEditorEpub({ act, onChange, onBack, onPresent }) {
     if (window.getSelection) window.getSelection().removeAllRanges();
   };
   const cambiar = (a) => setActivaciones((act.activaciones || []).map((x) => (x.id === a.id ? a : x)));
-  const borrar = (id) => {
-    if (!window.confirm('¿Eliminar este activador?')) return;
+  const borrar = async (id) => {
+    if (!await vigiaConfirmar('¿Eliminar este activador?', { aceptar: 'Sí, eliminar', peligro: true })) return;
     setActivaciones((act.activaciones || []).filter((x) => x.id !== id));
     if (selId === id) setSelId(null);
     if (editorId === id) setEditorId(null);
@@ -253,6 +253,8 @@ function VigiaEditorEpub({ act, onChange, onBack, onPresent }) {
                 <span className="tool-add">+</span>
               </button>
             )} />
+            {/* Música de fondo (opcional), igual que en Imágenes. */}
+            <MusicaFondo musica={act.musica} onCambiar={(musica) => update({ musica })} />
             {sel && (
               <div style={{ marginTop: 10 }}>
                 <ConfigActivacion key={sel.id} a={sel} onCambiar={cambiar} onBorrar={() => borrar(sel.id)}

@@ -11,10 +11,31 @@
 /* Elige el modo Presentar según el recurso y el formato (video, PDF o EPUB). */
 function VigiaPresentar(props) {
   const { act } = props;
-  if (act.recurso === 'podcast') return <VigiaPresentarPodcast {...props} />;
-  if (act.recurso === 'imagenes') return <VigiaPresentarImagenes {...props} />;
-  if (act.recurso !== 'documento') return <VigiaPresentarVideo {...props} />;
-  return act.pdf && act.pdf.formato === 'epub' ? <VigiaPresentarEpub {...props} /> : <VigiaPresentarPdf {...props} />;
+  // --- Modo Jaguar: una sesión por presentación; al salir se muestra el ganador ---
+  const conJaguar = (act.activaciones || []).some((a) => /^jg-/.test(a.tipo));
+  const jaguar = useJaguarEstado();
+  const [ganador, setGanador] = React.useState(null);   // null | 'salir' | 'ver'
+  React.useEffect(() => { jaguarReiniciar(act.id); }, [act.id]);
+  const salir = () => { if (conJaguar && jaguar.iniciado && jaguar.equipos) setGanador('salir'); else props.onExit(); };
+  useOrdenMando((o) => { if (o.accion === 'jaguar-ganador' && jaguar.iniciado) setGanador('ver'); });
+
+  const p = { ...props, onExit: salir };
+  let modo;
+  if (act.recurso === 'podcast') modo = <VigiaPresentarPodcast {...p} />;
+  else if (act.recurso === 'imagenes') modo = <VigiaPresentarImagenes {...p} />;
+  else if (act.recurso !== 'documento') modo = <VigiaPresentarVideo {...p} />;
+  else modo = act.pdf && act.pdf.formato === 'epub' ? <VigiaPresentarEpub {...p} /> : <VigiaPresentarPdf {...p} />;
+  return (
+    <React.Fragment>
+      {modo}
+      {conJaguar && <MarcadorJaguar onGanador={() => setGanador('ver')} />}
+      {/* Encima de la presentación (que sigue montada: "Volver" la retoma donde iba). */}
+      {ganador && (
+        <GanadorJaguar onSalir={() => { setGanador(null); props.onExit(); }}
+          onVolver={ganador === 'ver' ? () => setGanador(null) : null} />
+      )}
+    </React.Fragment>
+  );
 }
 
 /* Pantalla completa del navegador mientras se presenta; si el docente sale
@@ -170,7 +191,7 @@ function VigiaPresentarVideo({ act, onExit }) {
   }, (accion, o) => {
     if (accion === 'comenzar') { if (!empezado) comenzar(); }
     else if (accion === 'alternar') alternar();
-    else if (accion === 'continuar') { if (activa && activa.tipo !== 'reto') continuar(); }
+    else if (accion === 'continuar') { if (activa && !esEscena(activa)) continuar(); }
     else if (accion === 'saltar') { const t = Math.max(0, yt.tiempo + (o.seg || 0)); prevT.current = t; yt.seek(t); }
     else if (accion === 'abrir') { const a = lista.find((x) => x.id === o.id); if (a) abrirMarca(a); }
     else if (accion === 'volumen') yt.setVolumen((yt.silencio ? 0 : yt.volumen) + (o.delta || 0));
@@ -217,7 +238,7 @@ function VigiaPresentarVideo({ act, onExit }) {
           reproducir, línea de tiempo con las activaciones, volumen,
           subtítulos y salir. */}
       {/* Con un reto en pantalla la barra sigue disponible (el reto deja libre esta franja). */}
-      {(!activa || activa.tipo === 'reto') && (
+      {(!activa || esEscena(activa)) && (
         <div className={'vg-barra-video' + (barraVisible ? '' : ' oculta')}
           onMouseEnter={mantenerBarra} onMouseMove={mantenerBarra} onMouseLeave={() => mostrarBarra(900)}>
           <button className="vg-ctrl" onClick={alternar} title="Reproducir / pausar (espacio)" aria-label="Reproducir o pausar">
@@ -255,7 +276,7 @@ function VigiaPresentarVideo({ act, onExit }) {
       {/* Tono de pantalla: aparece al acercar el mouse al borde izquierdo. */}
       <TonoLateral tono={tono} setTono={setTono} />
       {/* Herramientas (pincel, abajo a la izquierda): lupa, marcador, puntero, texto. */}
-      <HerramientasPresentar />
+      <HerramientasPresentar act={act} />
       {/* Mando a distancia: chip arriba a la derecha (QR y código). */}
       <MandoBadge mando={mando} />
     </div>
@@ -268,6 +289,8 @@ function TarjetaActivacion(props) {
   // El "Reto de activación" (físico-grupal) tiene su propia escena: el cóndor
   // retador con rayos y luego el reto a pantalla completa (presentar-reto.jsx).
   if (props.a.tipo === 'reto') return <RetoActivacion {...props} />;
+  // Modo Jaguar (equipos): el jaguar, su voz y los equipos (presentar-jaguar.jsx).
+  if (/^jg-/.test(props.a.tipo)) return <JaguarActivacion {...props} />;
   return <TarjetaActivacionBase {...props} />;
 }
 function TarjetaActivacionBase({ a, frase, estudiantes, orden, usados, onUsado, onContinuar, textoContinuar, onCambiarActivacion }) {
@@ -396,8 +419,31 @@ function claseLargo(texto, base) {
 function ContenidoActivacion({ a, onCambiar }) {
   const cita = a.fragmento && a.tipo !== 'glosario' && a.tipo !== 'escritura'
     ? <div className={'vg-cita' + claseLargo(a.fragmento, 1.6)}>«{a.fragmento}»</div> : null;
-  if (a.tipo === 'glosario') return <ContenidoGlosario a={a} onCambiar={onCambiar} />;
-  return <React.Fragment>{cita}<ContenidoBase a={a} /></React.Fragment>;
+  const img = <ImagenActivacion a={a} />;
+  if (a.tipo === 'glosario') return <React.Fragment>{img}<ContenidoGlosario a={a} onCambiar={onCambiar} /></React.Fragment>;
+  return <React.Fragment>{img}{cita}<ContenidoBase a={a} /></React.Fragment>;
+}
+
+/* Imagen opcional del activador (URL puesta en el editor), arriba del texto.
+   Clic: la agranda a pantalla completa; otro clic la devuelve. */
+function ImagenActivacion({ a }) {
+  const [falla, setFalla] = React.useState(false);
+  const [grande, setGrande] = React.useState(false);
+  React.useEffect(() => { setFalla(false); }, [a.imagen]);
+  if (!a.imagen || falla) return null;
+  const src = urlImagen(a.imagen);
+  return (
+    <React.Fragment>
+      <div className="vg-act-imagen" onClick={() => setGrande(true)} title="Clic para agrandar">
+        <img src={src} alt="" referrerPolicy="no-referrer" onError={() => setFalla(true)} />
+      </div>
+      {/* En <body>: la tarjeta tiene zoom/animaciones que encerrarían un position: fixed. */}
+      {grande && ReactDOM.createPortal(
+        <div className="vg-act-imagen-grande" onClick={(e) => { e.stopPropagation(); setGrande(false); }} title="Clic para cerrar">
+          <img src={src} alt="" referrerPolicy="no-referrer" />
+        </div>, document.body)}
+    </React.Fragment>
+  );
 }
 
 /* Glosario: la palabra señalada y una hoja donde el docente escribe en vivo
@@ -556,6 +602,6 @@ function TonoLateral({ tono, setTono }) {
 }
 
 Object.assign(window, {
-  VigiaPresentar, VigiaPresentarVideo, usePantallaCompleta, useUsadosRuleta, TarjetaActivacion, ContenidoActivacion,
+  VigiaPresentar, VigiaPresentarVideo, usePantallaCompleta, useUsadosRuleta, TarjetaActivacion, ContenidoActivacion, ImagenActivacion,
   TONOS_PANTALLA, useTonoPresentar, SelectorTono, TonoLateral, ESCALAS_TARJETA,
 });

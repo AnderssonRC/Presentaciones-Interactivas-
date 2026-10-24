@@ -108,6 +108,9 @@ function VigiaPresentarEpub({ act, onExit, onChange }) {
   const conteo = {};
   lista.forEach((a) => { conteo[a.cap] = (conteo[a.cap] || 0) + 1; });
 
+  // --- Música de fondo (opcional): baja mientras hay una tarjeta abierta ---
+  const musica = useMusicaFondo(act.musica, !!libro, !!activa);
+
   // --- Mando a distancia (celular) ---
   const abrirDesdeMando = (p) => {
     if (activa) cerrar();
@@ -118,13 +121,15 @@ function VigiaPresentarEpub({ act, onExit, onChange }) {
   const mando = useMandoVigia({
     recurso: 'documento', formato: 'epub', titulo: act.titulo || '', letra: tamano, pendientes, capitulo: capitulo + 1,
     activa: activa ? { id: activa.id, tipo: activa.tipo } : null,
+    musica: musica.hay ? musica.on : null,
     lista: lista.map((a) => itemMando(a, 'N.º ' + numeros[a.id] + ' · cap. ' + ((a.cap || 0) + 1), vistos.includes(a.id))),
   }, (accion, o) => {
-    if (accion === 'siguiente' || accion === 'alternar') { if (activa) { if (activa.tipo !== 'reto') cerrar(); } else siguiente(); }
+    if (accion === 'siguiente' || accion === 'alternar') { if (activa) { if (!esEscena(activa)) cerrar(); } else siguiente(); }
     else if (accion === 'abrir') { const p = lista.find((x) => x.id === o.id); if (p) abrirDesdeMando(p); }
-    else if (accion === 'continuar') { if (activa && activa.tipo !== 'reto') cerrar(); }
+    else if (accion === 'continuar') { if (activa && !esEscena(activa)) cerrar(); }
     else if (accion === 'zoom') cambiarTamano(o.dir || 0);
     else if (accion === 'desplazar') { if (scroll.current) scroll.current.scrollBy({ top: (o.dir || 1) * scroll.current.clientHeight * 0.6, behavior: 'smooth' }); }
+    else if (accion === 'musica') musica.setOn((v) => !v);
     else if (accion === 'salir') onExit();
   });
 
@@ -144,7 +149,7 @@ function VigiaPresentarEpub({ act, onExit, onChange }) {
         )}
       </div>
 
-      {(!activa || activa.tipo === 'reto') && libro && (
+      {(!activa || esEscena(activa)) && libro && (
         <div className={'vg-pdf-controles' + (controles ? '' : ' oculto')} onMouseEnter={mostrarControles}>
           <NavCapitulos libro={libro} capitulo={capitulo} setCapitulo={irCapitulo} conteo={conteo} compacto />
           <span className="vg-ctrl-sep"></span>
@@ -157,6 +162,15 @@ function VigiaPresentarEpub({ act, onExit, onChange }) {
               <button className="vg-ctrl vg-ctrl-sig" onClick={siguiente}
                 title={(pendientes ? pendientes + ' de ' + lista.length + ' por descubrir' : 'Todos descubiertos') + ' · → o espacio'}>
                 {pendientes ? pendientes + '/' + lista.length : '✓'} <Icon name="flecha" size={16} />
+              </button>
+            </React.Fragment>
+          )}
+          {musica.hay && (
+            <React.Fragment>
+              <span className="vg-ctrl-sep"></span>
+              <button className={'vg-ctrl vg-ctrl-musica' + (musica.on ? ' on' : '')} onClick={() => musica.setOn((v) => !v)}
+                title={musica.on ? 'Pausar la música de fondo' : 'Reanudar la música de fondo'} aria-label="Música de fondo">
+                ♪{musica.on ? '' : <span className="vg-tachado"></span>}
               </button>
             </React.Fragment>
           )}
@@ -173,9 +187,11 @@ function VigiaPresentarEpub({ act, onExit, onChange }) {
       {/* Tono de pantalla: aparece al acercar el mouse al borde izquierdo. */}
       <TonoLateral tono={tono} setTono={setTono} />
       {/* Herramientas (pincel, abajo a la izquierda): lupa, marcador, puntero, texto. */}
-      <HerramientasPresentar />
+      <HerramientasPresentar act={act} />
       {/* Mando a distancia: chip arriba a la derecha (QR y código). */}
       <MandoBadge mando={mando} />
+      {/* Música de fondo: el reproductor existe pero no se ve. */}
+      {musica.hay && <div className="vg-musica-oculta" aria-hidden="true"><div ref={musica.rep.montaje} className="vg-video"></div></div>}
     </div>
   );
 }

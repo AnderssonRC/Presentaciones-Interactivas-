@@ -21,7 +21,83 @@ const HERR_ICONOS = {
   deshacer: <path d="M9 7L4 12l5 5M4.5 12H15a5 5 0 010 10h-2" />,
   borrar: <path d="M4 7h16M9 7V4.5h6V7M6.5 7l1 13h9l1-13M10 11v6M14 11v6" />,
   cerrar: <path d="M6 6l12 12M18 6L6 18" />,
+  dado: <React.Fragment><rect x="4" y="4" width="16" height="16" rx="3.5" /><circle cx="8.8" cy="8.8" r="1.3" fill="currentColor" /><circle cx="15.2" cy="15.2" r="1.3" fill="currentColor" /><circle cx="15.2" cy="8.8" r="1.3" fill="currentColor" /><circle cx="8.8" cy="15.2" r="1.3" fill="currentColor" /><circle cx="12" cy="12" r="1.3" fill="currentColor" /></React.Fragment>,
+  qr: <React.Fragment><rect x="3.5" y="3.5" width="6.5" height="6.5" rx="1" /><rect x="14" y="3.5" width="6.5" height="6.5" rx="1" /><rect x="3.5" y="14" width="6.5" height="6.5" rx="1" /><path d="M14 14h2.5v2.5H14zM18 18h2.5v2.5H18zM14 20.5h2M20.5 14v2" /></React.Fragment>,
 };
+
+/* Enlace del material que se presenta (para el QR). Imágenes: una por imagen.
+   Devuelve { nombre, enlaces: [{ titulo, url }], aviso? }. */
+function materialParaQr(act) {
+  const a = act || {};
+  const titulo = a.titulo || 'Activación';
+  if (a.recurso === 'documento') {
+    const p = a.pdf || {};
+    const nombre = p.nombre || titulo;
+    if (p.driveId) return { titulo, nombre, enlaces: [{ titulo: nombre, url: 'https://drive.google.com/file/d/' + p.driveId + '/view' }],
+      aviso: 'Para que lo abran, comparte el archivo en Google Drive como «Cualquier persona con el enlace».' };
+    if (p.url) return { titulo, nombre, enlaces: [{ titulo: nombre, url: p.url }] };
+    return { titulo, nombre, enlaces: [], aviso: 'Este documento está guardado solo en este computador: no tiene un enlace para compartir. Súbelo a Drive para poder compartirlo.' };
+  }
+  if (a.recurso === 'podcast') {
+    const url = (a.podcast || {}).url;
+    return { titulo, nombre: titulo, enlaces: url ? [{ titulo: 'Podcast', url }] : [] };
+  }
+  if (a.recurso === 'imagenes') {
+    const diapos = ((a.galeria || {}).diapos || []).filter((d) => d.url);
+    return { titulo, nombre: titulo, enlaces: diapos.map((d, i) => ({ titulo: d.titulo || 'Imagen ' + (i + 1), url: d.url })) };
+  }
+  const v = a.video || {};
+  const url = v.url || (v.id ? 'https://youtu.be/' + v.id : '');
+  return { titulo, nombre: titulo, enlaces: url ? [{ titulo: 'Video', url }] : [] };
+}
+
+const FRASE_QR = 'Estudiar es de sabios que saben que cualquier información, por más lejana que parezca, tendrá utilidad en momentos de mayor contingencia.';
+
+/* Pantalla del QR: grande, con el nombre exacto, el enlace para copiar y la frase. */
+function PantallaQr({ act, onCerrar }) {
+  const m = materialParaQr(act);
+  const [i, setI] = React.useState(0);
+  const [copiado, setCopiado] = React.useState(false);
+  const actual = m.enlaces[Math.min(i, m.enlaces.length - 1)] || null;
+  const qr = actual ? 'https://api.qrserver.com/v1/create-qr-code/?size=640x640&margin=10&data=' + encodeURIComponent(actual.url) : '';
+  const copiar = () => {
+    if (!actual) return;
+    const hecho = () => { setCopiado(true); setTimeout(() => setCopiado(false), 1800); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(actual.url).then(hecho, () => {});
+    else { const t = document.createElement('textarea'); t.value = actual.url; document.body.appendChild(t); t.select(); try { document.execCommand('copy'); hecho(); } catch (e) { /* */ } t.remove(); }
+  };
+  return (
+    <div className="vg-qr-pantalla" role="dialog" aria-label="QR del material" onClick={onCerrar}>
+      <div className="vg-qr-caja" onClick={(e) => e.stopPropagation()}>
+        <button className="vg-qr-cerrar" onClick={onCerrar} title="Cerrar (Esc)" aria-label="Cerrar"><HerrIcono n="cerrar" size={22} /></button>
+        <div className="vg-qr-kicker">Escanea y llévate el material</div>
+        <h1 className="vg-qr-titulo">{m.titulo}</h1>
+        {m.nombre && m.nombre !== m.titulo && <div className="vg-qr-nombre">{m.nombre}</div>}
+        {m.enlaces.length > 1 && (
+          <div className="vg-qr-opciones">
+            {m.enlaces.map((e, k) => (
+              <button key={k} className={k === i ? 'on' : ''} onClick={() => { setI(k); setCopiado(false); }}>{e.titulo}</button>
+            ))}
+          </div>
+        )}
+        {actual ? (
+          <React.Fragment>
+            <div className="vg-qr-marco"><img src={qr} alt={'QR de ' + actual.titulo} /></div>
+            <div className="vg-qr-enlace">
+              <span title={actual.url}>{actual.url}</span>
+              <button onClick={copiar}>{copiado ? '✓ Copiado' : 'Copiar enlace'}</button>
+            </div>
+          </React.Fragment>
+        ) : null}
+        {m.aviso && <div className="vg-qr-aviso">{m.aviso}</div>}
+        <blockquote className="vg-qr-frase">
+          «{FRASE_QR}»
+          <cite>— Andersson Cortes y Res Cogitans</cite>
+        </blockquote>
+      </div>
+    </div>
+  );
+}
 function HerrIcono({ n, size = 20 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
@@ -36,8 +112,26 @@ const HERRAMIENTAS = [
   { id: 'texto', nombre: 'Texto', ayuda: 'Clic donde quieras escribir' },
 ];
 
-function HerramientasPresentar() {
+/* Modo Jaguar en marcha: sortear qué equipo responde la activación en
+   pantalla (aunque no sea un desafío Jaguar). */
+function PantallaSorteoEquipo({ equipos, onCerrar }) {
+  return (
+    <div className="vg-sorteo-pantalla" onClick={onCerrar}>
+      <div className="vg-sorteo-caja" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Sortear equipo">
+        <button className="vg-qr-cerrar" onClick={onCerrar} title="Cerrar (Esc)" aria-label="Cerrar"><HerrIcono n="cerrar" size={20} /></button>
+        <div className="vg-sorteo-titulo"><span className="vg-jaguar-puno"><Icon name="puno" size={18} /></span> ¿Qué equipo responde?</div>
+        <EquipoAlAzar equipos={equipos} autoGirar conPunto />
+      </div>
+    </div>
+  );
+}
+
+function HerramientasPresentar({ act }) {
   const [abierto, setAbierto] = React.useState(false);
+  const [verQr, setVerQr] = React.useState(false);
+  const [verSorteo, setVerSorteo] = React.useState(false);
+  const jaguar = window.useJaguarEstado ? useJaguarEstado() : null;
+  const hayJaguar = !!(jaguar && jaguar.iniciado && jaguar.equipos && jaguar.equipos.length);
   const [activa, setActiva] = React.useState(null);   // 'lupa' | 'marcador' | 'puntero' | 'texto' | null
   const [color, setColor] = React.useState(HERR_COLORES[0]);
   const [trazos, setTrazos] = React.useState([]);     // [{ color, ancho, puntos: [[x, y]] }]
@@ -52,6 +146,13 @@ function HerramientasPresentar() {
   // --- Esc suelta la herramienta (antes de que el modo Presentar salga) ---
   React.useEffect(() => {
     const onKey = (e) => {
+      if (e.key === 'Escape' && (verQr || verSorteo)) { e.stopPropagation(); e.preventDefault(); setVerQr(false); setVerSorteo(false); return; }
+      // Con el QR o el sorteo en pantalla, espacio/Enter no deben mover la presentación de atrás.
+      if ((verQr || verSorteo) && (e.key === ' ' || e.key === 'Enter' || e.key.startsWith('Arrow'))) {
+        e.stopPropagation();
+        if (!(e.target && /button|input|textarea/i.test(e.target.tagName))) e.preventDefault();
+        return;
+      }
       if (e.key !== 'Escape' || (!activa && !zoom.on)) return;
       if (e.target && /textarea/i.test(e.target.tagName)) { e.target.blur(); }
       e.stopPropagation(); e.preventDefault();
@@ -59,7 +160,7 @@ function HerramientasPresentar() {
     };
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
-  }, [activa, zoom.on]);
+  }, [activa, zoom.on, verQr, verSorteo]);
 
   // --- Lupa: se escala la presentación (.vg-presentar) alrededor del mouse ---
   const objetivo = () => document.querySelector('.vg-presentar');
@@ -200,6 +301,18 @@ function HerramientasPresentar() {
               <span className="vg-herr-nombre">{h.id === 'lupa' && zoom.on ? zoom.nivel + '×' : h.nombre}</span>
             </button>
           ))}
+          {hayJaguar && (
+            <button className={'vg-herr-boton vg-herr-jaguar' + (verSorteo ? ' on' : '')} onClick={() => { setActiva(null); setVerSorteo(true); }}
+              title="Modo Jaguar: sortear qué equipo responde la activación en pantalla">
+              <HerrIcono n="dado" /><span className="vg-herr-nombre">Sortear</span>
+            </button>
+          )}
+          {act && (
+            <button className={'vg-herr-boton' + (verQr ? ' on' : '')} onClick={() => { setActiva(null); setVerQr(true); }}
+              title="QR del material: para que los estudiantes lo abran en su celular">
+              <HerrIcono n="qr" /><span className="vg-herr-nombre">QR</span>
+            </button>
+          )}
           {conColor && (
             <div className="vg-herr-colores" role="radiogroup" aria-label="Color">
               {HERR_COLORES.map((c) => (
@@ -221,7 +334,14 @@ function HerramientasPresentar() {
   );
 
   // Portal en <body>: la lupa escala la presentación sin escalar las herramientas.
-  return ReactDOM.createPortal(<React.Fragment>{capa}{barra}</React.Fragment>, document.body);
+  return ReactDOM.createPortal(
+    <React.Fragment>
+      {capa}
+      {verQr && <PantallaQr act={act} onCerrar={() => setVerQr(false)} />}
+      {verSorteo && hayJaguar && <PantallaSorteoEquipo equipos={jaguar.equipos} onCerrar={() => setVerSorteo(false)} />}
+      {barra}
+    </React.Fragment>,
+    document.body);
 }
 
 Object.assign(window, { HerramientasPresentar, HerrIcono });

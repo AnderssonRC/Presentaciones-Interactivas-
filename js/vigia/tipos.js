@@ -16,9 +16,9 @@
    (ContenidoActivacion) y, si tiene campos propios, en editor.jsx. */
 (function () {
   const RECURSOS = [
-    { id: 'video',     nombre: 'Video',     desc: 'YouTube: documentales, clases, videos', icon: 'play',     tipos: ['pregunta', 'instruccion', 'creacion', 'escritura', 'contexto', 'reto'] },
+    { id: 'video',     nombre: 'Video',     desc: 'YouTube: documentales, clases, videos', icon: 'play',     tipos: ['pregunta', 'instruccion', 'creacion', 'escritura', 'contexto', 'glosario', 'reto'] },
     { id: 'documento', nombre: 'Documento', desc: 'PDF o EPUB: lecturas, libros, guías',   icon: 'memorama', tipos: ['pregunta', 'instruccion', 'creacion', 'escritura', 'glosario', 'reto'] },
-    { id: 'podcast',   nombre: 'Podcast',   desc: 'Audios y entrevistas, con su imagen',    icon: 'debate',   tipos: ['pregunta', 'instruccion', 'creacion', 'escritura', 'contexto', 'reto'] },
+    { id: 'podcast',   nombre: 'Podcast',   desc: 'Audios y entrevistas, con su imagen',    icon: 'debate',   tipos: ['pregunta', 'instruccion', 'creacion', 'escritura', 'contexto', 'glosario', 'reto'] },
     // Imágenes: activadores como íconos SOBRE la imagen (editor-imagenes.jsx).
     { id: 'imagenes',  nombre: 'Imágenes',  desc: 'Mapas, infografías y fotos con activadores encima', icon: 'eye', tipos: ['pregunta', 'instruccion', 'creacion', 'escritura', 'contexto', 'glosario', 'reto'] },
   ];
@@ -71,16 +71,58 @@
       id: 'reto', grupo: 'fisico', nombre: 'Reto de activación', color: '#00D4FF', icon: 'user',
       proposito: 'El cóndor retador irrumpe con rayos y lanza un reto para moverse: puestos, parejas, grupos…',
       etiqueta: 'Indicaciones extra (opcional)', placeholder: 'Tienen 2 minutos. ¡En silencio!',
-      ruleta: false,
+      ruleta: false, escena: true,
       titular: '¡Reto de activación!',
     },
   ];
+
+  /* ---- MODO JAGUAR (equipos): irrumpe el jaguar, suena su voz y se forman
+     los equipos (presentar-jaguar.jsx). Colores: verde neón, azul y amarillo.
+     palabra: usa ahorcado · pideImagen: abre el campo de imagen · duelo: por
+     defecto se enfrentan dos equipos por un punto · propia: actividad del docente. */
+  const COLORES_JAGUAR = ['#39FF14', '#2F80FF', '#FFE600'];
+  const DESAFIOS_JAGUAR = [
+    { id: 'jg-ppt', nombre: 'Piedra, papel o tijera', icon: 'dado', duelo: true,
+      proposito: 'Un representante por equipo: ¡a la cuenta de tres!', etiqueta: 'Indicaciones (opcional)', placeholder: 'Al mejor de tres.' },
+    { id: 'jg-figura', nombre: 'El grupo imita la figura', icon: 'eye', pideImagen: true,
+      proposito: 'Aparece una imagen y el equipo la imita con el cuerpo.', etiqueta: 'Indicaciones (opcional)', placeholder: 'Tienen 30 segundos para formar la figura.' },
+    { id: 'jg-ejercicio', nombre: 'Ejercicio físico', icon: 'rayo',
+      proposito: 'Todo el equipo hace el ejercicio que aparece.', etiqueta: 'Ejercicio', placeholder: '10 sentadillas sin parar.' },
+    { id: 'jg-adivina', nombre: 'Adivina la palabra (ahorcado)', icon: 'ahorcado', palabra: true, duelo: true,
+      proposito: 'Ahorcado: los equipos proponen letras hasta descubrirla.', etiqueta: 'Pista (opcional)', placeholder: 'Es un concepto de la clase de hoy.' },
+    { id: 'jg-origami', nombre: 'Haz un origami', icon: 'memorama',
+      proposito: 'Cada equipo dobla la figura con una hoja.', etiqueta: '¿Qué figura?', placeholder: 'Una grulla de papel.' },
+    { id: 'jg-reta', nombre: 'Reta al otro equipo', icon: 'trofeo', duelo: true,
+      proposito: 'Un equipo le lanza un reto al otro.', etiqueta: 'Reglas del reto (opcional)', placeholder: 'El reto debe tener que ver con el tema.' },
+    { id: 'jg-cuaderno', nombre: 'Responde en cuaderno o tablero', icon: 'letras',
+      proposito: 'El equipo escribe la respuesta en el cuaderno o en el tablero.', etiqueta: 'Pregunta', placeholder: '¿Qué idea principal dejó el video?' },
+    { id: 'jg-baile', nombre: 'Crea un paso de baile', icon: 'sol',
+      proposito: 'Cada equipo inventa un paso y lo presenta.', etiqueta: 'Indicaciones (opcional)', placeholder: 'Que represente lo que acabamos de ver.' },
+    { id: 'jg-personifica', nombre: 'Personifiquen lo último visto', icon: 'user',
+      proposito: 'El equipo actúa la escena o el concepto que se acaba de ver.', etiqueta: 'Escena o concepto (opcional)', placeholder: 'La reunión de los Estados Generales.' },
+    { id: 'jg-azar', nombre: 'Responde la pregunta (equipo al azar)', icon: 'ruleta',
+      proposito: 'El azar elige al equipo que debe responder.', etiqueta: 'Pregunta', placeholder: '¿Por qué crees que pasó eso?' },
+    { id: 'jg-concepto', nombre: 'Ahorcado con el último concepto', icon: 'ahorcado', palabra: true, duelo: true,
+      proposito: 'Ahorcado con el último concepto que se dijo en clase.', etiqueta: 'Pista (opcional)', placeholder: 'Lo dijimos hace un momento.' },
+    { id: 'jg-propia', nombre: 'Crear actividad propia', icon: 'bulb', propia: true,
+      proposito: 'Inventa tu propio desafío para los equipos.', etiqueta: 'Instrucciones', placeholder: 'Describe lo que deben hacer los equipos.' },
+  ];
+  // Todos con el PUÑO en verde neón: así se distinguen del resto de activadores.
+  DESAFIOS_JAGUAR.forEach((d) => TIPOS.push(Object.assign({
+    grupo: 'jaguar', ruleta: false, escena: true, jaguar: true, titular: d.nombre,
+  }, d, { icon: 'puno', color: COLORES_JAGUAR[0], iconoDesafio: d.icon })));
+  const IDS_JAGUAR = DESAFIOS_JAGUAR.map((d) => d.id);
+  // El Modo Jaguar está en todos los recursos.
+  RECURSOS.forEach((r) => { r.tipos = r.tipos.concat(IDS_JAGUAR); });
 
   /* Grupos de tipos (así se reúnen en la columna de tipos del editor). */
   const GRUPOS = {
     cognitivo: { nombre: 'Cognitivos', desc: 'Pensar, responder, escribir' },
     fisico: { nombre: 'Físico-grupales', desc: 'Moverse, cambiar, crear en grupo' },
+    jaguar: { nombre: 'Modo Jaguar', titulo: 'Modo Jaguar', desc: 'Equipos para toda la presentación · termina con el ganador' },
   };
+  // Escenas a pantalla completa con su propio cierre (Reto, Modo Jaguar).
+  const esEscena = (a) => !!(a && TIPOS.some((t) => t.id === a.tipo && t.escena));
   // Si `t` es el primero de su grupo en `lista`, el grupo (para poner su título antes).
   function inicioGrupo(t, lista) {
     const primero = (lista || TIPOS).find((x) => x.grupo === t.grupo);
@@ -158,6 +200,7 @@
     if (ti.id === 'glosario') { a.termino = (a.fragmento || '').trim(); a.definicion = ''; }
     if (ti.id === 'escritura' && a.fragmento) a.texto = a.fragmento;
     if (ti.id === 'reto') { a.reto = RETOS[0].id; a.tamGrupo = 4; }
+    if (ti.jaguar) { a.equipos = 2; a.duelo = !!ti.duelo; if (ti.palabra) a.palabra = (a.fragmento || '').trim().split(/\s+/)[0] || ''; }
     return a;
   }
 
@@ -194,5 +237,6 @@
     return !!(d.video && d.video.id);
   }
 
-  window.VigiaTipos = { RECURSOS, TIPOS, GRUPOS, inicioGrupo, RETOS, reto, FRASES_ALTO, fraseAlAzar, recurso, tipo, nuevaActivacion, ordenLectura, recursoListo, fmtT, parseT };
+  window.esEscena = esEscena;
+  window.VigiaTipos = { RECURSOS, TIPOS, GRUPOS, inicioGrupo, RETOS, reto, esEscena, IDS_JAGUAR, FRASES_ALTO, fraseAlAzar, recurso, tipo, nuevaActivacion, ordenLectura, recursoListo, fmtT, parseT };
 })();
