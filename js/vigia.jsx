@@ -31,15 +31,15 @@ const VIGIA_MODULOS = [
   ['js/vigia/editor-imagenes.jsx', '20261024l'],
   ['js/vigia/herramientas.jsx', '20261024n'],
   ['js/vigia/mando.jsx', '20261024m'],
-  ['js/vigia/presentar.jsx', '20261024m'],
+  ['js/vigia/presentar.jsx', '20261024o'],
   ['js/vigia/presentar-reto.jsx', '20261024k'],
-  ['js/vigia/presentar-jaguar.jsx', '20261024n'],
+  ['js/vigia/presentar-jaguar.jsx', '20261024o'],
   ['js/vigia/presentar-pdf.jsx', '20261024l'],
   ['js/vigia/presentar-epub.jsx', '20261024l'],
   ['js/vigia/presentar-podcast.jsx', '20261024l'],
   ['js/vigia/presentar-imagenes.jsx', '20261024l'],
 ];
-const VIGIA_ESTILOS = ['js/vigia/estilos.css', '20261024n'];
+const VIGIA_ESTILOS = ['js/vigia/estilos.css', '20261024o'];
 // Pantalla del mando en el celular (la carga remote.jsx solo en el celular).
 const VIGIA_MANDO_VERSION = '20261024m';
 let promesaVigia = null;

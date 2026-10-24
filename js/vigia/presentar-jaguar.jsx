@@ -89,16 +89,52 @@ function jaguarResumen(s) {
   return x.iniciado && x.equipos ? x.equipos.map((e) => ({ nombre: e.nombre, color: e.color, puntos: e.puntos })) : null;
 }
 
-/* Jaguar con los ojos en llamas (intro, "Que siga la lucha" y ganador). */
-function CabezaJaguar({ className }) {
+/* Jaguar con los ojos en llamas (intro, "Que siga la lucha", ganador y
+   desempate). `colorOjos`: las llamas toman ese color (el del ganador). */
+function CabezaJaguar({ className, colorOjos }) {
   return (
-    <div className={'vg-jaguar-cabeza ' + (className || '')}>
+    <div className={'vg-jaguar-cabeza ' + (className || '') + (colorOjos ? ' ojos-color' : '')}
+      style={colorOjos ? { '--ojo': colorOjos } : undefined}>
       <img src={JAGUAR_IMG} alt="Jaguar" draggable="false" />
       <span className="vg-jaguar-ojo izq"><i></i><i></i><i></i></span>
       <span className="vg-jaguar-ojo der"><i></i><i></i><i></i></span>
     </div>
   );
 }
+
+/* Reproduce una voz y devuelve el segundo en que va ({ t, fin }), para
+   mostrar los textos AL RITMO del audio. Si el navegador no deja sonar,
+   sigue con un reloj propio de `duracion` segundos. */
+function useVoz(src, activo, duracion) {
+  const [estado, setEstado] = React.useState({ t: 0, fin: false });
+  React.useEffect(() => {
+    if (!activo) return undefined;
+    setEstado({ t: 0, fin: false });
+    const voz = new Audio(encodeURI(src));
+    let sonando = false, raf = 0, vivo = true;
+    const inicio = performance.now();
+    voz.addEventListener('playing', () => { sonando = true; });
+    const r = voz.play(); if (r && r.catch) r.catch(() => {});
+    const paso = () => {
+      if (!vivo) return;
+      const t = sonando ? voz.currentTime : (performance.now() - inicio) / 1000;
+      const fin = (sonando && voz.ended) || (!sonando && t >= duracion);
+      setEstado({ t, fin });
+      if (!fin) raf = requestAnimationFrame(paso);
+    };
+    raf = requestAnimationFrame(paso);
+    return () => { vivo = false; cancelAnimationFrame(raf); voz.pause(); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [src, activo]);
+  return estado;
+}
+
+// Voz del ganador (5,2 s): golpes al inicio, la voz entre 1,35 s y 3,85 s.
+const VOZ_GANADOR = 'voz del ganador.mp3';
+const GANADOR_T = { kicker: 0.3, nombre: 1.35, tabla: 3.9, duracion: 5.2 };
+// "A desempatar" (4,7 s): "¡A desempatar!" desde 0,1 s; "Que el docente…" desde 1,9 s.
+const VOZ_DESEMPATE = 'A desempatar.mp3';
+const DESEMPATE_T = { uno: 0.1, dos: 1.9, duracion: 4.7 };
 
 function JaguarActivacion({ a, estudiantes, orden, onContinuar }) {
   const ti = VigiaTipos.tipo(a.tipo);
@@ -335,43 +371,86 @@ function MarcadorJaguar({ onGanador }) {
   );
 }
 
-/* Pantalla final: el equipo ganador (o empate) y la tabla de puntos. */
+/* Pantalla final.
+   · Hay ganador: suena "voz del ganador" y, a su ritmo, aparecen "¡Equipo
+     ganador!", su nombre y la tabla; los ojos del jaguar arden con SU color.
+   · Hay empate: primero el jaguar en ROJO NEÓN con "A desempatar" (voz):
+     "¡A desempatar!" y "Que el docente escoja la lucha final"; luego se
+     vuelve a la presentación para la lucha final (o se termina con empate). */
 function GanadorJaguar({ onSalir, onVolver }) {
   const s = useJaguarEstado();
   const equipos = (s.equipos || []).map((e, i) => ({ ...e, i })).sort((x, y) => y.puntos - x.puntos);
   const max = equipos.length ? equipos[0].puntos : 0;
   const ganadores = equipos.filter((e) => e.puntos === max);
   const empate = ganadores.length > 1;
-  // Las teclas no llegan a la presentación de atrás; Enter = terminar, Esc = volver (o terminar).
+  const [fase, setFase] = React.useState(empate ? 'desempate' : 'ganador');   // 'desempate' | 'ganador' | 'empate'
+  const vozGanador = useVoz(VOZ_GANADOR, fase === 'ganador', GANADOR_T.duracion);
+  const vozDesempate = useVoz(VOZ_DESEMPATE, fase === 'desempate', DESEMPATE_T.duracion);
+  const vt = vozGanador.t;
+  // Las teclas no llegan a la presentación de atrás; Enter = terminar, Esc = volver.
   React.useEffect(() => {
     const onKey = (e) => {
       e.stopPropagation();
-      if (e.key === 'Enter') { e.preventDefault(); onSalir(); }
-      else if (e.key === 'Escape') { e.preventDefault(); (onVolver || onSalir)(); }
+      if (e.key === 'Enter') { e.preventDefault(); if (fase === 'desempate') onVolver(); else onSalir(); }
+      else if (e.key === 'Escape') { e.preventDefault(); onVolver(); }
     };
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
   });
-  return (
-    <div className="vg-jaguar vg-jaguar-final">
-      <div className="vg-jaguar-destello"></div>
-      <CabezaJaguar className="final" />
-      <div className="vg-jaguar-final-texto">
-        <div className="vg-jaguar-final-kicker">{empate ? '¡Empate de jaguares!' : '¡Equipo ganador!'}</div>
-        <div className="vg-jaguar-final-nombre">
-          {ganadores.map((g, k) => <span key={g.i} style={{ '--c': g.color }}>{k > 0 ? ' y ' : ''}{g.nombre}</span>)}
-        </div>
-        <div className="vg-jaguar-final-tabla">
-          {equipos.map((e, k) => (
-            <div key={e.i} className={'vg-jaguar-final-fila' + (e.puntos === max ? ' oro' : '')} style={{ '--c': e.color, animationDelay: 0.9 + k * 0.12 + 's' }}>
-              <span>{k + 1}</span><strong>{e.nombre}</strong><b>{e.puntos} {e.puntos === 1 ? 'punto' : 'puntos'}</b>
+
+  // --- Empate: el jaguar en rojo neón y la voz "A desempatar" ---
+  if (fase === 'desempate') {
+    const dt = vozDesempate.t;
+    return (
+      <div className="vg-jaguar vg-jaguar-final vg-jaguar-rojo">
+        <div className="vg-jaguar-destello"></div>
+        <CabezaJaguar className="final rojo" colorOjos="#FF1E3C" />
+        <div className="vg-jaguar-final-texto">
+          <div className="vg-jaguar-final-kicker">Empate: {ganadores.map((g) => g.nombre).join(' y ')} · {max} {max === 1 ? 'punto' : 'puntos'}</div>
+          {dt >= DESEMPATE_T.uno && <div className="vg-desempate-uno">¡A desempatar!</div>}
+          {dt >= DESEMPATE_T.dos && <div className="vg-desempate-dos">Que el docente escoja la lucha final</div>}
+          {vozDesempate.fin && (
+            <div className="vg-jaguar-final-acciones">
+              <button className="vg-btn vg-desempate-btn" onClick={onVolver}>⚔ Elegir la lucha final</button>
+              <button className="vg-btn vg-btn-sec" onClick={() => setFase('empate')}>Terminar con empate</button>
             </div>
-          ))}
+          )}
         </div>
-        <div className="vg-jaguar-final-acciones">
-          {onVolver && <button className="vg-btn vg-btn-sec" onClick={onVolver}>Volver a la presentación</button>}
-          <button className="vg-btn vg-jaguar-btn" onClick={onSalir}>Terminar <Icon name="play" size={16} /></button>
-        </div>
+      </div>
+    );
+  }
+
+  // --- Ganador (con su voz) o empate final ---
+  const conVoz = fase === 'ganador';
+  const ver = (t) => !conVoz || vt >= t || vozGanador.fin;
+  const colorGanador = !empate && ganadores[0] ? ganadores[0].color : null;
+  return (
+    <div className="vg-jaguar vg-jaguar-final" style={colorGanador ? { '--ganador': colorGanador } : undefined}>
+      <div className="vg-jaguar-destello"></div>
+      {/* Los ojos arden con el color del equipo ganador. */}
+      <CabezaJaguar className="final" colorOjos={colorGanador || '#FFE600'} />
+      <div className="vg-jaguar-final-texto">
+        {ver(GANADOR_T.kicker) && <div className="vg-jaguar-final-kicker">{empate ? '¡Empate de jaguares!' : '¡Equipo ganador!'}</div>}
+        {ver(GANADOR_T.nombre) && (
+          <div className="vg-jaguar-final-nombre">
+            {ganadores.map((g, k) => <span key={g.i} style={{ '--c': g.color }}>{k > 0 ? ' y ' : ''}{g.nombre}</span>)}
+          </div>
+        )}
+        {ver(GANADOR_T.tabla) && (
+          <React.Fragment>
+            <div className="vg-jaguar-final-tabla">
+              {equipos.map((e, k) => (
+                <div key={e.i} className={'vg-jaguar-final-fila' + (e.puntos === max ? ' oro' : '')} style={{ '--c': e.color, animationDelay: k * 0.12 + 's' }}>
+                  <span>{k + 1}</span><strong>{e.nombre}</strong><b>{e.puntos} {e.puntos === 1 ? 'punto' : 'puntos'}</b>
+                </div>
+              ))}
+            </div>
+            <div className="vg-jaguar-final-acciones">
+              <button className="vg-btn vg-btn-sec" onClick={onVolver}>Volver a la presentación</button>
+              <button className="vg-btn vg-jaguar-btn" onClick={onSalir}>Terminar <Icon name="play" size={16} /></button>
+            </div>
+          </React.Fragment>
+        )}
       </div>
     </div>
   );

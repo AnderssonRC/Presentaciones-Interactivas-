@@ -32,7 +32,7 @@ function VigiaPresentar(props) {
       {/* Encima de la presentación (que sigue montada: "Volver" la retoma donde iba). */}
       {ganador && (
         <GanadorJaguar onSalir={() => { setGanador(null); props.onExit(); }}
-          onVolver={ganador === 'ver' ? () => setGanador(null) : null} />
+          onVolver={() => setGanador(null)} />
       )}
     </React.Fragment>
   );

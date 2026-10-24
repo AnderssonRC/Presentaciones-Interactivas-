@@ -1377,6 +1377,39 @@
 .vg-jaguar-final-fila.oro { border-color: var(--c); box-shadow: 0 0 22px -6px var(--c); }
 .vg-jaguar-final-acciones { display: flex; gap: 12px; margin-top: 1vh; flex-wrap: wrap; }
 
+/* Ojos del color del ganador (o rojo en el desempate): --ojo */
+.vg-jaguar-cabeza.ojos-color .vg-jaguar-ojo::before {
+  background: radial-gradient(circle, #FFFFFF 0 10%, color-mix(in srgb, var(--ojo) 45%, white) 24%, var(--ojo) 44%, color-mix(in srgb, var(--ojo) 40%, transparent) 60%, transparent 72%);
+  animation: vgOjoColor 1.6s ease-in both;
+}
+@keyframes vgOjoColor { 0%, 20% { opacity: 0; transform: scale(.4); } 55% { opacity: 1; transform: scale(1.1); } 100% { opacity: 1; transform: scale(1.5); } }
+.vg-jaguar-cabeza.ojos-color .vg-jaguar-ojo i {
+  background: radial-gradient(ellipse at 50% 85%, #FFFFFF 0 12%, color-mix(in srgb, var(--ojo) 45%, white) 28%, var(--ojo) 48%, color-mix(in srgb, var(--ojo) 60%, transparent) 66%, transparent 76%);
+  animation: vgLlamaAparece 1.6s ease-in both, vgLlama .42s ease-in-out infinite alternate;
+}
+.vg-jaguar-final .vg-jaguar-destello { background: radial-gradient(circle at 30% 45%, color-mix(in srgb, var(--ganador, #39FF14) 45%, transparent), rgba(47,128,255,.2) 40%, transparent 70%); }
+
+/* Desempate: todo en ROJO NEÓN */
+.vg-jaguar.vg-jaguar-rojo { background: radial-gradient(circle at 30% 45%, #2E0509 0%, #0A0103 55%, #000 100%); }
+.vg-jaguar-rojo .vg-jaguar-destello { background: radial-gradient(circle at 30% 45%, rgba(255,30,60,.6), rgba(255,0,40,.2) 40%, transparent 70%); }
+/* El jaguar verde pasa a rojo (giro de tono) con resplandor rojo y un temblor */
+.vg-jaguar-cabeza.rojo img { filter: hue-rotate(-115deg) saturate(1.7) brightness(1.05) drop-shadow(0 0 30px rgba(255,30,60,.75)); }
+.vg-jaguar-cabeza.rojo { animation: vgJaguarIrrumpe 2.4s cubic-bezier(.2,.9,.2,1) both, vgTiembla .12s linear 2.4s 6; }
+@keyframes vgTiembla { 0%, 100% { translate: 0 0; } 50% { translate: 3px -2px; } }
+.vg-jaguar-rojo .vg-jaguar-final-kicker { color: #FF8A9A; text-shadow: 0 0 12px rgba(255,30,60,.7); }
+.vg-desempate-uno {
+  font-family: var(--font-display, 'Sora', sans-serif); font-weight: 900; text-transform: uppercase; font-size: clamp(44px, 7vw, 120px); line-height: 1;
+  color: #FFE9EC; text-shadow: 0 0 16px #FF1E3C, 0 0 46px rgba(255,30,60,.85), 0 0 90px rgba(255,0,40,.5);
+  animation: vgGolpe .6s cubic-bezier(.15,1.6,.35,1) both;
+}
+.vg-desempate-dos {
+  font-family: var(--font-display, 'Sora', sans-serif); font-weight: 800; font-size: clamp(22px, 2.8vw, 46px); line-height: 1.15;
+  color: #FFFFFF; text-shadow: 0 0 14px rgba(255,30,60,.8);
+  animation: vgGolpe .6s cubic-bezier(.15,1.6,.35,1) both;
+}
+.vg-btn.vg-desempate-btn { background: linear-gradient(135deg, #FF1E3C, #C4001F); color: #fff; box-shadow: 0 0 26px -6px rgba(255,30,60,.95); }
+.vg-jaguar-rojo .vg-btn.vg-btn-sec { color: #FFE9EC; border-color: rgba(255,30,60,.6); }
+
 /* Editor: aviso "dura toda la presentación" y el puño neón en los tipos del grupo */
 .vg-jaguar-aviso { display: flex; gap: 10px; align-items: flex-start; font-size: 12.5px; line-height: 1.45; padding: 8px 10px; border-radius: 10px; background: rgba(57,255,20,.08); border: 1px dashed rgba(57,255,20,.45); }
 .vg-jaguar-aviso-ico { display: inline-grid; place-items: center; width: 28px; height: 28px; flex-shrink: 0; border-radius: 8px; background: #031006; color: #39FF14; box-shadow: 0 0 10px -2px #39FF14; }
