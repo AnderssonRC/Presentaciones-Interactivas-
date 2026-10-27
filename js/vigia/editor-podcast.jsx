@@ -196,6 +196,8 @@ function VigiaEditorPodcast({ act, onChange, onBack, onPresent }) {
 
           {/* ---- columna 3: imágenes y tipos de activación ---- */}
           <div className="editor-tools">
+            {/* Vista previa de la activación seleccionada. */}
+            <VistaPrevia a={sel} act={act}>{null}</VistaPrevia>
             <div>
               <div className="kicker">Imágenes del</div>
               <h3 style={{ fontSize: 16.5, fontWeight: 800, marginTop: 2 }}>Podcast</h3>

@@ -12,7 +12,7 @@
 
 // Versión SIN fondo (el negro pasó a transparencia conservando el brillo neón);
 // el original con fondo negro sigue en condor-retador.png.
-const RETO_CONDOR = 'condor-retador-transparente.png';
+const RETO_CONDOR = 'condor-retador.webp';   // WebP liviano (900 px, ~250 KB)
 const RETO_ESCENA_MS = 3200;
 const RETO_CIERRE_MS = 2600;
 

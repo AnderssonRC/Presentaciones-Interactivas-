@@ -49,12 +49,94 @@ const MANDO_CSS = `
 .vgm-equipo .vgm-btn { min-height: 44px; min-width: 52px; padding: 8px; flex: 0 0 auto; }
 .vgm-equipo .vgm-btn:not(.borde) { background: var(--c); color: #031006; }
 .vgm-equipo b { min-width: 34px; text-align: center; font-size: 20px; }
+.vgm-rojo { background: #FF1E3C !important; color: #fff !important; border-color: #FF1E3C !important; }
+.vgm-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.vgm-chip { flex: 1 1 40%; min-height: 48px; padding: 8px 10px; border-radius: 14px; border: 1.5px solid var(--c); background: transparent;
+  color: var(--c); font: inherit; font-weight: 800; font-size: 14px; cursor: pointer; }
+.vgm-chip.on { background: var(--c); color: #031006; }
+.vgm-chip:active { transform: scale(.96); }
+.vgm-mascara { text-align: center; font-weight: 900; font-size: 26px; letter-spacing: .28em; word-break: break-all; color: #39FF14; }
+.vgm-campo { width: 100%; min-height: 52px; padding: 10px 14px; border-radius: 14px; border: 1.5px solid rgba(57,255,20,.5); background: rgba(0,0,0,.3); color: inherit; font: inherit; font-size: 17px; user-select: text; -webkit-user-select: text; }
+.vgm-teclado { display: flex; flex-direction: column; gap: 6px; }
+.vgm-teclado-fila { display: flex; gap: 4px; justify-content: center; }
+.vgm-teclado-fila button { flex: 1 1 0; max-width: 40px; min-height: 46px; border: 0; border-radius: 9px; background: rgba(255,255,255,.1); color: #FFF3E6; font: inherit; font-weight: 800; font-size: 17px; padding: 0; }
+.vgm-teclado-fila button:active { transform: scale(.92); background: rgba(57,255,20,.3); }
+.vgm-teclado-fila button.bien { background: #39FF14; color: #031006; }
+.vgm-teclado-fila button.mal { background: rgba(255,30,60,.35); color: #FFC2CB; }
+.vgm-teclado-fila button:disabled { opacity: .75; }
+.vgm-texto-rojo { color: #FF5A6E; }
 `;
 
 function fmtMando(s) {
   s = Math.max(0, Math.floor(s || 0));
   const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), x = s % 60;
   return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(x).padStart(2, '0');
+}
+
+/* Adivina la palabra (Modo Jaguar) en el celular: la palabra secreta para el
+   docente, el turno, las vidas y un teclado para marcar la letra que dicen. */
+function PalabraMando({ p, eq, orden }) {
+  const [escrita, setEscrita] = React.useState('');
+  const [verSecreta, setVerSecreta] = React.useState(false);
+  const eTurno = p.turno !== null && p.turno !== undefined ? eq[p.turno] : null;
+  const usadas = p.usadas || [];
+  const aciertos = p.aciertos || [];
+  const enviar = () => { if (escrita.trim()) { orden('ah-palabra', { texto: escrita.trim() }); setEscrita(''); } };
+  return (
+    <React.Fragment>
+      <div className="vgm-kicker">Adivina la palabra · vidas {p.vidas} de {p.max}{p.total ? ' · palabras ' + p.quedan + ' de ' + p.total : ''}</div>
+      {!p.hay && (
+        <React.Fragment>
+          {p.total > 0 && <button className="vgm-btn borde" onClick={() => orden('ah-reiniciar')}>Ya salieron todas · Usarlas de nuevo</button>}
+          <input className="vgm-campo" type="text" value={escrita} maxLength={40} placeholder="Escribe la palabra secreta"
+            onChange={(e) => setEscrita(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') enviar(); }} />
+          <button className="vgm-btn grande" onClick={enviar} disabled={!escrita.trim()}>▶ Jugar con esta palabra</button>
+        </React.Fragment>
+      )}
+      {p.hay && (
+        <React.Fragment>
+          <div className="vgm-mascara">{p.mascara}</div>
+          <button className="vgm-btn borde" onClick={() => setVerSecreta((v) => !v)}>
+            {verSecreta ? 'Secreta: ' + p.secreta + (p.pista ? ' · ' + p.pista : '') : '👁 Ver la palabra (solo tú)'}
+          </button>
+        </React.Fragment>
+      )}
+      {p.hay && p.fase === 'turno' && (
+        <button className="vgm-btn grande" disabled={p.girando} onClick={() => orden('ah-inicio')}>{p.girando ? 'Eligiendo…' : '🎲 ¿Qué equipo empieza?'}</button>
+      )}
+      {p.fase === 'juego' && (
+        <React.Fragment>
+          {eTurno && <div className="vgm-centro" style={{ color: eTurno.color }}>Turno del {eTurno.nombre}<small>Toca la letra que dicen</small></div>}
+          <div className="vgm-teclado">
+            {['QWERTYUIOP', 'ASDFGHJKLÑ', 'ZXCVBNM'].map((fila, f) => (
+              <div key={f} className="vgm-teclado-fila">
+                {fila.split('').map((t) => (
+                  <button key={t} disabled={usadas.includes(t)} onClick={() => orden('ah-letra', { l: t })}
+                    className={usadas.includes(t) ? (aciertos.includes(t) ? 'bien' : 'mal') : ''}>{t}</button>
+                ))}
+              </div>
+            ))}
+          </div>
+          <div className="vgm-fila">
+            <button className="vgm-btn grande" onClick={() => orden('ah-adivino')}>¡La adivinó!</button>
+            <button className="vgm-btn borde" onClick={() => orden('ah-fallo')}>Falló la palabra<br />−1 vida</button>
+          </div>
+          <div className="vgm-fila">
+            <button className="vgm-btn borde" onClick={() => orden('ah-turno')}>Pasar turno</button>
+            <button className="vgm-btn borde" onClick={() => orden('ah-revelar')}>Revelar</button>
+          </div>
+        </React.Fragment>
+      )}
+      {p.fase === 'fin' && (
+        <React.Fragment>
+          <div className={'vgm-centro' + (p.resultado === 'jaguar' ? ' vgm-texto-rojo' : '')}>
+            {p.resultado === 'gano' ? '¡Palabra descubierta!' : p.resultado === 'jaguar' ? '¡Ganó el jaguar! (sin puntos)' : 'Palabra revelada'}
+          </div>
+          <button className="vgm-btn grande" onClick={() => orden('ah-otra')}>↻ Otra palabra</button>
+        </React.Fragment>
+      )}
+    </React.Fragment>
+  );
 }
 
 function VigiaMandoCelular({ code, state, send }) {
@@ -111,7 +193,7 @@ function VigiaMandoCelular({ code, state, send }) {
           {itemActivo && itemActivo.texto && <div style={{ fontWeight: 700, fontSize: 15 }}>{itemActivo.texto}</div>}
           {activa.tipo === 'reto' || /^jg-/.test(activa.tipo) ? (
             <div className="vgm-fila">
-              <button className="vgm-btn azul" onClick={() => orden('reto-sortear')}>{activa.tipo === 'reto' ? '↻ Sortear' : '↻ Nuevos equipos'}</button>
+              {activa.tipo === 'reto' && <button className="vgm-btn azul" onClick={() => orden('reto-sortear')}>↻ Sortear</button>}
               <button className="vgm-btn grande" onClick={() => orden('reto-terminar')}>{activa.tipo === 'reto' ? 'Terminar reto' : 'Terminar desafío'}</button>
             </div>
           ) : (
@@ -182,6 +264,165 @@ function VigiaMandoCelular({ code, state, send }) {
         </div>
       )}
 
+      {/* Modo Jaguar: los MISMOS botones del desafío que está en el televisor */}
+      {st.jaguarDesafio && st.marcador && (() => {
+        const d = st.jaguarDesafio;
+        const eq = st.marcador;
+        const enfr = d.enfrentan || [];
+        return (
+          <div className="vgm-panel vgm-jaguar">
+            <div className="vgm-kicker" style={{ color: '#39FF14' }}>✊ Desafío en pantalla</div>
+            {d.ppt === 'elegir' && (
+              <React.Fragment>
+                <div className="vgm-fila">
+                  <button className="vgm-btn borde" onClick={() => orden('ppt-cantidad', { n: enfr.length - 1 })} disabled={enfr.length <= 2}>−</button>
+                  <div className="vgm-centro">{enfr.length}<small>equipos se enfrentan</small></div>
+                  <button className="vgm-btn borde" onClick={() => orden('ppt-cantidad', { n: enfr.length + 1 })} disabled={enfr.length >= eq.length}>+</button>
+                </div>
+                <div className="vgm-chips">
+                  {eq.map((e, i) => (
+                    <button key={i} className={'vgm-chip' + (enfr.includes(i) ? ' on' : '')} style={{ '--c': e.color }}
+                      onClick={() => orden('ppt-equipo', { i })}>{e.nombre}</button>
+                  ))}
+                </div>
+                <button className="vgm-btn grande" onClick={() => orden('ppt-jugar')}>✊ ¡Piedra, papel o tijera!</button>
+              </React.Fragment>
+            )}
+            {d.ppt === 'jugando' && <div className="vgm-centro">Piedra… papel… tijera…</div>}
+            {/* Silueta del grupo: los botones de cada tarjeta */}
+            {d.silueta && (() => {
+              const s = d.silueta;
+              const e = s.equipo !== null && s.equipo !== undefined ? eq[s.equipo] : null;
+              return (
+                <React.Fragment>
+                  <div className="vgm-kicker">Silueta del grupo · paso {s.paso} de 4 · siluetas {s.quedan} de {s.siluetas}</div>
+                  {s.paso === 1 && s.siluetas > 0 && !s.quedan && (
+                    <button className="vgm-btn borde" onClick={() => orden('sil-reiniciar')}>Ya se usaron todas · Usarlas de nuevo</button>
+                  )}
+                  {s.paso === 1 && !e && <button className="vgm-btn grande" disabled={s.girando} onClick={() => orden('sil-azar')}>{s.girando ? 'Eligiendo…' : '🎲 ¿Qué grupo lo hace?'}</button>}
+                  {s.paso === 1 && e && (
+                    <React.Fragment>
+                      <div className="vgm-centro" style={{ color: e.color }}>Le toca al {e.nombre}<small>Ronda {s.ronda} de {s.total}</small></div>
+                      <button className="vgm-btn grande" onClick={() => orden('sil-continuar')}>▶ ¡Listos! (3, 2, 1)</button>
+                    </React.Fragment>
+                  )}
+                  {s.paso === 2 && <div className="vgm-centro">3… 2… 1…</div>}
+                  {s.paso === 3 && <button className="vgm-btn borde" onClick={() => orden('sil-saltar')}>Silueta en pantalla · Terminar ya</button>}
+                  {s.paso === 4 && e && (
+                    <React.Fragment>
+                      <div className="vgm-equipo" style={{ '--c': e.color }}>
+                        <span className="vgm-equipo-nombre">{e.nombre}</span>
+                        <button className="vgm-btn borde" onClick={() => orden('punto', { i: s.equipo, delta: -1 })} disabled={!e.puntos}>−</button>
+                        <b>{e.puntos}</b>
+                        <button className="vgm-btn" onClick={() => orden('punto', { i: s.equipo, delta: 1 })}>+1</button>
+                      </div>
+                      <div className="vgm-fila">
+                        <button className={'vgm-btn' + (s.resultado === 'si' ? ' grande' : ' borde')} onClick={() => orden('sil-resultado', { ok: true })}>¡Lo lograron!</button>
+                        <button className={'vgm-btn borde' + (s.resultado === 'no' ? ' vgm-rojo' : '')} onClick={() => orden('sil-resultado', { ok: false })}>No lo lograron</button>
+                      </div>
+                      {s.resultado && <button className="vgm-btn borde" onClick={() => orden('sil-otro')}>↻ Otro grupo</button>}
+                    </React.Fragment>
+                  )}
+                </React.Fragment>
+              );
+            })()}
+            {/* Adivina la palabra: teclado, turnos y la palabra secreta (solo la ve el docente) */}
+            {d.palabra && <PalabraMando p={d.palabra} eq={eq} orden={orden} />}
+            {/* Mímica: el docente ve la palabra; los mismos botones que en pantalla */}
+            {d.mimica && (() => {
+              const m = d.mimica;
+              const e = eq[m.equipo];
+              const varios = (m.participantes || []).length > 1;
+              return (
+                <React.Fragment>
+                  <div className="vgm-kicker">Mímica · tarjeta {m.paso} de 2 · palabras {m.quedan} de {m.total}</div>
+                  {e && <div className="vgm-centro" style={{ color: e.color }}>Turno del {e.nombre}<small>{m.palabra ? 'Palabra: ' + m.palabra : 'Sin palabras para este equipo'}</small></div>}
+                  {m.paso === 1 && (
+                    <React.Fragment>
+                      {!m.palabra && m.total > 0 && <button className="vgm-btn borde" onClick={() => orden('mm-reiniciar')}>Ya se usaron todas · Usarlas de nuevo</button>}
+                      <button className="vgm-btn grande" disabled={!m.palabra} onClick={() => orden('mm-ver')}>{m.viendo ? '👁 En pantalla… (otra vez)' : '👁 Ver palabra (5 s)'}</button>
+                      <div className="vgm-fila">
+                        <button className="vgm-btn borde" onClick={() => orden('mm-siguiente')}>⏭ Siguiente palabra</button>
+                        <button className="vgm-btn borde" disabled={!m.palabra} onClick={() => orden('mm-correcto')}>¿Correcto? ▶</button>
+                      </div>
+                    </React.Fragment>
+                  )}
+                  {m.paso === 2 && (
+                    <React.Fragment>
+                      <div className="vgm-fila">
+                        <button className={'vgm-btn' + (m.resultado === 'si' ? ' grande' : ' borde')} onClick={() => orden('mm-resultado', { ok: true })}>🏆 ¡Ganador! +1</button>
+                        <button className={'vgm-btn borde' + (m.resultado === 'no' ? ' vgm-rojo' : '')} onClick={() => orden('mm-resultado', { ok: false })}>No la adivinaron</button>
+                      </div>
+                      <button className="vgm-btn borde" onClick={() => orden('mm-siguiente')}>⏭ Siguiente palabra</button>
+                    </React.Fragment>
+                  )}
+                  {varios && <button className="vgm-btn borde" onClick={() => orden('mm-cambio')}>⇄ Cambio de equipo</button>}
+                </React.Fragment>
+              );
+            })()}
+            {/* Haz un origami: tarjeta 1 (reto, temporizador opcional) y 2 (¿Ganadores?) */}
+            {d.origami && (() => {
+              const g = d.origami;
+              const ganadores = g.ganadores || [];
+              const r = g.restante || 0;
+              return (
+                <React.Fragment>
+                  <div className="vgm-kicker">Haz un origami · tarjeta {g.paso} de 2</div>
+                  {g.paso === 1 && g.conReloj && (
+                    <div className="vgm-centro">{g.tiempo ? '¡Tiempo!' : '⏱ ' + Math.floor(r / 60) + ':' + String(r % 60).padStart(2, '0')}<small>{g.corriendo ? 'corriendo' : r < g.total ? 'en pausa' : 'listo para empezar'}</small></div>
+                  )}
+                  {g.paso === 1 && g.conReloj && !g.tiempo && (
+                    g.corriendo
+                      ? <button className="vgm-btn borde" onClick={() => orden('og-pausar')}>❚❚ Pausar</button>
+                      : <button className="vgm-btn grande" onClick={() => orden('og-empezar')}>▶ {r < g.total ? 'Seguir' : 'Empezar'}</button>
+                  )}
+                  {g.paso === 1 && !g.tiempo && (
+                    <button className={'vgm-btn' + (g.conReloj ? ' borde' : ' grande')} onClick={() => orden('og-ganadores')}>¿Ganadores? ▶</button>
+                  )}
+                  {g.paso === 2 && (
+                    <React.Fragment>
+                      <div className="vgm-kicker">Toca los que lo lograron (+1 cada uno)</div>
+                      <div className="vgm-chips">
+                        {(g.participantes || []).filter((i) => eq[i]).map((i) => (
+                          <button key={i} className={'vgm-chip' + (ganadores.includes(i) ? ' on' : '')} style={{ '--c': eq[i].color }}
+                            onClick={() => orden('og-ganador', { i })}>{eq[i].nombre}{ganadores.includes(i) ? ' ✓' : ''} · {eq[i].puntos}</button>
+                        ))}
+                      </div>
+                      <button className="vgm-btn borde" onClick={() => orden('og-otra')}>↻ Otra ronda</button>
+                    </React.Fragment>
+                  )}
+                </React.Fragment>
+              );
+            })()}
+            {d.pideGanador && (
+              <React.Fragment>
+                <div className="vgm-kicker">¿Quién ganó? (+1 punto)</div>
+                <div className="vgm-chips">
+                  {(d.elegibles || []).filter((i) => eq[i]).map((i) => (
+                    <button key={i} className={'vgm-chip' + (d.ganador === i ? ' on' : '')} style={{ '--c': eq[i].color }}
+                      onClick={() => orden('jg-ganador', { i })}>{eq[i].nombre}{d.ganador === i ? ' ✓' : ''}</button>
+                  ))}
+                </div>
+              </React.Fragment>
+            )}
+            {(d.ppt === 'resultado' || d.duelo) && (
+              <div className="vgm-fila">
+                {d.ppt === 'resultado' && <button className="vgm-btn borde" onClick={() => orden('ppt-jugar')}>Empate: otra vez</button>}
+                <button className="vgm-btn borde" onClick={() => orden('jg-enfrentar')}>{d.ppt ? '↻ Nuevo enfrentamiento' : '⚔ Enfrentar equipos'}</button>
+              </div>
+            )}
+            {d.ganador !== null && d.ganador !== undefined && d.enlace && eq[d.ganador] && (
+              <div className="vgm-equipo" style={{ '--c': eq[d.ganador].color }}>
+                <span className="vgm-equipo-nombre">🔗 Responde {eq[d.ganador].nombre}</span>
+                <button className="vgm-btn borde" onClick={() => orden('punto', { i: d.ganador, delta: -1 })} disabled={!eq[d.ganador].puntos}>−</button>
+                <b>{eq[d.ganador].puntos}</b>
+                <button className="vgm-btn" onClick={() => orden('punto', { i: d.ganador, delta: 1 })}>+1</button>
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
       {/* Modo Jaguar: marcador con − / + y el ganador */}
       {st.marcador && st.marcador.length > 0 && (
         <div className="vgm-panel vgm-jaguar">
@@ -194,7 +435,7 @@ function VigiaMandoCelular({ code, state, send }) {
               <button className="vgm-btn" onClick={() => orden('punto', { i, delta: 1 })}>+1</button>
             </div>
           ))}
-          <button className="vgm-btn borde" onClick={() => orden('jaguar-ganador')}>🏆 Mostrar ganador</button>
+          <button className="vgm-btn borde" onClick={() => orden('jaguar-ganador')}>🏁 Finalizar lucha</button>
         </div>
       )}
 

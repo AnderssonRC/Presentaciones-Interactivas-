@@ -22,7 +22,7 @@ function VigiaEditor(props) {
     ? <VigiaEditorEpub {...props} /> : <VigiaEditorPdf {...props} />;
   // Las listas de estudiantes guardadas llegan a EstudiantesPopover por contexto.
   return (
-    <ListasCtx.Provider value={{ listas: props.listas || [], guardar: props.onGuardarListas || null }}>
+    <ListasCtx.Provider value={{ listas: props.listas || [], guardar: props.onGuardarListas || null, act }}>
       {editor}
     </ListasCtx.Provider>
   );
@@ -299,6 +299,8 @@ function VigiaEditorVideo({ act, onChange, onBack, onPresent }) {
 
           {/* ---- columna 3: tipos de activación ---- */}
           <div className="editor-tools">
+            {/* Vista previa de la activación seleccionada (o el encabezado de siempre). */}
+            <VistaPrevia a={sel} act={act}>
             <div>
               <div className="kicker">Tipos de</div>
               <h3 style={{ fontSize: 16.5, fontWeight: 800, marginTop: 2 }}>Activación</h3>
@@ -306,6 +308,7 @@ function VigiaEditorVideo({ act, onChange, onBack, onPresent }) {
                 Se agrega en el segundo actual del video (lo pausa). Recurso: <strong style={{ color: 'var(--ink)' }}>{rec.nombre}</strong>.
               </p>
             </div>
+            </VistaPrevia>
             <TiposAgrupados lista={TIPOS} render={(t) => {
               const habilitado = rec.tipos.includes(t.id);
               return (
@@ -361,6 +364,247 @@ function PasoEnlace({ actual, onListo, onCancelar }) {
       </div>
     </div>
   );
+}
+
+/* ---------- Siluetas (Silueta del grupo): tantas imágenes como se quiera ----------
+   a.siluetas = [url, …]. Al presentar, cada ronda usa una que no se haya
+   usado (una vez mostrada, no vuelve a aparecer en esa presentación).
+   Compatibilidad: si solo existe a.imagen (versión anterior), es la primera. */
+function siluetasDe(a) {
+  const lista = Array.isArray(a.siluetas) ? a.siluetas : (a.imagen ? [a.imagen] : []);
+  return lista;
+}
+function ListaSiluetas({ a, onCambiar }) {
+  const lista = siluetasDe(a);
+  // Se reemplaza la activación sin el campo antiguo "imagen" (Firestore no acepta valores undefined).
+  const fijar = (nueva) => { const { imagen, ...resto } = a; onCambiar({ ...resto, siluetas: nueva }); };
+  const cambiar = (k, url) => fijar(lista.map((u, j) => (j === k ? url : u)));
+  const quitar = (k) => fijar(lista.filter((_, j) => j !== k));
+  const [nueva, setNueva] = React.useState('');
+  const agregar = () => {
+    // Se pueden pegar varias URL a la vez (separadas por espacios o renglones).
+    const urls = nueva.split(/\s+/).map((s) => s.trim()).filter((s) => /^https?:\/\//i.test(s));
+    if (!urls.length) return;
+    fijar([...lista, ...urls]); setNueva('');
+  };
+  const validas = lista.filter((u) => u && u.trim()).length;
+  return (
+    <div className="vg-siluetas">
+      <div className="vg-etiqueta-campo">
+        <label>Siluetas · {validas}</label>
+        <span style={{ flex: 1 }}></span>
+        <span className="vg-jaguar-nota">Cada ronda usa una distinta; una vez usada, no vuelve a salir.</span>
+      </div>
+      {!validas && <span className="vg-jaguar-nota" style={{ color: 'var(--naranja-ink)' }}>Agrega al menos una imagen de silueta.</span>}
+      <div className="vg-siluetas-lista">
+        {lista.map((u, k) => (
+          <div key={k} className="vg-silueta-item">
+            <span className="vg-silueta-num">{k + 1}</span>
+            <MiniImagen src={u ? urlImagen(u) : ''} vacia="Sin URL" />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <CampoUrlImagen valor={u || ''} onCambiar={(url) => cambiar(k, url)} />
+            </div>
+            <button type="button" className="vg-mini-accion" onClick={() => quitar(k)} title="Quitar esta silueta">✕</button>
+          </div>
+        ))}
+      </div>
+      <div className="vg-url-corta">
+        <input type="text" value={nueva} placeholder="Pega la URL de otra silueta (o varias separadas por espacios)"
+          onChange={(e) => setNueva(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); agregar(); } }} title={AYUDA_IMAGEN} />
+        <button type="button" className="vg-mini-accion" onClick={agregar} disabled={!nueva.trim()}>+ Agregar</button>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Mímica: una columna de palabras por equipo ----------
+   Los equipos son los del PRIMER desafío Jaguar de la presentación (ahí se
+   forman); a.palabrasEquipo[i] = texto con una palabra por renglón. Cada
+   equipo tiene sus propias palabras, así no se repiten entre equipos. */
+const EQUIPOS_EDITOR = [['Verde', '#39FF14'], ['Azul', '#2F80FF'], ['Amarillo', '#FFE600'], ['Turquesa', '#00F0D0'], ['Lima', '#B6FF00'], ['Celeste', '#7FD8FF']];
+function equiposDelPrimerJaguar(a, act) {
+  const jaguar = ((act && act.activaciones) || []).filter((x) => /^jg-/.test(x.tipo || ''));
+  // El primero en el orden de la presentación (minuto en video/podcast; si no, el orden de la lista).
+  const conT = jaguar.every((x) => typeof x.t === 'number');
+  const orden = conT ? jaguar.slice().sort((x, y) => x.t - y.t) : jaguar;
+  const primero = orden[0];
+  if (!primero || primero.id === a.id) return { n: a.equipos || 2, propio: true };
+  return { n: primero.equipos || 2, propio: false };
+}
+function ListaMimica({ a, set }) {
+  const { act } = React.useContext(ListasCtx);
+  const { n, propio } = equiposDelPrimerJaguar(a, act);
+  const listas = Array.from({ length: n }, (_, i) => ((a.palabrasEquipo || [])[i] || ''));
+  const cambiar = (i, texto) => {
+    const todo = Array.from({ length: Math.max(n, (a.palabrasEquipo || []).length) }, (_, k) => ((a.palabrasEquipo || [])[k] || ''));
+    todo[i] = texto;
+    set({ palabrasEquipo: todo });
+  };
+  const cuenta = (t) => t.split(/\r?\n/).filter((l) => l.trim()).length;
+  return (
+    <div className="vg-mimica-editor">
+      <div className="vg-etiqueta-campo">
+        <label>Palabras de cada equipo</label>
+        <span style={{ flex: 1 }}></span>
+        <span className="vg-jaguar-nota">{propio ? n + ' equipos (este es el primer desafío Jaguar)' : n + ' equipos, como en el primer desafío Jaguar'}</span>
+      </div>
+      <div className="vg-mimica-columnas" style={{ '--cols': Math.min(n, 3) }}>
+        {listas.map((t, i) => {
+          const [nombre, color] = EQUIPOS_EDITOR[i] || ['Equipo ' + (i + 1), '#39FF14'];
+          return (
+            <div key={i} className="vg-mimica-col" style={{ '--c': color }}>
+              <div className="vg-mimica-cabeza"><span className="punto"></span>Equipo {nombre}<small>{cuenta(t)}</small></div>
+              <textarea rows={5} value={t} placeholder={'Una palabra por renglón\nEj.: volcán\nfotosíntesis'}
+                onChange={(e) => cambiar(i, e.target.value)} />
+            </div>
+          );
+        })}
+      </div>
+      <span className="vg-jaguar-nota">Cada palabra es una ronda: aparece solo 5 segundos (se puede volver a ver) y no se repite en la presentación.</span>
+    </div>
+  );
+}
+
+/* ---------- Enlace de un desafío Jaguar con una activación cognitiva ----------
+   Si está activado, al presentar el equipo que GANA responde esa activación
+   (pregunta abierta o cerrada, instrucción, creación, escritura, nota de
+   contexto o glosario). Se guarda en a.enlace = { id, tipo, texto, ... }. */
+function EnlaceEditor({ a, set }) {
+  const cognitivos = VigiaTipos.TIPOS.filter((t) => t.grupo === 'cognitivo');
+  const enlace = a.enlace || null;
+  const nuevo = (tipoId) => {
+    const e = VigiaTipos.nuevaActivacion(tipoId, {});
+    delete e.ruleta;   // el enlazado lo responde el equipo ganador: sin ruleta
+    return e;
+  };
+  return (
+    <div className={'vg-enlace-editor' + (enlace ? ' on' : '')}>
+      <label className="vg-jaguar-duelo">
+        <input type="checkbox" checked={!!enlace}
+          onChange={(e) => set({ enlace: e.target.checked ? nuevo('pregunta') : null })} />
+        <span>🔗 Enlazar con una activación cognitiva</span>
+      </label>
+      <span className="vg-jaguar-nota">El equipo que gane responde la activación enlazada; ahí mismo se le suman (o quitan) puntos.</span>
+      {enlace && (
+        <React.Fragment>
+          <div className="vg-enlace-tipos" role="radiogroup" aria-label="Tipo de la activación enlazada">
+            {cognitivos.map((t) => (
+              <button key={t.id} type="button" role="radio" aria-checked={enlace.tipo === t.id}
+                className={'vg-enlace-tipo-op' + (enlace.tipo === t.id ? ' on' : '')} style={{ '--tipo': t.color }}
+                onClick={() => enlace.tipo !== t.id && set({ enlace: { ...nuevo(t.id), texto: enlace.texto || '' } })}>
+                <Icon name={t.icon} size={14} /> {t.nombre}
+              </button>
+            ))}
+          </div>
+          <ConfigActivacion key={enlace.id} a={enlace} onCambiar={(e) => set({ enlace: e })} onBorrar={() => set({ enlace: null })}
+            conTiempo={false} compacto sinFragmento anidada hayEstudiantes={false} onAbrirEstudiantes={() => {}} />
+        </React.Fragment>
+      )}
+    </div>
+  );
+}
+
+/* ---------- Vista previa de la activación seleccionada ----------
+   Arriba de la columna de tipos: la tarjeta tal como se verá al presentar,
+   en miniatura (se actualiza al escribir). "Ver en grande" la muestra a
+   pantalla completa, con su animación (Reto y Modo Jaguar, con su escena).
+   Sin activación seleccionada, muestra el encabezado de siempre (children). */
+function VistaPrevia({ a, act, children }) {
+  const [grande, setGrande] = React.useState(false);
+  if (!a || a.esImagen) return children;
+  const ti = VigiaTipos.tipo(a.tipo);
+  const escena = VigiaTipos.esEscena(a);
+  return (
+    <div className="vg-previa">
+      <div className="vg-previa-cabeza">
+        <span className="vg-previa-punto" style={{ background: ti.color }}></span>
+        <span className="vg-previa-titulo" title={'Vista previa · ' + ti.nombre}>Vista previa</span>
+        <span style={{ flex: 1 }}></span>
+        <button type="button" className="vg-mini-accion" onClick={() => setGrande(true)} title="Verla como al presentar">⤢ Ver en grande</button>
+      </div>
+      <EscenarioMini onClick={() => setGrande(true)}>
+        {escena
+          ? <PreviaEscenaMini a={a} ti={ti} />
+          : <TarjetaActivacion key={a.id} a={a} frase="" estudiantes={[]} orden={act.ordenNombres || 'apellidos'}
+              usados={[]} onUsado={() => {}} onContinuar={() => {}} />}
+      </EscenarioMini>
+      {grande && <PreviaGrande a={a} act={act} onCerrar={() => setGrande(false)} />}
+    </div>
+  );
+}
+
+/* Un "escenario" del tamaño de la pantalla, reducido para caber en la columna
+   (así las medidas en vw/vh de las tarjetas se ven en la misma proporción). */
+function EscenarioMini({ children, onClick }) {
+  const ref = React.useRef(null);
+  const [vista, setVista] = React.useState({ esc: 0.2, w: window.innerWidth, h: window.innerHeight });
+  React.useEffect(() => {
+    const el = ref.current;
+    if (!el) return undefined;
+    const medir = () => setVista({ esc: el.clientWidth / window.innerWidth, w: window.innerWidth, h: window.innerHeight });
+    medir();
+    const ro = new ResizeObserver(medir);
+    ro.observe(el);
+    window.addEventListener('resize', medir);
+    return () => { ro.disconnect(); window.removeEventListener('resize', medir); };
+  }, []);
+  return (
+    <div ref={ref} className="vg-previa-marco" style={{ aspectRatio: vista.w + ' / ' + vista.h }} onClick={onClick} title="Clic para ver en grande">
+      <div className="vigia vg-previa-escena tono-normal" style={{ width: vista.w, height: vista.h, transform: 'scale(' + vista.esc + ')' }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+/* Miniatura fija de las escenas (sin animaciones ni sonido en la columna). */
+function PreviaEscenaMini({ a, ti }) {
+  if (a.tipo === 'reto') {
+    const r = VigiaTipos.reto(a.reto);
+    return (
+      <div className="vg-previa-escena-fija reto">
+        <img src="condor-retador.webp" alt="" />
+        <div className="k">Reto de activación</div>
+        <div className="t">{r.titulo}</div>
+        <div className="d">{r.desc}</div>
+        {a.texto && <div className="d extra">{a.texto}</div>}
+      </div>
+    );
+  }
+  return (
+    <div className="vg-previa-escena-fija jaguar">
+      <img src="jaguar-equipos.webp" alt="" />
+      <div className="k">✊ Modo Jaguar</div>
+      <div className="t">{ti.propia ? (a.tituloPropio || 'Actividad propia') : ti.nombre}</div>
+      {a.texto && <div className="d">{a.texto}</div>}
+      <div className="d extra">{(a.equipos || 2) + ' equipos'}{a.duelo ? ' · ⚔ duelo por un punto' : ''}{ti.palabra && typeof palabrasDe === 'function' ? ' · ' + palabrasDe(a).length + ' palabras' : ''}{ti.mimica ? ' · ' + (a.palabrasEquipo || []).reduce((s, t) => s + (t || '').split('\n').filter((l) => l.trim()).length, 0) + ' palabras de mímica' : ''}</div>
+      {a.enlace && <div className="d extra">🔗 El ganador responde: {VigiaTipos.tipo(a.enlace.tipo).nombre}{a.enlace.texto ? ' · «' + a.enlace.texto.slice(0, 60) + '»' : ''}</div>}
+    </div>
+  );
+}
+
+/* Vista previa a pantalla completa: la activación tal como sale al presentar
+   (Continuar o Esc la cierran). */
+function PreviaGrande({ a, act, onCerrar }) {
+  // Modo Jaguar: la vista previa empieza siempre desde el inicio (con el jaguar
+  // y su voz). Se reinicia ANTES de pintar la escena. La frase, una sola vez.
+  const [frase] = React.useState(() => {
+    if (/^jg-/.test(a.tipo) && window.jaguarReiniciar) jaguarReiniciar('vista-previa');
+    return VigiaTipos.fraseAlAzar();
+  });
+  React.useEffect(() => {
+    const esc = (e) => { if (e.key === 'Escape') { e.stopPropagation(); onCerrar(); } };
+    window.addEventListener('keydown', esc, true);
+    return () => window.removeEventListener('keydown', esc, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return ReactDOM.createPortal(
+    <div className="vigia vg-previa-grande tono-normal">
+      <TarjetaActivacion a={a} frase={frase} estudiantes={act.estudiantes || []} orden={act.ordenNombres || 'apellidos'}
+        usados={[]} onUsado={() => {}} onContinuar={onCerrar} textoContinuar="Cerrar vista previa" />
+      <button className="vg-previa-cerrar" onClick={onCerrar} title="Cerrar vista previa (Esc)">✕ Cerrar vista previa</button>
+    </div>,
+    document.body);
 }
 
 /* Columna de tipos reunida por grupos: "Cognitivos" y "Físico-grupales"
@@ -607,7 +851,7 @@ function EtiquetaCampo({ texto, valor, onBorrar, onReleer }) {
        en el EPUB), que se cita en la tarjeta. `onReleer`: vuelve a leerlo.
    `compacto`: versión para la tarjeta flotante sobre el documento (sin
    encabezado ni ubicación, que la tarjeta ya muestra). */
-function ConfigActivacion({ a, onCambiar, onBorrar, tiempoActual, duracion, hayEstudiantes, onAbrirEstudiantes, onIr, conTiempo = true, ubicacion, compacto, onReleer, sinFragmento }) {
+function ConfigActivacion({ a, onCambiar, onBorrar, tiempoActual, duracion, hayEstudiantes, onAbrirEstudiantes, onIr, conTiempo = true, ubicacion, compacto, onReleer, sinFragmento, anidada }) {
   const { tipo, fmtT, parseT } = VigiaTipos;
   const ti = tipo(a.tipo);
   const set = (patch) => onCambiar({ ...a, ...patch });
@@ -701,13 +945,55 @@ function ConfigActivacion({ a, onCambiar, onBorrar, tiempoActual, duracion, hayE
                 onChange={(e) => set({ tituloPropio: e.target.value })} />
             </React.Fragment>
           )}
-          {ti.palabra && (
-            <React.Fragment>
-              <label style={{ marginTop: ti.propia ? 10 : 0 }}>Palabra secreta</label>
-              <input type="text" value={a.palabra || ''} maxLength={40} placeholder="Ej.: democracia"
-                onChange={(e) => set({ palabra: e.target.value })} />
-              <span className="vg-jaguar-nota">Se muestra como espacios _ _ _ y los equipos proponen letras.</span>
-            </React.Fragment>
+          {ti.palabra && (() => {
+            // Una palabra por renglón; la pista va después de "=". Cada una sale una sola vez.
+            const texto = typeof a.listaPalabras === 'string' ? a.listaPalabras : (a.palabra || '');
+            const cuantas = typeof palabrasDe === 'function' ? palabrasDe({ listaPalabras: texto }).length
+              : texto.split(/\r?\n/).filter((l) => l.trim()).length;
+            return (
+              <React.Fragment>
+                <div className="vg-etiqueta-campo" style={{ marginTop: ti.propia ? 10 : 0 }}>
+                  <label>Palabras secretas · {cuantas}</label>
+                  <span style={{ flex: 1 }}></span>
+                  <span className="vg-jaguar-nota">Una por renglón · pista opcional después de «=»</span>
+                </div>
+                <textarea rows={Math.min(8, Math.max(3, texto.split('\n').length + 1))} value={texto}
+                  placeholder={'democracia = Gobierno del pueblo\nconstitución\nsufragio = Otra forma de decir voto'}
+                  onChange={(e) => set({ listaPalabras: e.target.value })} />
+                <span className="vg-jaguar-nota">
+                  Los equipos dicen letras por turnos: si fallan, pierden una vida y pasa el turno. Cada palabra sale una sola vez en la presentación.
+                  {!cuantas && ' Si la dejas vacía, la escribes al presentar (oculta) o desde el celular.'}
+                </span>
+              </React.Fragment>
+            );
+          })()}
+          {ti.silueta && (
+            <div className="vg-jaguar-fila">
+              <span>Temporizador</span>
+              <input type="number" min="5" max="180" step="5" value={a.tiempoSilueta || 20} style={{ width: 80 }}
+                onChange={(e) => set({ tiempoSilueta: Math.max(5, Math.min(180, Number(e.target.value) || 20)) })} />
+              <span style={{ fontWeight: 600, color: 'var(--muted)' }}>segundos · la silueta se ve los primeros 7 s</span>
+            </div>
+          )}
+          {ti.silueta && <ListaSiluetas a={a} onCambiar={onCambiar} />}
+          {ti.mimica && <ListaMimica a={a} set={set} />}
+          {/* Origami: sin cronómetro por defecto; el temporizador es opcional. */}
+          {ti.dosTarjetas && (
+            <div className="vg-jaguar-fila">
+              <label className="vg-jaguar-duelo" style={{ margin: 0 }}>
+                <input type="checkbox" checked={!!a.temporizador} onChange={(e) => set({ temporizador: e.target.checked })} />
+                <span>⏱ Temporizador</span>
+              </label>
+              {a.temporizador ? (
+                <React.Fragment>
+                  <input type="number" min="10" max="900" step="10" value={a.tiempoReto || 120} style={{ width: 80 }}
+                    onChange={(e) => set({ tiempoReto: Math.max(10, Math.min(900, Number(e.target.value) || 120)) })} />
+                  <span style={{ fontWeight: 600, color: 'var(--muted)' }}>segundos · al terminar pasa a «¿Ganadores?»</span>
+                </React.Fragment>
+              ) : (
+                <span style={{ fontWeight: 600, color: 'var(--muted)' }}>Sin cronómetro: tú decides cuándo pasar a «¿Ganadores?»</span>
+              )}
+            </div>
           )}
           <div className="vg-jaguar-fila">
             <span title="Los equipos se forman en el primer desafío y se mantienen toda la presentación">Equipos (se forman en el primer desafío)</span>
@@ -722,10 +1008,11 @@ function ConfigActivacion({ a, onCambiar, onBorrar, tiempoActual, duracion, hayE
             <input type="checkbox" checked={!!a.duelo} onChange={(e) => set({ duelo: e.target.checked })} />
             <span>⚔ Se enfrentan dos equipos por un punto</span>
           </label>
-          <span className="vg-jaguar-nota" style={{ color: hayEstudiantes ? undefined : 'var(--naranja-ink)' }}>
-            {hayEstudiantes
-              ? 'Al presentar, los estudiantes se reparten al azar en los equipos. Los puntos se suman en el desafío, en el marcador (arriba a la izquierda) o desde el celular.'
-              : <React.Fragment>Sin estudiantes, los equipos aparecen sin nombres. <button className="vg-btn-texto" onClick={onAbrirEstudiantes}>Agrégalos</button></React.Fragment>}
+          {/* Enlace: el equipo que gane responde una activación cognitiva. */}
+          <EnlaceEditor a={a} set={set} />
+          {/* Por ahora en el Modo Jaguar solo aparece lo que se debe hacer (sin nombres de estudiantes). */}
+          <span className="vg-jaguar-nota">
+            Al presentar se muestra solo el desafío. Los puntos de cada equipo se suman en el duelo, en el marcador (arriba a la izquierda) o desde el celular.
           </span>
         </div>
       )}
@@ -809,8 +1096,8 @@ function ConfigActivacion({ a, onCambiar, onBorrar, tiempoActual, duracion, hayE
         </div>
       )}
 
-      {/* Imagen del activador (opcional, por URL) */}
-      <div className="field">
+      {/* Imagen del activador (opcional, por URL). La Silueta usa su propia lista. */}
+      {!ti.silueta && <div className="field">
         {!conImagen ? (
           <button type="button" className="vg-mini-accion vg-agregar-img" onClick={() => setConImagen(true)}
             title="Mostrar una imagen en la tarjeta al presentar">🖼 Agregar imagen (URL)</button>
@@ -830,9 +1117,9 @@ function ConfigActivacion({ a, onCambiar, onBorrar, tiempoActual, duracion, hayE
             </div>
           </div>
         )}
-      </div>
+      </div>}
 
-      {ti.ruleta && (
+      {ti.ruleta && !anidada && (
         <div className="field">
           <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
             <input type="checkbox" checked={!!a.ruleta} onChange={(e) => set({ ruleta: e.target.checked })} />
@@ -846,11 +1133,11 @@ function ConfigActivacion({ a, onCambiar, onBorrar, tiempoActual, duracion, hayE
         </div>
       )}
 
-      {compacto && (
+      {compacto && !anidada && (
         <button className="btn btn-sm" style={{ alignSelf: 'flex-start' }} onClick={onBorrar}>Eliminar activador</button>
       )}
     </div>
   );
 }
 
-Object.assign(window, { AreaTexto, EtiquetaCampo, VigiaEditor, VigiaEditorVideo, RecursoChips, EstudiantesPopover, PasoEnlace, MinutoExacto, LineaTiempo, ConfigActivacion, TiposAgrupados });
+Object.assign(window, { AreaTexto, EtiquetaCampo, VigiaEditor, VigiaEditorVideo, RecursoChips, EstudiantesPopover, PasoEnlace, MinutoExacto, LineaTiempo, ConfigActivacion, TiposAgrupados, VistaPrevia, siluetasDe });

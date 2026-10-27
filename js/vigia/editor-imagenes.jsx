@@ -223,6 +223,8 @@ function VigiaEditorImagenes({ act, onChange, onBack, onPresent }) {
 
         {/* ---- columna 3: tipos de activación + música de fondo ---- */}
         <div className="editor-tools">
+          {/* Vista previa de la activación seleccionada (o el encabezado de siempre). */}
+          <VistaPrevia a={sel} act={act}>
           <div>
             <div className="kicker">Tipos de</div>
             <h3 style={{ fontSize: 16.5, fontWeight: 800, marginTop: 2 }}>Activación</h3>
@@ -230,6 +232,7 @@ function VigiaEditorImagenes({ act, onChange, onBack, onPresent }) {
               Se agrega como ícono sobre la imagen. Recurso: <strong style={{ color: 'var(--ink)' }}>{rec.nombre}</strong>.
             </p>
           </div>
+          </VistaPrevia>
           <TiposAgrupados lista={TIPOS} render={(t) => {
             const habilitado = rec.tipos.includes(t.id) && !!diapo;
             return (

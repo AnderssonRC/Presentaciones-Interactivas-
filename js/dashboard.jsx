@@ -145,7 +145,7 @@ function Dashboard({ profile, presentations, onCreate, onOpen, onPresent, onDele
 </div>
         {/* Entrada al Modo Vigía (interfaz aparte, ver js/vigia.jsx). */}
         <button className="vigia-entrada" onClick={onVigia} title="Activar el Modo Vigía">
-          <img src="condor-vigia-icono.png" alt="" /> <span>Modo Vigía</span>
+          <img src="condor-vigia-icono.webp" alt="" /> <span>Modo Vigía</span>
         </button>
         {/* Espaciador: empuja "Crear" y el avatar a la derecha. */}
         <div style={{ flex: 1 }}></div>

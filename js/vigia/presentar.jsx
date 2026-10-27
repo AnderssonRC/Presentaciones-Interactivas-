@@ -16,6 +16,26 @@ function VigiaPresentar(props) {
   const jaguar = useJaguarEstado();
   const [ganador, setGanador] = React.useState(null);   // null | 'salir' | 'ver'
   React.useEffect(() => { jaguarReiniciar(act.id); }, [act.id]);
+  // Precarga TODAS las imágenes del material al entrar: así cada una aparece
+  // completa al llegar su momento (no a pedazos).
+  React.useEffect(() => {
+    if (typeof precargarVigia !== 'function') return;
+    const urls = [];
+    (act.activaciones || []).forEach((a) => {
+      if (a.imagen) urls.push(urlImagen(a.imagen));
+      (a.siluetas || []).forEach((u) => { if (u) urls.push(urlImagen(u)); });   // Silueta del grupo
+    });
+    ((act.galeria && act.galeria.diapos) || []).forEach((d) => { if (d.url) urls.push(urlImagen(d.url)); });
+    if (act.podcast) {
+      const p = act.podcast;
+      if (p.imagen || p.portada) urls.push(imagenPodcast(p));
+      (p.imagenes || []).forEach((x) => { if (x.url) urls.push(urlImagen(x.url)); });
+    }
+    if ((act.activaciones || []).some((a) => a.tipo === 'reto')) urls.push('condor-retador.webp');
+    if ((act.activaciones || []).some((a) => /^jg-/.test(a.tipo))) urls.push('jaguar-equipos.webp', 'jaguar-rojo.webp', 'Jaguar-voz.mp3', 'voz del ganador.mp3', 'A desempatar.mp3');
+    precargarVigia(urls);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [act.id]);
   const salir = () => { if (conJaguar && jaguar.iniciado && jaguar.equipos) setGanador('salir'); else props.onExit(); };
   useOrdenMando((o) => { if (o.accion === 'jaguar-ganador' && jaguar.iniciado) setGanador('ver'); });
 
@@ -521,22 +541,43 @@ const TONOS_PANTALLA = [
   { id: 'contraste', nombre: 'Alto contraste',     desc: 'Negro y blanco intensos, para proyectores débiles' },
   { id: 'calido',    nombre: 'Tono cálido',        desc: 'Menos azul, más suave para la vista' },
 ];
+/* El tono es UNO para toda la presentación (compartido): así las escenas que
+   viven fuera del modo Presentar (pantalla del ganador del Modo Jaguar,
+   marcador…) también lo reciben. Además se marca en <html data-vg-tono="…">
+   para que cualquier escena lo use en sus estilos. */
+let tonoActual = (() => {
+  try { const t = localStorage.getItem('vigia_tono'); return TONOS_PANTALLA.some((x) => x.id === t) ? t : 'normal'; } catch (e) { return 'normal'; }
+})();
+const oyentesTono = new Set();
+function fijarTonoGlobal(t) {
+  tonoActual = t;
+  try { localStorage.setItem('vigia_tono', t); } catch (e) { /* sin almacenamiento */ }
+  oyentesTono.forEach((o) => o(t));
+}
 function useTonoPresentar() {
-  const [tono, setTonoState] = React.useState(() => {
-    try { const t = localStorage.getItem('vigia_tono'); return TONOS_PANTALLA.some((x) => x.id === t) ? t : 'normal'; } catch (e) { return 'normal'; }
-  });
-  const setTono = (t) => { setTonoState(t); try { localStorage.setItem('vigia_tono', t); } catch (e) { /* sin almacenamiento */ } };
+  const [tono, setTonoState] = React.useState(tonoActual);
+  React.useEffect(() => {
+    oyentesTono.add(setTonoState);
+    setTonoState(tonoActual);
+    return () => oyentesTono.delete(setTonoState);
+  }, []);
+  // Marca el tono en <html> mientras se presenta.
+  React.useEffect(() => {
+    document.documentElement.dataset.vgTono = tono;
+    return () => { if (!oyentesTono.size) delete document.documentElement.dataset.vgTono; };
+  }, [tono]);
+  const setTono = fijarTonoGlobal;
   const siguienteTono = () => {
-    const i = TONOS_PANTALLA.findIndex((x) => x.id === tono);
-    setTono(TONOS_PANTALLA[(i + 1) % TONOS_PANTALLA.length].id);
+    const i = TONOS_PANTALLA.findIndex((x) => x.id === tonoActual);
+    fijarTonoGlobal(TONOS_PANTALLA[(i + 1) % TONOS_PANTALLA.length].id);
   };
-  // Desde el mando: siguiente tono.
-  useOrdenMando((o) => { if (o.accion === 'tono') siguienteTono(); });
-  // Tecla L: pasa al siguiente tono.
+  // Desde el mando: siguiente tono (una sola vez aunque haya varias pantallas escuchando).
+  useOrdenMando((o) => { if (o.accion === 'tono' && !o.__tono) { o.__tono = true; siguienteTono(); } });
+  // Tecla L: pasa al siguiente tono (una sola vez por pulsación).
   React.useEffect(() => {
     const onKey = (e) => {
-      if (e.target && /input|textarea|select/i.test(e.target.tagName)) return;
-      if (e.key === 'l' || e.key === 'L') { e.preventDefault(); siguienteTono(); }
+      if (e.__vgTono || (e.target && /input|textarea|select/i.test(e.target.tagName))) return;
+      if (e.key === 'l' || e.key === 'L') { e.__vgTono = true; e.preventDefault(); siguienteTono(); }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);

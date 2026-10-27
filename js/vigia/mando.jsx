@@ -69,7 +69,10 @@ function useMandoVigia(estado, manejar) {
   // Marcador del Modo Jaguar (si está en marcha): también lo ve y lo edita el celular.
   const sesionJaguar = window.useJaguarEstado ? useJaguarEstado() : null;
   const marcador = sesionJaguar && window.jaguarResumen ? jaguarResumen(sesionJaguar) : null;
-  const clave = JSON.stringify({ ...estado, tiempo: undefined, pin, marcador });
+  // El desafío Jaguar en pantalla: el celular muestra SUS botones (enfrentar,
+  // piedra-papel-tijera, quién ganó, puntos de la activación enlazada…).
+  const jaguarDesafio = marcador && window.jaguarDesafioActual ? jaguarDesafioActual(sesionJaguar) : null;
+  const clave = JSON.stringify({ ...estado, tiempo: undefined, pin, marcador, jaguarDesafio });
   const ultimoTiempo = React.useRef({ t: 0, en: 0 });
   React.useEffect(() => {
     if (!code) return;
@@ -87,7 +90,7 @@ function useMandoVigia(estado, manejar) {
   function publicar() {
     ultimoTiempo.current = { t: estado.tiempo || 0, en: Date.now() };
     const hash = pin && typeof window.hashPin === 'function' ? window.hashPin(pin) : '';
-    AIP.updateRemoteState(code, { ...estado, clase: 'vigia', en: Date.now(), mandoHash: hash, permiteEstudiantes: false, marcador })
+    AIP.updateRemoteState(code, { ...estado, clase: 'vigia', en: Date.now(), mandoHash: hash, permiteEstudiantes: false, marcador, jaguarDesafio })
       .catch((e) => console.error('[mando vigía] estado:', e));
   }
 

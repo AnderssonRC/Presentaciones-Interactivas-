@@ -11,12 +11,12 @@
 
 // Ícono recortado al marco interior (el cóndor llena el cuadro). El original
 // completo, con márgenes negros, es condor-vigia.png.
-const VIGIA_LOGO = 'condor-vigia-icono.png';
+const VIGIA_LOGO = 'condor-vigia-icono.webp';   // 10 KB (el PNG pesa 96 KB)
 
 // Módulos del Modo Vigía, en orden. Al editar uno, sube su versión aquí
 // (y la de este archivo en index.html) para que el navegador no use la vieja.
 const VIGIA_MODULOS = [
-  ['js/vigia/tipos.js', '20261024m'],
+  ['js/vigia/tipos.js', '20261026o'],
   ['js/vigia/youtube.jsx', '20261020p'],
   ['js/vigia/audio.jsx', '20261024d'],
   ['js/vigia/drive.jsx', '20261020a'],
@@ -24,24 +24,24 @@ const VIGIA_MODULOS = [
   ['js/vigia/epub.jsx', '20261020f'],
   ['js/vigia/respaldo.jsx', '20261024h'],
   ['js/vigia/ruleta.jsx', '20261020l'],
-  ['js/vigia/editor.jsx', '20261024m'],
-  ['js/vigia/editor-pdf.jsx', '20261024h'],
-  ['js/vigia/editor-epub.jsx', '20261024h'],
-  ['js/vigia/editor-podcast.jsx', '20261024h'],
-  ['js/vigia/editor-imagenes.jsx', '20261024l'],
+  ['js/vigia/editor.jsx', '20261026o'],
+  ['js/vigia/editor-pdf.jsx', '20261026d'],
+  ['js/vigia/editor-epub.jsx', '20261026d'],
+  ['js/vigia/editor-podcast.jsx', '20261026d'],
+  ['js/vigia/editor-imagenes.jsx', '20261026d'],
   ['js/vigia/herramientas.jsx', '20261024n'],
-  ['js/vigia/mando.jsx', '20261024m'],
-  ['js/vigia/presentar.jsx', '20261024o'],
-  ['js/vigia/presentar-reto.jsx', '20261024k'],
-  ['js/vigia/presentar-jaguar.jsx', '20261024o'],
+  ['js/vigia/mando.jsx', '20261026g'],
+  ['js/vigia/presentar.jsx', '20261026l'],
+  ['js/vigia/presentar-reto.jsx', '20261026b'],
+  ['js/vigia/presentar-jaguar.jsx', '20261026o'],
   ['js/vigia/presentar-pdf.jsx', '20261024l'],
   ['js/vigia/presentar-epub.jsx', '20261024l'],
   ['js/vigia/presentar-podcast.jsx', '20261024l'],
   ['js/vigia/presentar-imagenes.jsx', '20261024l'],
 ];
-const VIGIA_ESTILOS = ['js/vigia/estilos.css', '20261024o'];
+const VIGIA_ESTILOS = ['js/vigia/estilos.css', '20261026o'];
 // Pantalla del mando en el celular (la carga remote.jsx solo en el celular).
-const VIGIA_MANDO_VERSION = '20261024m';
+const VIGIA_MANDO_VERSION = '20261026o';
 let promesaVigia = null;
 // Tipografía de los títulos de las tarjetas (Fraunces, cursiva "suave"): elegante y juguetona.
 const VIGIA_FUENTE = 'https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT,WONK@1,9..144,600..900,100,1&display=swap';
@@ -169,10 +169,50 @@ const aipPreguntar = (mensaje, op) => vigiaPreguntar(mensaje, { tema: 'plataform
 const aipAviso = (mensaje, op) => vigiaAviso(mensaje, { tema: 'plataforma', ...(op || {}) });
 Object.assign(window, { vigiaConfirmar, vigiaPreguntar, vigiaAviso, aipConfirmar, aipPreguntar, aipAviso });
 
+/* ---------- Imágenes que no se dibujan "a pedazos" ----------
+   Cada <img> que termina de cargar recibe la clase .vg-img-lista; los
+   estilos (estilos.css) la mantienen oculta hasta entonces y luego la
+   muestran completa con un fundido (en vez de aparecer de arriba abajo). */
+document.addEventListener('load', (e) => {
+  const el = e.target;
+  if (el && el.tagName === 'IMG') el.classList.add('vg-img-lista');
+}, true);
+// Una imagen en caché puede terminar ANTES de entrar a la página (su "load" no
+// llega al documento): al insertarla, si ya está completa, se marca igual.
+new MutationObserver((cambios) => {
+  cambios.forEach((c) => c.addedNodes.forEach((n) => {
+    if (n.nodeType !== 1) return;
+    const imgs = n.tagName === 'IMG' ? [n] : n.querySelectorAll ? n.querySelectorAll('img') : [];
+    imgs.forEach((img) => { if (img.complete && img.naturalWidth > 0) img.classList.add('vg-img-lista'); });
+  }));
+}).observe(document.documentElement, { childList: true, subtree: true });
+
+/* Precarga (descarga y decodifica) imágenes y sonidos para que aparezcan al
+   instante cuando se necesiten. Sin esperar: no frena nada. */
+const precargadas = new Set();
+const audiosPrecargados = [];
+function precargarVigia(urls) {
+  (urls || []).forEach((u) => {
+    if (!u || precargadas.has(u)) return;
+    precargadas.add(u);
+    // Los audios se guardan (si no, el navegador podría descartarlos antes de bajarlos).
+    if (/\.(mp3|m4a|ogg|wav)$/i.test(u)) { const a = new Audio(); a.preload = 'auto'; a.src = encodeURI(u); a.load(); audiosPrecargados.push(a); return; }
+    const i = new Image();
+    i.decoding = 'async';
+    i.referrerPolicy = 'no-referrer';
+    i.src = u;
+    if (i.decode) i.decode().catch(() => {});
+  });
+}
+// Lo que usan las escenas (Reto, Modo Jaguar): se baja apenas se activa el Modo Vigía.
+const RECURSOS_ESCENAS = ['condor-retador.webp', 'jaguar-equipos.webp', 'jaguar-rojo.webp', 'Jaguar-voz.mp3', 'voz del ganador.mp3', 'A desempatar.mp3'];
+
 function cargarVigia() {
   if (!promesaVigia) {
+    precargarVigia([VIGIA_LOGO]);
     promesaVigia = cargarEstilosVigia()
       .then(() => VIGIA_MODULOS.reduce((cadena, [url, v]) => cadena.then(() => Actividades.ejecutarJSX(url + '?v=' + v)), Promise.resolve()))
+      .then(() => { setTimeout(() => precargarVigia(RECURSOS_ESCENAS), 400); })
       .catch((e) => { promesaVigia = null; console.error('[vigia]', e); throw e; });
   }
   return promesaVigia;

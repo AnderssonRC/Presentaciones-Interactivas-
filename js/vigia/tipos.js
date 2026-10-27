@@ -84,14 +84,20 @@
   const DESAFIOS_JAGUAR = [
     { id: 'jg-ppt', nombre: 'Piedra, papel o tijera', icon: 'dado', duelo: true,
       proposito: 'Un representante por equipo: ¡a la cuenta de tres!', etiqueta: 'Indicaciones (opcional)', placeholder: 'Al mejor de tres.' },
-    { id: 'jg-figura', nombre: 'El grupo imita la figura', icon: 'eye', pideImagen: true,
-      proposito: 'Aparece una imagen y el equipo la imita con el cuerpo.', etiqueta: 'Indicaciones (opcional)', placeholder: 'Tienen 30 segundos para formar la figura.' },
+    // Silueta del grupo: instrucción + grupo al azar (sin repetir) → 3, 2, 1 →
+    // la silueta (7 s) y luego unos ojos, con temporizador → ¿lo lograron?
+    { id: 'jg-figura', nombre: 'Silueta del grupo', icon: 'eye', pideImagen: true, silueta: true,
+      proposito: 'Un grupo al azar memoriza una silueta y la forma con el cuerpo antes de que acabe el tiempo.', etiqueta: 'Instrucción', placeholder: 'Formen con su cuerpo la silueta que verán. ¡Solo la verán 7 segundos!' },
     { id: 'jg-ejercicio', nombre: 'Ejercicio físico', icon: 'rayo',
       proposito: 'Todo el equipo hace el ejercicio que aparece.', etiqueta: 'Ejercicio', placeholder: '10 sentadillas sin parar.' },
     { id: 'jg-adivina', nombre: 'Adivina la palabra (ahorcado)', icon: 'ahorcado', palabra: true, duelo: true,
-      proposito: 'Ahorcado: los equipos proponen letras hasta descubrirla.', etiqueta: 'Pista (opcional)', placeholder: 'Es un concepto de la clase de hoy.' },
-    { id: 'jg-origami', nombre: 'Haz un origami', icon: 'memorama',
-      proposito: 'Cada equipo dobla la figura con una hoja.', etiqueta: '¿Qué figura?', placeholder: 'Una grulla de papel.' },
+      proposito: 'Ahorcado por turnos: cada equipo dice una letra; si falla, pierde una vida y pasa el turno. Gana quien la descubre.', etiqueta: 'Indicación (opcional)', placeholder: 'Es un concepto de la clase de hoy.' },
+    // Dos tarjetas: el reto (temporizador opcional) → ¿Ganadores? (+1 punto).
+    { id: 'jg-origami', nombre: 'Haz un origami', icon: 'memorama', dosTarjetas: true,
+      proposito: 'Cada equipo dobla la figura con una hoja; los que lo logran suman un punto.', etiqueta: '¿Qué figura?', placeholder: 'Una grulla de papel.' },
+    // Mímica: palabras por equipo (columnas en el editor) → la palabra se ve 5 s → ¿Correcto?
+    { id: 'jg-mimica', nombre: 'Mímica', icon: 'user', mimica: true,
+      proposito: 'Un estudiante actúa la palabra (aparece solo 5 segundos) y su equipo la adivina.', etiqueta: 'Indicaciones (opcional)', placeholder: 'Sin hablar ni señalar objetos del salón.' },
     { id: 'jg-reta', nombre: 'Reta al otro equipo', icon: 'trofeo', duelo: true,
       proposito: 'Un equipo le lanza un reto al otro.', etiqueta: 'Reglas del reto (opcional)', placeholder: 'El reto debe tener que ver con el tema.' },
     { id: 'jg-cuaderno', nombre: 'Responde en cuaderno o tablero', icon: 'letras',
@@ -200,7 +206,10 @@
     if (ti.id === 'glosario') { a.termino = (a.fragmento || '').trim(); a.definicion = ''; }
     if (ti.id === 'escritura' && a.fragmento) a.texto = a.fragmento;
     if (ti.id === 'reto') { a.reto = RETOS[0].id; a.tamGrupo = 4; }
-    if (ti.jaguar) { a.equipos = 2; a.duelo = !!ti.duelo; if (ti.palabra) a.palabra = (a.fragmento || '').trim().split(/\s+/)[0] || ''; }
+    if (ti.silueta) a.tiempoSilueta = 20;
+    if (ti.dosTarjetas) { a.temporizador = false; a.tiempoReto = 120; }
+    if (ti.mimica) a.palabrasEquipo = [];   // una lista de palabras (texto, una por renglón) por equipo
+    if (ti.jaguar) { a.equipos = 2; a.duelo = !!ti.duelo; if (ti.palabra) a.listaPalabras = (a.fragmento || '').trim().split(/\s+/)[0] || ''; }
     return a;
   }
 

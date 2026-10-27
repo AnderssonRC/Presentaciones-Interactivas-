@@ -280,6 +280,8 @@ function VigiaEditorPdf({ act, onChange, onBack, onPresent }) {
 
           {/* ---- columna 3: tipos + configuración del seleccionado ---- */}
           <div className="editor-tools">
+            {/* Vista previa de la activación seleccionada (o el encabezado de siempre). */}
+            <VistaPrevia a={sel} act={act}>
             <div>
               <div className="kicker">Tipos de</div>
               <h3 style={{ fontSize: 16.5, fontWeight: 800, marginTop: 2 }}>Activador</h3>
@@ -287,6 +289,7 @@ function VigiaEditorPdf({ act, onChange, onBack, onPresent }) {
                 Elige uno y arrastra sobre el texto del PDF. Recurso: <strong style={{ color: 'var(--ink)' }}>{rec.nombre}</strong>.
               </p>
             </div>
+            </VistaPrevia>
             <TiposAgrupados lista={TIPOS.filter((t) => rec.tipos.includes(t.id))} render={(t) => (
               <button key={t.id} className={'tool-card vg-tipo' + (tipoMarcar === t.id ? ' on' : '')}
                 onClick={() => setTipoMarcar((m) => (m === t.id ? null : t.id))}
