@@ -13,9 +13,15 @@ function VigiaPresentar(props) {
   const { act } = props;
   // --- Modo Jaguar: una sesión por presentación; al salir se muestra el ganador ---
   const conJaguar = (act.activaciones || []).some((a) => /^jg-/.test(a.tipo));
+  // Modo Capibara: misma sesión de equipos; en vez de puntos, pasos en la montaña hacia Jomu.
+  const conCapibara = !conJaguar && (act.activaciones || []).some((a) => /^cp-/.test(a.tipo));
   const jaguar = useJaguarEstado();
   const [ganador, setGanador] = React.useState(null);   // null | 'salir' | 'ver'
-  React.useEffect(() => { jaguarReiniciar(act.id); }, [act.id]);
+  // El número de equipos lo fija el PRIMER desafío con equipos y vale para toda la presentación.
+  React.useEffect(() => {
+    jaguarReiniciar(act.id, VigiaTipos.equiposJaguar(act.activaciones),
+      conCapibara ? { modo: 'capibara', meta: VigiaTipos.metaCapibara(act.activaciones) } : null);
+  }, [act.id]);   // eslint-disable-line
   // Precarga TODAS las imágenes del material al entrar: así cada una aparece
   // completa al llegar su momento (no a pedazos).
   React.useEffect(() => {
@@ -33,11 +39,16 @@ function VigiaPresentar(props) {
     }
     if ((act.activaciones || []).some((a) => a.tipo === 'reto')) urls.push('condor-retador.webp');
     if ((act.activaciones || []).some((a) => /^jg-/.test(a.tipo))) urls.push('jaguar-equipos.webp', 'jaguar-rojo.webp', 'Jaguar-voz.mp3', 'voz del ganador.mp3', 'A desempatar.mp3');
+    if ((act.activaciones || []).some((a) => a.tipo === 'cp-historia') && window.IMAGENES_CAPIBARA) urls.push(...IMAGENES_CAPIBARA);
     precargarVigia(urls);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [act.id]);
   const salir = () => { if (conJaguar && jaguar.iniciado && jaguar.equipos) setGanador('salir'); else props.onExit(); };
-  useOrdenMando((o) => { if (o.accion === 'jaguar-ganador' && jaguar.iniciado) setGanador('ver'); });
+  useOrdenMando((o) => {
+    if (o.accion === 'jaguar-ganador' && jaguar.iniciado && conJaguar) setGanador('ver');
+    else if (o.accion === 'jaguar-grupos' && jaguar.iniciado) jaguarVerGrupos();
+    else if (o.accion === 'cp-montana' && jaguar.iniciado && window.capibaraVerMontana) capibaraVerMontana();
+  });
 
   const p = { ...props, onExit: salir };
   let modo;
@@ -49,6 +60,9 @@ function VigiaPresentar(props) {
     <React.Fragment>
       {modo}
       {conJaguar && <MarcadorJaguar onGanador={() => setGanador('ver')} />}
+      {conCapibara && <MarcadorCapibara />}
+      {(conJaguar || conCapibara) && <PantallaGruposJaguar />}
+      {conCapibara && <PantallaMontanaCapibara />}
       {/* Encima de la presentación (que sigue montada: "Volver" la retoma donde iba). */}
       {ganador && (
         <GanadorJaguar onSalir={() => { setGanador(null); props.onExit(); }}
@@ -311,6 +325,8 @@ function TarjetaActivacion(props) {
   if (props.a.tipo === 'reto') return <RetoActivacion {...props} />;
   // Modo Jaguar (equipos): el jaguar, su voz y los equipos (presentar-jaguar.jsx).
   if (/^jg-/.test(props.a.tipo)) return <JaguarActivacion {...props} />;
+  // Modo Capibara (infantil): la historia de Jomu y sus juegos (presentar-capibara.jsx).
+  if (/^cp-/.test(props.a.tipo)) return <CapibaraActivacion {...props} />;
   return <TarjetaActivacionBase {...props} />;
 }
 function TarjetaActivacionBase({ a, frase, estudiantes, orden, usados, onUsado, onContinuar, textoContinuar, onCambiarActivacion }) {
@@ -446,7 +462,54 @@ function ContenidoActivacion({ a, onCambiar }) {
 
 /* Imagen opcional del activador (URL puesta en el editor), arriba del texto.
    Clic: la agranda a pantalla completa; otro clic la devuelve. */
+/* También el video de YouTube opcional del activador (a.youtube): se muestra
+   en todas las tarjetas que muestran la imagen. */
 function ImagenActivacion({ a }) {
+  return (
+    <React.Fragment>
+      <ImagenSolaActivacion a={a} />
+      {a.youtube && idDeYouTube(a.youtube) && <VideoActivacion key={a.youtube} a={a} />}
+    </React.Fragment>
+  );
+}
+
+// Segundo de inicio del enlace (…&t=90, ?t=1m30s, &start=90), si lo trae.
+function inicioYouTube(url) {
+  const m = String(url || '').match(/[?&#](?:t|start)=(\d+h)?(\d+m)?(\d+)?s?/i);
+  if (!m) return 0;
+  return (parseInt(m[1], 10) || 0) * 3600 + (parseInt(m[2], 10) || 0) * 60 + (parseInt(m[3], 10) || 0);
+}
+
+/* Video de YouTube dentro de la tarjeta (p. ej. la escena a imitar).
+   Botones: Reproducir/Pausar, Desde el inicio y Agrandar. El celular tiene
+   los mismos (orden 'video-tarjeta' con cmd: 'alternar' | 'inicio' | 'agrandar'). */
+function VideoActivacion({ a }) {
+  const id = idDeYouTube(a.youtube);
+  const inicio = inicioYouTube(a.youtube);
+  const yt = useYouTube(id, Object.assign({ controls: 1, fs: 0, iv_load_policy: 3 }, inicio ? { start: inicio } : {}));
+  const [grande, setGrande] = React.useState(false);
+  const alternar = () => { if (yt.reproduciendo) yt.pause(); else yt.play(); };
+  const desdeInicio = () => { yt.seek(inicio); yt.play(); };
+  useOrdenMando((o) => {
+    if (o.accion !== 'video-tarjeta') return;
+    if (o.cmd === 'alternar') alternar();
+    else if (o.cmd === 'inicio') desdeInicio();
+    else if (o.cmd === 'agrandar') setGrande((g) => !g);
+  });
+  return (
+    <div className={'vg-act-video' + (grande ? ' grande' : '')}>
+      <div className="vg-act-video-marco"><div ref={yt.montaje} className="vg-act-video-montaje"></div></div>
+      {yt.error && <div className="vg-act-video-error">{yt.error}</div>}
+      <div className="vg-act-video-botones">
+        <button className="vg-btn vg-btn-sec" onClick={alternar} disabled={!yt.listo}>{yt.reproduciendo ? '❚❚ Pausar' : '▶ Reproducir'}</button>
+        <button className="vg-btn vg-btn-sec" onClick={desdeInicio} disabled={!yt.listo}>↺ Desde el inicio</button>
+        <button className="vg-btn vg-btn-sec" onClick={() => setGrande((g) => !g)}>{grande ? '⤡ Achicar' : '⛶ Agrandar'}</button>
+      </div>
+    </div>
+  );
+}
+
+function ImagenSolaActivacion({ a }) {
   const [falla, setFalla] = React.useState(false);
   const [grande, setGrande] = React.useState(false);
   React.useEffect(() => { setFalla(false); }, [a.imagen]);

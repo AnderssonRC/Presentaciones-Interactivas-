@@ -49,6 +49,7 @@ function finalizarLucha() { window.dispatchEvent(new CustomEvent('vigia-mando', 
 const COLORES_EQUIPOS = [
   ['Verde', '#39FF14'], ['Azul', '#2F80FF'], ['Amarillo', '#FFE600'],
   ['Turquesa', '#00F0D0'], ['Lima', '#B6FF00'], ['Celeste', '#7FD8FF'],
+  ['Naranja', '#FF8A00'], ['Rosado', '#FF4FD8'], ['Morado', '#A66BFF'], ['Rojo', '#FF3B4E'],
 ];
 
 function barajarJaguar(lista) {
@@ -71,22 +72,48 @@ function useJaguarEstado() {
   return s;
 }
 // Al entrar a Presentar empieza una sesión nueva.
-function jaguarReiniciar(actId) {
+// `n`: cuántos equipos tiene la presentación (los elige el PRIMER desafío Jaguar).
+// `extra`: datos del modo (Modo Capibara: { modo: 'capibara', meta } = pasos hasta Jomu).
+function jaguarReiniciar(actId, n, extra) {
   // Todo vuelve a cero: equipos, duelos, grupos de la silueta y siluetas usadas.
-  cambiarJaguar(() => ({ actId, iniciado: false, equipos: null, duelos: [], siluetaUsados: [], siluetasUsadas: {}, palabrasUsadas: {}, mimicaUsadas: {}, mimicaTurno: {}, desafio: null }));
+  cambiarJaguar(() => ({ actId, n: n || null, iniciado: false, equipos: null, verGrupos: false, duelos: [], siluetaUsados: [], siluetasUsadas: {}, palabrasUsadas: {}, mimicaUsadas: {}, mimicaTurno: {}, desafio: null,
+    modo: 'jaguar', meta: null, verMontana: false, montanaVista: null, muroUsadas: [], colasConcursantes: {}, ...(extra || {}) }));
 }
-/* Duelos "todos contra todos": devuelve la siguiente pareja [i, j] que aún
-   no se ha enfrentado; cuando ya se enfrentaron todas, empieza otra vuelta.
-   Devuelve también { numero, total } para mostrar "Duelo 2 de 3". */
-function jaguarSiguienteDuelo(n) {
-  const parejas = [];
-  for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) parejas.push([i, j]);
-  let hechos = sesionJaguar.duelos || [];
-  let sig = parejas.find(([i, j]) => !hechos.includes(i + '-' + j));
-  if (!sig) { hechos = []; sig = parejas[0]; }
+// La sesión tal como está ahora (para otros módulos: el Modo Capibara).
+function jaguarSesion() { return sesionJaguar; }
+// "Ver equipos": la lista de estudiantes de cada equipo, encima de todo (la monta VigiaPresentar).
+function jaguarVerGrupos(v) { cambiarJaguar((s) => ({ verGrupos: typeof v === 'boolean' ? v : !s.verGrupos })); }
+/* Enfrentamientos de k en k (2, 3 o 4 equipos a la vez): devuelve el
+   siguiente grupo que aún no se ha enfrentado, eligiendo a los equipos que
+   MENOS han jugado; cuando ya salieron todos, empieza otra vuelta.
+   Devuelve { pareja: [i, j, …], numero, total, texto } ("Enfrentamiento 2 de 3"). */
+function combinacionesJaguar(n, k) {
+  const r = [];
+  const rec = (ini, acc) => {
+    if (acc.length === k) { r.push(acc.slice()); return; }
+    for (let i = ini; i < n; i++) { acc.push(i); rec(i + 1, acc); acc.pop(); }
+  };
+  rec(0, []);
+  return r;
+}
+function jaguarSiguienteDuelo(n, k) {
+  k = Math.max(2, Math.min(n, k || 2));
+  const todas = combinacionesJaguar(n, k);
+  const clave = (g) => k + ':' + g.join('-');
+  const deK = (x) => String(x).indexOf(k + ':') === 0;
+  let hechos = (sesionJaguar.duelos || []).filter(deK);
+  let libres = todas.filter((g) => !hechos.includes(clave(g)));
+  if (!libres.length) { hechos = []; libres = todas; }
+  const veces = Array.from({ length: n }, () => 0);
+  hechos.forEach((h) => h.split(':')[1].split('-').forEach((i) => { veces[Number(i)] += 1; }));
+  let sig = libres[0], menor = Infinity;
+  libres.forEach((g) => { const s = g.reduce((t, i) => t + veces[i], 0); if (s < menor) { menor = s; sig = g; } });
   // Sin avisar a los oyentes: solo lleva la cuenta (puede llamarse al pintar).
-  sesionJaguar.duelos = [...hechos, sig[0] + '-' + sig[1]];
-  return { pareja: sig, numero: sesionJaguar.duelos.length, total: parejas.length };
+  sesionJaguar.duelos = [...(sesionJaguar.duelos || []).filter((x) => !deK(x)), ...hechos, clave(sig)];
+  const numero = hechos.length + 1;
+  const modo = k === 2 ? 'de 2 en 2' : 'de ' + k + ' en ' + k;
+  const texto = 'Enfrentamiento ' + numero + (todas.length <= 15 ? ' de ' + todas.length : '') + ' · ' + modo;
+  return { pareja: sig, numero, total: todas.length, texto };
 }
 function repartir(nombres, n, puntosPrevios) {
   const eq = COLORES_EQUIPOS.slice(0, n).map(([nombre, color], i) => ({ nombre: 'Equipo ' + nombre, color, miembros: [], puntos: (puntosPrevios && puntosPrevios[i]) || 0 }));
@@ -110,7 +137,8 @@ function jaguarIniciar() { if (!sesionJaguar.iniciado) cambiarJaguar(() => ({ in
 // Resumen para el celular.
 function jaguarResumen(s) {
   const x = s || sesionJaguar;
-  return x.iniciado && x.equipos ? x.equipos.map((e) => ({ nombre: e.nombre, color: e.color, puntos: e.puntos })) : null;
+  // Con los integrantes: el celular también puede mostrar quién está en cada equipo.
+  return x.iniciado && x.equipos ? x.equipos.map((e) => ({ nombre: e.nombre, color: e.color, puntos: e.puntos, miembros: e.miembros || [] })) : null;
 }
 // El desafío en pantalla, para el celular (qué botones mostrar): lo publica JaguarActivacion.
 function jaguarDesafioActual(s) { return (s || sesionJaguar).desafio || null; }
@@ -202,7 +230,9 @@ const DESEMPATE_T = { uno: 0.1, dos: 1.9, duracion: 4.7 };
 function JaguarActivacion({ a, estudiantes, orden, onContinuar }) {
   const ti = VigiaTipos.tipo(a.tipo);
   const nombres = (estudiantes || []).map((s) => (s || '').trim()).filter(Boolean);
-  const n = Math.max(2, Math.min(6, a.equipos || 2));
+  // Los equipos los fija el PRIMER desafío Jaguar de la presentación (sesión).
+  const n = Math.max(2, Math.min(COLORES_EQUIPOS.length, sesionJaguar.n || a.equipos || 2));
+  const k = VigiaTipos.enfrentarDe(a);   // 0 = todos juntos · 2, 3 o 4 a la vez
   const sesion = useJaguarEstado();
   // ¿Es el primer desafío de la presentación? (se decide al abrir la escena)
   const [primera] = React.useState(() => !sesionJaguar.iniciado);
@@ -222,7 +252,9 @@ function JaguarActivacion({ a, estudiantes, orden, onContinuar }) {
   // Duelo: la siguiente pareja del "todos contra todos" de la sesión.
   // "Enfrentar equipos" pasa a la siguiente pareja (al final, otra vuelta).
   const esPPT = a.tipo === 'jg-ppt';
-  const [duelo, setDuelo] = React.useState(() => (a.duelo || esPPT ? jaguarSiguienteDuelo(equipos.length) : null));
+  // Con "todos juntos" no hay enfrentamiento (si k pasa del número de equipos, juegan todos).
+  const conDuelo = k > 0 && equipos.length >= 2;
+  const [duelo, setDuelo] = React.useState(() => (conDuelo || esPPT ? jaguarSiguienteDuelo(equipos.length, k || 2) : null));
 
   // --- Ganador del desafío: suma 1 punto (cambiarlo corrige el punto). Si
   //     hay una activación ENLAZADA, el ganador la responde. ---
@@ -233,7 +265,7 @@ function JaguarActivacion({ a, estudiantes, orden, onContinuar }) {
     jaguarPunto(i, 1);
     setGanador(i);
   };
-  const enfrentar = () => { setDuelo(jaguarSiguienteDuelo(equipos.length)); setGanador(null); };
+  const enfrentar = () => { setDuelo(jaguarSiguienteDuelo(equipos.length, k || 2)); setGanador(null); };
 
   // --- Piedra, papel o tijera: 'elegir' (quiénes se enfrentan) → 'jugando'
   //     (la animación) → 'resultado' (¿quién ganó?) → nuevo enfrentamiento ---
@@ -250,7 +282,7 @@ function JaguarActivacion({ a, estudiantes, orden, onContinuar }) {
   });
   const jugar = () => { setGanador(null); setPpt('jugando'); };
   const nuevoEnfrentamiento = () => {
-    const d = jaguarSiguienteDuelo(equipos.length);
+    const d = jaguarSiguienteDuelo(equipos.length, k || 2);
     setDuelo(d);
     setEnfrentan(enfrentan.length > 2 ? enfrentan : d.pareja.slice());
     setGanador(null); setPpt('elegir');
@@ -266,14 +298,16 @@ function JaguarActivacion({ a, estudiantes, orden, onContinuar }) {
   const esPalabra = !!ti.palabra;
   const esOrigami = !!ti.dosTarjetas;   // (también lleva su propio ganador)
   const esMimica = !!ti.mimica;          // (ídem)
-  const enDueloAhora = a.duelo && duelo && !esPPT && !esPalabra && !esOrigami && !esMimica;
+  const esCuaderno = !!ti.cuaderno;      // (ídem: tres tarjetas y su ganador)
+  const propioEstado = esOrigami || esMimica || esCuaderno;
+  const enDueloAhora = conDuelo && duelo && !esPPT && !esPalabra && !propioEstado;
   const elegibles = esPPT ? enfrentan : enDueloAhora ? duelo.pareja : equipos.map((_, i) => i);
   React.useEffect(() => {
-    if (fase !== 'equipos' || ti.silueta || esPalabra || esOrigami || esMimica) return undefined;   // la silueta y el ahorcado publican su propio estado
+    if (fase !== 'equipos' || ti.silueta || esPalabra || propioEstado) return undefined;   // la silueta y el ahorcado publican su propio estado
     cambiarJaguar(() => ({ desafio: {
       tipo: a.tipo, ppt: esPPT ? ppt : null, enfrentan: esPPT ? enfrentan : null,
       duelo: !!enDueloAhora, elegibles, ganador, enlace: !!a.enlace,
-      pideGanador: esPPT ? ppt === 'resultado' : !!(enDueloAhora || a.enlace),
+      pideGanador: esPPT ? ppt === 'resultado' : a.tipo !== 'jg-azar',
     } }));
     return undefined;
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -309,7 +343,7 @@ function JaguarActivacion({ a, estudiantes, orden, onContinuar }) {
       // Nunca retrocede: si el audio arranca tarde, lo que ya salió no se esconde.
       const n = FRASES_JAGUAR.filter((f) => f.t <= t).length;
       setVisibles((v) => (n > v ? n : v));
-      if (t >= FIN_VOZ || (sonando && voz.ended)) { setFase('equipos'); return; }
+      if (t >= FIN_VOZ || (sonando && voz.ended)) { setFase('grupos'); return; }
       raf = requestAnimationFrame(paso);
     };
     raf = requestAnimationFrame(paso);
@@ -320,8 +354,18 @@ function JaguarActivacion({ a, estudiantes, orden, onContinuar }) {
 
   const adelantar = () => {
     if (fase === 'jaguar') setFase('frase');
-    else if (fase === 'frase' || fase === 'sigue') { if (audio.current) audio.current.pause(); setFase('equipos'); }
+    // Al iniciar el Modo Jaguar: después de la voz, los equipos con sus estudiantes.
+    else if (fase === 'frase') { if (audio.current) audio.current.pause(); setFase('grupos'); }
+    else if (fase === 'sigue' || fase === 'grupos') { if (audio.current) audio.current.pause(); setFase('equipos'); }
   };
+  // Mientras se muestran los equipos al inicio, el celular tiene sus botones.
+  React.useEffect(() => {
+    if (fase !== 'grupos') return undefined;
+    cambiarJaguar(() => ({ desafio: { tipo: a.tipo, grupos: true } }));
+    return () => cambiarJaguar(() => ({ desafio: null }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fase]);
+  const resortear = () => { jaguarRehacer(nombres); };
   const terminar = () => setFase('cierre');
 
   // Teclado (espacio / Enter) y mando: adelantar o terminar con su cierre.
@@ -340,6 +384,7 @@ function JaguarActivacion({ a, estudiantes, orden, onContinuar }) {
       if (fase === 'equipos') terminar(); else if (fase === 'cierre') onContinuar(); else adelantar();
     }
     else if (o.accion === 'letra') cambiarEscala(o.dir || 0);
+    else if (o.accion === 'jg-resortear' && fase === 'grupos') resortear();
     // Desde el celular: los mismos botones del desafío.
     else if (fase === 'equipos') {
       if (o.accion === 'jg-ganador') elegirGanador(o.i);
@@ -387,6 +432,28 @@ function JaguarActivacion({ a, estudiantes, orden, onContinuar }) {
     );
   }
 
+  // Inicio del Modo Jaguar: "¡Busca tu equipo!" con los estudiantes de cada equipo (por color).
+  if (fase === 'grupos') {
+    return (
+      <div className="vg-jaguar vg-jaguar-equipos vg-jaguar-grupos">
+        <div className="vg-jaguar-tarjeta">
+          <div className="vg-jaguar-contenido">
+            <div className="vg-jaguar-cabecera">
+              <span className="vg-jaguar-puno"><Icon name="puno" size={22} /></span>
+              <span>Modo Jaguar · {equipos.length} equipos</span>
+            </div>
+            <h1 className="vg-jaguar-titulo">¡Busca tu equipo!</h1>
+            <ListaGruposJaguar equipos={equipos} />
+          </div>
+        </div>
+        <div className="vg-jaguar-acciones">
+          {nombres.length > 0 && <button className="vg-btn vg-btn-sec" onClick={resortear} title="Repartir de nuevo a los estudiantes (al azar)">🔀 Volver a sortear</button>}
+          <button className="vg-btn vg-jaguar-btn" onClick={adelantar}>¡A luchar! <Icon name="play" size={16} /></button>
+        </div>
+      </div>
+    );
+  }
+
   if (fase === 'cierre') {
     return (
       <div className="vg-jaguar vg-jaguar-cierre" onClick={onContinuar} title="Clic para continuar">
@@ -417,11 +484,14 @@ function JaguarActivacion({ a, estudiantes, orden, onContinuar }) {
           <h1 className="vg-jaguar-titulo">{titulo}</h1>
           {/* Silueta del grupo: sus 4 tarjetas (la imagen NO se muestra antes de tiempo). */}
           {ti.silueta ? <SiluetaJaguar a={a} equipos={equipos} /> : esOrigami ? (
-            <OrigamiJaguar key={a.duelo && duelo ? 'd' + duelo.numero + '-' + duelo.pareja.join('') : 'todos'} a={a} equipos={equipos}
-              duelo={a.duelo && duelo && equipos.length >= 2 ? duelo : null} onEnfrentar={enfrentar} />
+            <OrigamiJaguar key={conDuelo && duelo ? 'd' + duelo.numero + '-' + duelo.pareja.join('') : 'todos'} a={a} equipos={equipos}
+              duelo={conDuelo && duelo && equipos.length >= 2 ? duelo : null} onEnfrentar={enfrentar} />
+          ) : esCuaderno ? (
+            <CuadernoJaguar key={conDuelo && duelo ? 'd' + duelo.numero + '-' + duelo.pareja.join('') : 'todos'} a={a} equipos={equipos}
+              duelo={conDuelo && duelo && equipos.length >= 2 ? duelo : null} onEnfrentar={enfrentar} />
           ) : esMimica ? (
-            <MimicaJaguar key={a.duelo && duelo ? 'd' + duelo.numero + '-' + duelo.pareja.join('') : 'todos'} a={a} equipos={equipos}
-              duelo={a.duelo && duelo && equipos.length >= 2 ? duelo : null} onEnfrentar={enfrentar} />
+            <MimicaJaguar key={conDuelo && duelo ? 'd' + duelo.numero + '-' + duelo.pareja.join('') : 'todos'} a={a} equipos={equipos}
+              duelo={conDuelo && duelo && equipos.length >= 2 ? duelo : null} onEnfrentar={enfrentar} />
           ) : (
             <React.Fragment>
               {a.texto && a.texto.trim() && <p className="vg-jaguar-texto">{a.texto}</p>}
@@ -430,8 +500,8 @@ function JaguarActivacion({ a, estudiantes, orden, onContinuar }) {
           )}
           {/* Adivina la palabra: cada duelo ("Enfrentar equipos") empieza con otra palabra. */}
           {esPalabra && (
-            <PalabraJaguar key={a.duelo && duelo ? 'd' + duelo.numero + '-' + duelo.pareja.join('') : 'todos'} a={a} equipos={equipos}
-              duelo={a.duelo && duelo && equipos.length >= 2 ? duelo : null} onEnfrentar={enfrentar} />
+            <PalabraJaguar key={conDuelo && duelo ? 'd' + duelo.numero + '-' + duelo.pareja.join('') : 'todos'} a={a} equipos={equipos}
+              duelo={conDuelo && duelo && equipos.length >= 2 ? duelo : null} onEnfrentar={enfrentar} />
           )}
           {a.tipo === 'jg-azar' && <EquipoAlAzar equipos={equipos} />}
 
@@ -477,6 +547,7 @@ function JaguarActivacion({ a, estudiantes, orden, onContinuar }) {
 
           {enDuelo && (
             <div className="vg-jaguar-duelo-caja">
+              {equipos.length > pareja.length && <EquiposEnJuego equipos={equipos} participantes={pareja} etiqueta="Concursan ahora" />}
               <div className="vg-jaguar-duelo">
                 {pareja.filter((i) => equipos[i]).map((i, k) => (
                   <React.Fragment key={i}>
@@ -492,17 +563,17 @@ function JaguarActivacion({ a, estudiantes, orden, onContinuar }) {
               {/* Todos contra todos: siempre se enfrentan todos los equipos. */}
               {equipos.length >= 2 && (
                 <div className="vg-jaguar-duelo-pie">
-                  <span>Duelo {duelo.numero} de {duelo.total} · todos contra todos</span>
+                  <span>{duelo.texto}</span>
                   <button className="vg-btn vg-jaguar-btn" onClick={enfrentar}>⚔ Enfrentar equipos</button>
                 </div>
               )}
             </div>
           )}
 
-          {/* Sin duelo ni piedra-papel-tijera pero con activación enlazada: ¿qué equipo ganó? */}
-          {!esPPT && !enDuelo && !ti.silueta && !esPalabra && !esOrigami && !esMimica && a.enlace && (
+          {/* Sin duelo ni piedra-papel-tijera: concursan todos; ¿qué equipo ganó? */}
+          {!esPPT && !enDuelo && !ti.silueta && !esPalabra && !propioEstado && a.tipo !== 'jg-azar' && (
             <div className="vg-ppt-resultado">
-              <div className="vg-ppt-pregunta">¿Qué equipo ganó?</div>
+              <div className="vg-ppt-pregunta">Concursan todos · ¿Qué equipo ganó?</div>
               <div className="vg-ppt-equipos">
                 {equipos.map((e, i) => (
                   <button key={i} className={'vg-ppt-chip' + (ganador === i ? ' on' : '')} style={{ '--c': e.color }}
@@ -525,6 +596,8 @@ function JaguarActivacion({ a, estudiantes, orden, onContinuar }) {
       {/* La arena de piedra, papel o tijera ocupa toda la escena (fuera del zoom de la tarjeta). */}
       {esPPT && ppt === 'jugando' && <AnimacionPPT equipos={enfrentan.map((i) => equipos[i]).filter(Boolean)} />}
       <div className="vg-jaguar-acciones">
+        <button className="vg-btn vg-btn-sec vg-jaguar-ver-grupos" onClick={() => jaguarVerGrupos(true)} title="Ver los estudiantes de cada equipo">👥 Ver equipos</button>
+        <span style={{ flex: 1 }}></span>
         <button className="vg-btn vg-finalizar-btn" onClick={finalizarLucha} title="Terminar el Modo Jaguar y mostrar a los ganadores hasta este momento">🏁 Finalizar lucha</button>
         <button className="vg-btn vg-jaguar-btn" onClick={terminar}>Terminar desafío <Icon name="play" size={16} /></button>
       </div>
@@ -957,11 +1030,8 @@ function OrigamiJaguar({ a, equipos, duelo, onEnfrentar }) {
         <div className="vg-sil-tarjeta" key={'r' + ronda}>
           {a.texto && a.texto.trim() && <p className="vg-sil-instruccion">{a.texto}</p>}
           <ImagenActivacion a={a} />
-          {duelo && (
-            <div className="vg-sil-equipos">
-              {participantes.map((i) => <span key={i} className="vg-sil-chip" style={{ '--c': equipos[i].color }}>{equipos[i].nombre}</span>)}
-            </div>
-          )}
+          <EquiposEnJuego equipos={equipos} participantes={participantes} duelo={duelo}
+            etiqueta={duelo ? 'Concursan' : 'Concursan todos los equipos'} />
           {conReloj && (
             <div className={'vg-sil-reloj vg-og-reloj' + (restante <= 10 ? ' final' : '')} role="timer" aria-live="off">
               <b>{mmss}</b><span>{tiempo ? '¡Tiempo!' : corriendo ? '' : restante < total ? 'en pausa' : ''}</span>
@@ -1018,6 +1088,191 @@ function OrigamiJaguar({ a, equipos, duelo, onEnfrentar }) {
   );
 }
 
+/* ============== RESPONDE EN CUADERNO O TABLERO (tres tarjetas) ==============
+     1. Pregunta · 2. Responder · 3. ¿Ganador?  Cronómetro en las tarjetas 1 y 2.
+   a.pantalla (editor):
+     · 'videobeam': en la 2 cada equipo tiene un recuadro GRANDE proyectado en el
+       tablero para escribir; tocar un recuadro lo elige ganador y pasa a la 3.
+     · 'televisor': en la 2 solo aparece la pregunta (responden en el cuaderno).
+   Un solo ganador (+1; elegir otro le pasa el punto). El ganador responde la
+   activación enlazada. Si es duelo, solo juega la pareja. Órdenes: 'cq-*'. */
+function CuadernoJaguar({ a, equipos, duelo, onEnfrentar }) {
+  const participantes = (duelo ? duelo.pareja : equipos.map((_, i) => i)).filter((i) => equipos[i]);
+  const videobeam = a.pantalla !== 'televisor';
+  const total = Math.max(10, a.tiempoReto || 180);
+  const pregunta = (a.texto || '').trim();
+  const [paso, setPaso] = React.useState(1);              // 1 pregunta · 2 responder · 3 ¿ganador?
+  const [corriendo, setCorriendo] = React.useState(false);
+  const [restante, setRestante] = React.useState(total);
+  const [tiempo, setTiempo] = React.useState(false);      // "¡Tiempo!" al llegar a 0
+  const [ganador, setGanador] = React.useState(null);
+  const [ronda, setRonda] = React.useState(1);
+
+  // Cronómetro: cuenta hacia atrás y al llegar a 0 muestra "¡Tiempo!" (el docente decide cuándo seguir).
+  React.useEffect(() => {
+    if (!corriendo) return undefined;
+    const inicio = performance.now() - (total - restante) * 1000;
+    const iv = setInterval(() => {
+      const quedan = Math.max(0, Math.ceil(total - (performance.now() - inicio) / 1000));
+      setRestante(quedan);
+      if (quedan <= 0) { clearInterval(iv); setCorriendo(false); setTiempo(true); }
+    }, 200);
+    return () => clearInterval(iv);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [corriendo]);
+  const empezar = () => { if (paso < 3 && !corriendo && restante > 0) setCorriendo(true); };
+  const pausar = () => setCorriendo(false);
+  const responder = () => { if (paso === 1) { setPaso(2); if (restante > 0) setCorriendo(true); } };
+  const aGanador = () => { if (paso < 3) { setCorriendo(false); setPaso(3); } };
+  const volver = () => { if (paso === 3) setPaso(2); };
+  const elegir = (i) => {
+    if (paso < 2 || !equipos[i] || !participantes.includes(i)) return;
+    if (ganador === i) {
+      if (paso === 3) { jaguarPunto(i, -1); setGanador(null); } else setPaso(3);   // tocar otra vez lo corrige
+      return;
+    }
+    if (ganador !== null) jaguarPunto(ganador, -1);
+    jaguarPunto(i, 1); setGanador(i); setCorriendo(false); setPaso(3);
+  };
+  const otraRonda = () => { setPaso(1); setGanador(null); setCorriendo(false); setTiempo(false); setRestante(total); setRonda((r) => r + 1); };
+
+  // Estado y órdenes del celular.
+  React.useEffect(() => {
+    cambiarJaguar(() => ({ desafio: {
+      tipo: a.tipo, enlace: !!a.enlace, duelo: !!duelo,
+      cuaderno: { paso, videobeam, corriendo, restante, total, tiempo, participantes },
+      ganador,
+    } }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paso, corriendo, Math.ceil(restante / 5), tiempo, ganador]);
+  useOrdenMando((o) => {
+    if (o.accion === 'cq-empezar') empezar();
+    else if (o.accion === 'cq-pausar') pausar();
+    else if (o.accion === 'cq-responder') responder();
+    else if (o.accion === 'cq-ganador-paso') aGanador();
+    else if (o.accion === 'cq-ganador') elegir(o.i);
+    else if (o.accion === 'cq-volver') volver();
+    else if (o.accion === 'cq-otra') otraRonda();
+  });
+
+  const mmss = Math.floor(restante / 60) + ':' + String(restante % 60).padStart(2, '0');
+  const reloj = (
+    <div className={'vg-sil-reloj vg-og-reloj' + (restante <= 10 ? ' final' : '')} role="timer" aria-live="off">
+      <b>{mmss}</b><span>{tiempo ? '¡Tiempo!' : corriendo ? '' : restante < total ? 'en pausa' : ''}</span>
+      <div className="vg-sil-barra"><i style={{ transform: 'scaleX(' + (restante / total) + ')' }}></i></div>
+    </div>
+  );
+  const botonReloj = tiempo ? null : corriendo
+    ? <button className="vg-btn vg-btn-sec" onClick={pausar}>❚❚ Pausar</button>
+    : <button className="vg-btn vg-btn-sec" onClick={empezar}>{restante < total ? '▶ Seguir' : '▶ Empezar'}</button>;
+  const np = participantes.length;   // 2–3 en una fila · 4 en 2×2 · 5–6 en 3 · 7–8 en 4 · 9–10 en 5
+  const cols = np <= 3 ? np : np === 4 ? 2 : np <= 6 ? 3 : np <= 8 ? 4 : 5;
+  const eqGanador = ganador !== null ? equipos[ganador] : null;
+
+  return (
+    <div className="vg-sil vg-og vg-cq">
+      {!(paso === 2 && videobeam) && (
+        <ol className="vg-sil-pasos" aria-label="Pasos">
+          {['Pregunta', videobeam ? 'Tablero' : 'Cuaderno', '¿Ganador?'].map((p, k) => <li key={k} className={k + 1 === paso ? 'on' : k + 1 < paso ? 'hecho' : ''}><b>{k + 1}</b>{p}</li>)}
+        </ol>
+      )}
+
+      {/* 1 · La pregunta */}
+      {paso === 1 && (
+        <div className="vg-sil-tarjeta" key={'p' + ronda}>
+          <div className="vg-cq-modo">{videobeam ? '📽 Respondan en el tablero' : '📓 Respondan en el cuaderno'}</div>
+          {pregunta && <p className="vg-cq-pregunta">{pregunta}</p>}
+          <ImagenActivacion a={a} />
+          <EquiposEnJuego equipos={equipos} participantes={participantes} duelo={duelo}
+            etiqueta={duelo ? 'Concursan' : 'Concursan todos los equipos'} />
+          {reloj}
+          <div className="vg-sil-botones">
+            {botonReloj}
+            <button className="vg-btn vg-jaguar-btn" onClick={responder}>{videobeam ? 'Mostrar recuadros' : 'Responder'} <Icon name="play" size={16} /></button>
+          </div>
+        </div>
+      )}
+
+      {/* 2 · Videobeam: un recuadro grande por equipo para escribir en el tablero */}
+      {paso === 2 && videobeam && (
+        <React.Fragment>
+          <div className="vg-cq-barra">
+            {pregunta && <p className="vg-cq-pregunta">{pregunta}</p>}
+            {reloj}
+            <div className="vg-sil-botones">
+              {botonReloj}
+              <button className="vg-btn vg-btn-sec" onClick={aGanador}>¿Ganador? <Icon name="play" size={16} /></button>
+            </div>
+          </div>
+          <div className="vg-cq-tablero" style={{ '--cols': cols }}>
+            {participantes.map((i) => (
+              <button key={i} className="vg-cq-recuadro" style={{ '--c': equipos[i].color }}
+                onClick={() => elegir(i)} title={'Elegir al ' + equipos[i].nombre + ' como ganador (+1 punto)'}>
+                <span className="vg-cq-nombre">{equipos[i].nombre}</span>
+                <span className="vg-cq-elegir">🏆 Elegir ganador</span>
+              </button>
+            ))}
+          </div>
+          {tiempo && <div className="vg-sil-mensaje vg-og-tiempo vg-cq-tiempo">¡Tiempo!</div>}
+        </React.Fragment>
+      )}
+
+      {/* 2 · Televisor: solo la pregunta (responden en el cuaderno) */}
+      {paso === 2 && !videobeam && (
+        <div className="vg-sil-tarjeta vg-cq-tv">
+          <div className="vg-cq-modo">📓 Escriban la respuesta en el cuaderno</div>
+          {pregunta && <p className="vg-cq-pregunta">{pregunta}</p>}
+          {reloj}
+          {tiempo && <div className="vg-sil-mensaje vg-og-tiempo">¡Tiempo!</div>}
+          <div className="vg-sil-botones">
+            {botonReloj}
+            <button className="vg-btn vg-jaguar-btn" onClick={aGanador}>¿Ganador? <Icon name="play" size={16} /></button>
+          </div>
+        </div>
+      )}
+
+      {/* 3 · ¿Ganador? (+1 punto a un solo equipo) */}
+      {paso === 3 && (
+        <div className={'vg-sil-tarjeta vg-sil-resultado' + (eqGanador ? ' gano' : '')} style={eqGanador ? { '--c': eqGanador.color } : undefined}>
+          {eqGanador && (
+            <div className="vg-sil-celebra" key={'c' + ganador} aria-hidden="true">
+              {Array.from({ length: 28 }, (_, k) => (
+                <i key={k} style={{ '--a': (k * 360 / 28) + 'deg', '--d': (24 + (k % 4) * 9) + 'vh', '--col': ['#39FF14', '#2F80FF', '#FFE600', 'var(--c)'][k % 4], animationDelay: (k % 5) * 0.04 + 's' }}></i>
+              ))}
+            </div>
+          )}
+          {eqGanador ? (
+            <React.Fragment>
+              <div className="vg-sil-mensaje" key={'m' + ganador}>¡Ganador!</div>
+              <div className="vg-sil-equipo-final"><strong>{eqGanador.nombre}</strong></div>
+            </React.Fragment>
+          ) : <div className="vg-sil-pregunta">¿Ganador?</div>}
+          <div className="vg-og-nota">Toca el equipo que mejor respondió: +1 punto.</div>
+          <div className="vg-og-equipos">
+            {participantes.map((i) => {
+              const e = equipos[i];
+              const gano = ganador === i;
+              return (
+                <button key={i} className={'vg-jaguar-rival' + (gano ? ' gano' : '')} style={{ '--c': e.color }}
+                  onClick={() => elegir(i)} aria-pressed={gano}>
+                  <strong>{e.nombre}</strong>
+                  <span>{gano ? '¡Ganó! +1' : 'Ganó'} · {e.puntos} {e.puntos === 1 ? 'punto' : 'puntos'}</span>
+                </button>
+              );
+            })}
+          </div>
+          <div className="vg-sil-botones">
+            <button className="vg-btn vg-btn-sec" onClick={volver}>← {videobeam ? 'Volver a los recuadros' : 'Volver a la pregunta'}</button>
+            <button className="vg-btn vg-btn-sec" onClick={otraRonda}>↻ Otra ronda</button>
+            {duelo && <button className="vg-btn vg-btn-sec" onClick={onEnfrentar}>⚔ Enfrentar equipos</button>}
+          </div>
+          {eqGanador && a.enlace && <EnlaceJaguar enlace={a.enlace} equipo={eqGanador} i={ganador} id={a.id} />}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ======================= MÍMICA (dos tarjetas) =======================
    Cada equipo tiene SUS palabras (a.palabrasEquipo[i], una por renglón).
      1. Mímica: el estudiante pasa al frente; la palabra está oculta y con
@@ -1043,6 +1298,29 @@ function mimicaQuedan(a, i) {
   const usadas = ((sesionJaguar.mimicaUsadas || {})[a.id + ':' + i]) || [];
   const todas = palabrasMimica(a, i);
   return { total: todas.length, quedan: todas.filter((p) => !usadas.includes(p)).length };
+}
+
+/* Todos los equipos de la presentación, siempre a la vista: los que concursan
+   ahora se ven encendidos, los que esperan su turno quedan apagados y el
+   equipo activo (el que actúa / responde) va resaltado. Si se pasa onElegir,
+   tocar un equipo que concursa lo vuelve el activo. */
+function EquiposEnJuego({ equipos, participantes, activo, etiqueta, duelo, onElegir }) {
+  const juegan = participantes || equipos.map((_, i) => i);
+  return (
+    <div className="vg-eqj" aria-label="Equipos que concursan">
+      {etiqueta && <div className="vg-eqj-titulo">{etiqueta}</div>}
+      <div className="vg-sil-equipos vg-eqj-fila">
+        {equipos.map((e, i) => {
+          const juega = juegan.includes(i);
+          const cls = 'vg-sil-chip' + (i === activo ? ' elegido' : '') + (juega ? '' : ' vg-eqj-fuera') + (onElegir && juega ? ' vg-eqj-boton' : '');
+          return onElegir && juega
+            ? <button key={i} className={cls} style={{ '--c': e.color }} onClick={() => onElegir(i)} aria-pressed={i === activo}>{e.nombre}</button>
+            : <span key={i} className={cls} style={{ '--c': e.color }} title={juega ? '' : 'Espera su turno'}>{e.nombre}</span>;
+        })}
+      </div>
+      {duelo && <div className="vg-eqj-duelo">⚔ {duelo.texto}</div>}
+    </div>
+  );
 }
 
 function MimicaJaguar({ a, equipos, duelo, onEnfrentar }) {
@@ -1089,6 +1367,13 @@ function MimicaJaguar({ a, equipos, duelo, onEnfrentar }) {
     sesionJaguar.mimicaTurno = { ...(sesionJaguar.mimicaTurno || {}), [a.id]: t };
     setTurno(t); setNumero(1); nuevaPalabra(participantes[t]);
   };
+  // Elegir directamente qué equipo hace la mímica (en pantalla o desde el celular).
+  const elegirTurno = (i) => {
+    const t = participantes.indexOf(i);
+    if (t < 0 || t === turno) return;
+    sesionJaguar.mimicaTurno = { ...(sesionJaguar.mimicaTurno || {}), [a.id]: t };
+    setTurno(t); setNumero(1); nuevaPalabra(i);
+  };
   const reiniciar = () => {
     const m = { ...(sesionJaguar.mimicaUsadas || {}) }; delete m[a.id + ':' + iEq];
     sesionJaguar.mimicaUsadas = m; nuevaPalabra(iEq);
@@ -1109,6 +1394,7 @@ function MimicaJaguar({ a, equipos, duelo, onEnfrentar }) {
     else if (o.accion === 'mm-correcto') aCorrecto();
     else if (o.accion === 'mm-resultado') resolver(!!o.ok);
     else if (o.accion === 'mm-cambio') cambio();
+    else if (o.accion === 'mm-turno') elegirTurno(o.i);
     else if (o.accion === 'mm-reiniciar') reiniciar();
   });
 
@@ -1118,11 +1404,10 @@ function MimicaJaguar({ a, equipos, duelo, onEnfrentar }) {
       <ol className="vg-sil-pasos" aria-label="Pasos">
         {['Mímica', '¿Correcto?'].map((p, k) => <li key={k} className={k + 1 === paso ? 'on' : k + 1 < paso ? 'hecho' : ''}><b>{k + 1}</b>{p}</li>)}
       </ol>
-      {participantes.length > 1 && (
-        <div className="vg-sil-equipos">
-          {participantes.map((i) => <span key={i} className={'vg-sil-chip' + (i === iEq ? ' elegido' : '')} style={{ '--c': equipos[i].color }}>{equipos[i].nombre}</span>)}
-        </div>
-      )}
+      <EquiposEnJuego equipos={equipos} participantes={participantes} activo={iEq} duelo={duelo}
+        etiqueta={paso === 1 && participantes.length > 1 ? '🎭 ¿Quién hace la mímica? (toca un equipo)' : null}
+        onElegir={paso === 1 && participantes.length > 1 ? elegirTurno : null} />
+      {duelo && paso === 1 && <div className="vg-sil-botones vg-eqj-enfrentar"><button className="vg-btn vg-btn-sec" onClick={onEnfrentar}>⚔ Enfrentar otros equipos</button></div>}
 
       {/* 1 · Mímica: la palabra oculta (5 s al tocar «Ver palabra») */}
       {paso === 1 && (
@@ -1207,6 +1492,54 @@ function MimicaJaguar({ a, equipos, duelo, onEnfrentar }) {
   );
 }
 
+/* Los equipos con sus estudiantes, en el orden de los colores (al iniciar el
+   Modo Jaguar y con "Ver equipos"). Solo nombres. */
+function ListaGruposJaguar({ equipos }) {
+  const muchos = (equipos || []).reduce((m, e) => Math.max(m, (e.miembros || []).length), 0) > 6 || (equipos || []).length > 6;
+  return (
+    <div className={'vg-jaguar-grilla vg-grupos-grilla' + (muchos ? ' compacta' : '')}>
+      {(equipos || []).map((e, i) => (
+        <div key={i} className="vg-jaguar-equipo" style={{ '--c': e.color, animationDelay: (i * 0.06) + 's' }}>
+          <div className="vg-jaguar-equipo-cabeza"><span>{e.nombre}</span><b>{(e.miembros || []).length}</b></div>
+          {(e.miembros || []).length ? (
+            <div className="vg-jaguar-miembros">{e.miembros.map((m, k) => <span key={k}>{m}</span>)}</div>
+          ) : <div className="vg-jaguar-sin">Sin estudiantes</div>}
+        </div>
+      ))}
+      {!(equipos || []).some((e) => (e.miembros || []).length) && (
+        <div className="vg-grupos-aviso">No hay lista de estudiantes: agrégala en el editor («Estudiantes») para repartirlos en los equipos.</div>
+      )}
+    </div>
+  );
+}
+/* "Ver equipos": encima de todo, en cualquier momento del Modo Jaguar (por si
+   al docente o a un estudiante se le olvidó su equipo). Clic fuera, Esc o
+   "Cerrar" la cierran; también el celular (orden 'jaguar-grupos'). */
+function PantallaGruposJaguar() {
+  const s = useJaguarEstado();
+  const abierta = !!(s.verGrupos && s.iniciado && s.equipos);
+  React.useEffect(() => {
+    if (!abierta) return undefined;
+    const esc = (e) => { if (e.key === 'Escape') { e.stopPropagation(); e.preventDefault(); jaguarVerGrupos(false); } };
+    window.addEventListener('keydown', esc, true);
+    return () => window.removeEventListener('keydown', esc, true);
+  }, [abierta]);
+  if (!abierta) return null;
+  return (
+    <div className="vg-grupos-capa" onClick={() => jaguarVerGrupos(false)} role="dialog" aria-label="Equipos y estudiantes">
+      <div className="vg-grupos-caja" onClick={(e) => e.stopPropagation()}>
+        <div className="vg-jaguar-cabecera">
+          <span className="vg-jaguar-puno">{s.modo === 'capibara' ? '🌿' : <Icon name="puno" size={20} />}</span>
+          <span>{s.modo === 'capibara' ? 'Modo Capibara' : 'Modo Jaguar'} · {s.equipos.length} equipos</span>
+        </div>
+        <h2 className="vg-grupos-titulo">Estos son los equipos</h2>
+        <ListaGruposJaguar equipos={s.equipos} />
+        <button className="vg-btn vg-jaguar-btn" onClick={() => jaguarVerGrupos(false)}>Cerrar</button>
+      </div>
+    </div>
+  );
+}
+
 /* Marcador flotante (arriba a la izquierda) mientras el Modo Jaguar está en
    marcha: puntos de cada equipo con − / + y "Mostrar ganador". */
 function MarcadorJaguar({ onGanador }) {
@@ -1231,6 +1564,8 @@ function MarcadorJaguar({ onGanador }) {
               <button onClick={() => jaguarPunto(i, 1)} aria-label="Sumar un punto">+</button>
             </div>
           ))}
+          <button className="vg-btn vg-btn-sec vg-marcador-ganador" onClick={() => { setAbierto(false); jaguarVerGrupos(true); }}
+            title="Ver los estudiantes de cada equipo">👥 Ver equipos</button>
           <button className="vg-btn vg-jaguar-btn vg-marcador-ganador" onClick={() => { setAbierto(false); onGanador(); }}
             title="Mostrar a los ganadores hasta este momento">🏁 Finalizar lucha</button>
         </div>
@@ -1566,10 +1901,11 @@ function PalabraJaguar({ a, equipos, duelo, onEnfrentar }) {
       {/* Equipos que juegan y de quién es el turno */}
       <div className="vg-ah-cabeza">
         <div className="vg-sil-equipos">
-          {participantes.map((i) => {
-            const e = equipos[i];
+          {/* Todos los equipos: los que no juegan este duelo quedan apagados. */}
+          {equipos.map((e, i) => {
+            const juega = participantes.includes(i);
             const on = (girando && luz === i) || (fase === 'juego' && iTurno === i) || (fin && ganador === i);
-            return <span key={i} className={'vg-sil-chip' + (on ? (girando ? ' luz' : ' elegido') : '')} style={{ '--c': e.color }}>{e.nombre}</span>;
+            return <span key={i} className={'vg-sil-chip' + (on ? (girando ? ' luz' : ' elegido') : '') + (juega ? '' : ' vg-eqj-fuera')} style={{ '--c': e.color }} title={juega ? '' : 'Espera su turno'}>{e.nombre}</span>;
           })}
         </div>
         {/* Vidas (de todos): al fallar se parte un corazón */}
@@ -1669,7 +2005,7 @@ function PalabraJaguar({ a, equipos, duelo, onEnfrentar }) {
             <button className="vg-btn vg-jaguar-btn" onClick={otraPalabra}>↻ Otra palabra</button>
             {duelo && <button className="vg-btn vg-btn-sec" onClick={onEnfrentar}>⚔ Enfrentar equipos</button>}
           </div>
-          {duelo && <div className="vg-jaguar-duelo-pie"><span>Duelo {duelo.numero} de {duelo.total} · todos contra todos</span></div>}
+          {duelo && <div className="vg-jaguar-duelo-pie"><span>{duelo.texto}</span></div>}
           {resultado === 'gano' && eqGanador && a.enlace && <EnlaceJaguar enlace={a.enlace} equipo={eqGanador} i={ganador} id={a.id} />}
         </div>
       )}
@@ -1718,6 +2054,8 @@ function EquipoAlAzar({ equipos, autoGirar, conPunto }) {
 }
 
 Object.assign(window, {
-  JaguarActivacion, MarcadorJaguar, GanadorJaguar, PalabraJaguar, palabrasDe, EquipoAlAzar, CabezaJaguar,
-  useJaguarEstado, jaguarReiniciar, jaguarPunto, jaguarResumen, jaguarDesafioActual, AnimacionPPT, EnlaceJaguar, ManoPPT, SiluetaJaguar, OjosJaguar, OrigamiJaguar, MimicaJaguar,
+  JaguarActivacion, MarcadorJaguar, GanadorJaguar, PantallaGruposJaguar, ListaGruposJaguar, jaguarVerGrupos, PalabraJaguar, palabrasDe, EquipoAlAzar, CabezaJaguar,
+  useJaguarEstado, jaguarReiniciar, jaguarPunto, jaguarResumen, jaguarDesafioActual, AnimacionPPT,
+  // Para el Modo Capibara (usa la misma sesión de equipos):
+  cambiarJaguar, jaguarSesion, jaguarIniciar, jaguarRehacer, jaguarRepartir: repartir, EnlaceJaguar, ManoPPT, SiluetaJaguar, OjosJaguar, OrigamiJaguar, CuadernoJaguar, MimicaJaguar,
 });

@@ -100,12 +100,16 @@
       proposito: 'Un estudiante actúa la palabra (aparece solo 5 segundos) y su equipo la adivina.', etiqueta: 'Indicaciones (opcional)', placeholder: 'Sin hablar ni señalar objetos del salón.' },
     { id: 'jg-reta', nombre: 'Reta al otro equipo', icon: 'trofeo', duelo: true,
       proposito: 'Un equipo le lanza un reto al otro.', etiqueta: 'Reglas del reto (opcional)', placeholder: 'El reto debe tener que ver con el tema.' },
-    { id: 'jg-cuaderno', nombre: 'Responde en cuaderno o tablero', icon: 'letras',
+    // Tres tarjetas: Pregunta → Responder → ¿Ganador?, con cronómetro. En el editor
+    // se elige la pantalla: videobeam (un recuadro grande por equipo para escribir
+    // en el tablero) o televisor (solo la pregunta; responden en el cuaderno).
+    { id: 'jg-cuaderno', nombre: 'Responde en cuaderno o tablero', icon: 'letras', cuaderno: true,
       proposito: 'El equipo escribe la respuesta en el cuaderno o en el tablero.', etiqueta: 'Pregunta', placeholder: '¿Qué idea principal dejó el video?' },
     { id: 'jg-baile', nombre: 'Crea un paso de baile', icon: 'sol',
       proposito: 'Cada equipo inventa un paso y lo presenta.', etiqueta: 'Indicaciones (opcional)', placeholder: 'Que represente lo que acabamos de ver.' },
-    { id: 'jg-personifica', nombre: 'Personifiquen lo último visto', icon: 'user',
-      proposito: 'El equipo actúa la escena o el concepto que se acaba de ver.', etiqueta: 'Escena o concepto (opcional)', placeholder: 'La reunión de los Estados Generales.' },
+    // pideVideo: el campo del video de YouTube (la escena a imitar) viene abierto.
+    { id: 'jg-personifica', nombre: 'Personifiquen lo último visto', icon: 'user', pideVideo: true,
+      proposito: 'El equipo actúa (imita) la escena o el concepto que se acaba de ver; puede llevar el video de YouTube de la escena.', etiqueta: 'Escena o concepto (opcional)', placeholder: 'La reunión de los Estados Generales.' },
     { id: 'jg-azar', nombre: 'Responde la pregunta (equipo al azar)', icon: 'ruleta',
       proposito: 'El azar elige al equipo que debe responder.', etiqueta: 'Pregunta', placeholder: '¿Por qué crees que pasó eso?' },
     { id: 'jg-concepto', nombre: 'Ahorcado con el último concepto', icon: 'ahorcado', palabra: true, duelo: true,
@@ -121,11 +125,41 @@
   // El Modo Jaguar está en todos los recursos.
   RECURSOS.forEach((r) => { r.tipos = r.tipos.concat(IDS_JAGUAR); });
 
-  /* Grupos de tipos (así se reúnen en la columna de tipos del editor). */
+  /* ---- MODO CAPIBARA (público infantil, estilo acuarela tipo Studio Ghibli):
+     las mismas reglas del Modo Jaguar (equipos), pero en vez de ganar, los
+     equipos ayudan a rescatar a Jomu, el capibara (presentar-capibara.jsx).
+     historia: la escena de inicio (texto + imágenes) que abre la aventura. */
+  const COLOR_CAPIBARA = '#7DB46C';
+  const DESAFIOS_CAPIBARA = [
+    { id: 'cp-historia', nombre: 'Historia: ¡Rescata a Jomu!', icon: 'sol', historia: true,
+      proposito: 'Abre la aventura: Jomu es atrapado por dos cazadores. Luego se forman los equipos y cada uno recibe su camino en la montaña.' },
+    // Muro Infernal (capibara-muro.jsx): un muro con un agujero en forma de pose avanza; hay que imitarla.
+    { id: 'cp-muro', nombre: 'Muro Infernal', icon: 'user', muro: true,
+      proposito: 'Avanza un muro con un agujero en forma de pose: hay que quedar en esa pose antes de que llegue… ¡o al agua!',
+      etiqueta: 'Indicaciones (opcional)', placeholder: 'Pasa un estudiante por equipo. ¡Sin empujar!' },
+    // Movimiento de la Jungla (capibara-jungla.jsx): tres carriles, obstáculos y animales-instrucción.
+    { id: 'cp-jungla', nombre: 'Movimiento de la Jungla', icon: 'rayo', jungla: true,
+      proposito: 'Por tres carriles llegan obstáculos y animales: hay que esquivar moviéndose y hacer la acción de cada animal (saltar, agacharse, aplaudir…).',
+      etiqueta: 'Indicaciones (opcional)', placeholder: 'Deja espacio libre frente al tablero para moverse.' },
+    // Dedos Veloces (capibara-dedos.jsx): gana quien presione más veces en el tiempo límite.
+    { id: 'cp-dedos', nombre: 'Dedos Veloces', icon: 'trofeo', dedos: true,
+      proposito: 'Un concursante por equipo presiona su tecla (o el botón gigante) lo más rápido que pueda. ¡Gana quien haga más toques!',
+      etiqueta: 'Indicaciones (opcional)', placeholder: 'Un dedo por persona. ¡Sin golpear el teclado!' },
+  ];
+  DESAFIOS_CAPIBARA.forEach((d) => TIPOS.push(Object.assign({
+    grupo: 'capibara', ruleta: false, escena: true, capibara: true, titular: d.nombre,
+    etiqueta: 'Indicaciones (opcional)', placeholder: '',
+  }, d, { color: COLOR_CAPIBARA })));
+  const IDS_CAPIBARA = DESAFIOS_CAPIBARA.map((d) => d.id);
+  RECURSOS.forEach((r) => { r.tipos = r.tipos.concat(IDS_CAPIBARA); });
+
+  /* Grupos de tipos (así se reúnen en la columna de tipos del editor).
+     imagen: se muestra en la cabecera del desplegable en lugar de los íconos. */
   const GRUPOS = {
     cognitivo: { nombre: 'Cognitivos', desc: 'Pensar, responder, escribir' },
     fisico: { nombre: 'Físico-grupales', desc: 'Moverse, cambiar, crear en grupo' },
     jaguar: { nombre: 'Modo Jaguar', titulo: 'Modo Jaguar', desc: 'Equipos para toda la presentación · termina con el ganador' },
+    capibara: { nombre: 'Modo Capibara', titulo: 'Modo Capibara', desc: 'Para niños · los equipos ayudan a rescatar a Jomu', imagen: 'modo-capibara.jpg' },
   };
   // Escenas a pantalla completa con su propio cierre (Reto, Modo Jaguar).
   const esEscena = (a) => !!(a && TIPOS.some((t) => t.id === a.tipo && t.escena));
@@ -208,8 +242,16 @@
     if (ti.id === 'reto') { a.reto = RETOS[0].id; a.tamGrupo = 4; }
     if (ti.silueta) a.tiempoSilueta = 20;
     if (ti.dosTarjetas) { a.temporizador = false; a.tiempoReto = 120; }
+    if (ti.cuaderno) { a.pantalla = 'videobeam'; a.tiempoReto = 180; }
     if (ti.mimica) a.palabrasEquipo = [];   // una lista de palabras (texto, una por renglón) por equipo
-    if (ti.jaguar) { a.equipos = 2; a.duelo = !!ti.duelo; if (ti.palabra) a.listaPalabras = (a.fragmento || '').trim().split(/\s+/)[0] || ''; }
+    if (ti.capibara) { a.equipos = 3; if (ti.historia) a.metaCapibara = META_CAPIBARA; }
+    // Muro Infernal: modo (beam = equipos al frente / individual = teclado y mouse), quién decide, tiempo, rondas y tolerancia.
+    if (ti.muro) { a.modoMuro = 'beam'; a.juezMuro = 'docente'; a.tiempoMuro = 15; a.rondasMuro = 3; a.toleranciaMuro = 0; }
+    // Movimiento de la Jungla: modo, velocidad inicial, objetos seguidos para cada instrucción nueva, rondas y objetos por paso.
+    // Dedos Veloces: modo (auto = según el dispositivo), segundos, rondas y la tecla de cada equipo.
+    if (ti.dedos) { a.modoDedos = 'auto'; a.tiempoDedos = 10; a.rondasDedos = 3; a.teclasDedos = ['Q', 'O', 'Z', 'K', 'T', 'B', 'Y', 'H', 'X', 'U']; }
+    if (ti.jungla) { a.modoJungla = 'beam'; a.velocidadJungla = 'lenta'; a.rachaJungla = 8; a.rondasJungla = 2; a.objetosPorPaso = 10; }
+    if (ti.jaguar) { a.equipos = 3; a.enfrentar = ti.duelo ? 2 : 0; a.duelo = !!ti.duelo; if (ti.palabra) a.listaPalabras = (a.fragmento || '').trim().split(/\s+/)[0] || ''; }
     return a;
   }
 
@@ -221,6 +263,37 @@
   function ordenLectura(lista) {
     return (lista || []).slice().sort((p, q) =>
       bloqueDe(p) - bloqueDe(q) || posicionDe(p) - posicionDe(q) || (p.x || 0) - (q.x || 0));
+  }
+
+  /* Modo Jaguar: los equipos son una CONDICIÓN de toda la presentación. Se
+     eligen en el PRIMER desafío Jaguar (en el orden de la presentación) y los
+     demás desafíos los heredan. */
+  const MAX_EQUIPOS_JAGUAR = 10;
+  // El primero (en el orden de la presentación) de los que cumplen `re`.
+  function primeroDe(lista, re) {
+    const jg = (lista || []).filter((x) => re.test(x.tipo || ''));
+    if (!jg.length) return null;
+    const conT = jg.every((x) => typeof x.t === 'number');
+    return (conT ? jg.slice().sort((x, y) => x.t - y.t) : ordenLectura(jg))[0];
+  }
+  // Modo Jaguar y Modo Capibara comparten los equipos (y su número).
+  const primerJaguar = (lista) => primeroDe(lista, /^(jg|cp)-/);
+  /* Modo Capibara: pasos que cada equipo debe avanzar en la montaña para
+     llegar hasta Jomu (se eligen en la historia, la primera del modo). */
+  const META_CAPIBARA = 10;
+  function metaCapibara(lista) {
+    const h = primeroDe((lista || []).filter((x) => typeof x.metaCapibara === 'number'), /^cp-/);
+    return Math.max(3, Math.min(30, (h && h.metaCapibara) || META_CAPIBARA));
+  }
+  function equiposJaguar(lista, a) {
+    const p = primerJaguar(lista) || a;
+    return Math.max(2, Math.min(MAX_EQUIPOS_JAGUAR, (p && p.equipos) || 2));
+  }
+  // Cuántos equipos se enfrentan a la vez: 0 = todos juntos; 2, 3 o 4 (de 2 en 2…).
+  function enfrentarDe(a) {
+    if (!a) return 0;
+    if (typeof a.enfrentar === 'number') return a.enfrentar;
+    return a.duelo ? 2 : 0;   // activaciones anteriores: solo tenían «duelo»
   }
 
   // 83 -> "1:23"; 3725 -> "1:02:05"
@@ -247,5 +320,6 @@
   }
 
   window.esEscena = esEscena;
-  window.VigiaTipos = { RECURSOS, TIPOS, GRUPOS, inicioGrupo, RETOS, reto, esEscena, IDS_JAGUAR, FRASES_ALTO, fraseAlAzar, recurso, tipo, nuevaActivacion, ordenLectura, recursoListo, fmtT, parseT };
+  window.VigiaTipos = { RECURSOS, TIPOS, GRUPOS, inicioGrupo, RETOS, reto, esEscena, IDS_JAGUAR, IDS_CAPIBARA, FRASES_ALTO, fraseAlAzar, recurso, tipo, nuevaActivacion, ordenLectura, recursoListo, fmtT, parseT,
+    MAX_EQUIPOS_JAGUAR, primerJaguar, equiposJaguar, enfrentarDe, META_CAPIBARA, metaCapibara };
 })();

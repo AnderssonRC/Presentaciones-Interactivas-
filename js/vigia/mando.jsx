@@ -72,7 +72,13 @@ function useMandoVigia(estado, manejar) {
   // El desafío Jaguar en pantalla: el celular muestra SUS botones (enfrentar,
   // piedra-papel-tijera, quién ganó, puntos de la activación enlazada…).
   const jaguarDesafio = marcador && window.jaguarDesafioActual ? jaguarDesafioActual(sesionJaguar) : null;
-  const clave = JSON.stringify({ ...estado, tiempo: undefined, pin, marcador, jaguarDesafio });
+  const jaguarGrupos = !!(marcador && sesionJaguar.verGrupos);   // ¿"Ver equipos" abierto en pantalla?
+  // Modo Capibara: en qué paso va la historia de Jomu (el celular muestra sus botones).
+  const capibara = window.useCapibaraEstado ? useCapibaraEstado() : null;
+  const modoEquipos = marcador ? (sesionJaguar.modo || 'jaguar') : null;   // 'jaguar' | 'capibara'
+  const capibaraMontana = !!(marcador && sesionJaguar.verMontana);         // ¿"Ver la montaña" abierta?
+  const metaCapibara = marcador ? (sesionJaguar.meta || null) : null;
+  const clave = JSON.stringify({ ...estado, tiempo: undefined, pin, marcador, jaguarDesafio, jaguarGrupos, capibara, modoEquipos, capibaraMontana, metaCapibara });
   const ultimoTiempo = React.useRef({ t: 0, en: 0 });
   React.useEffect(() => {
     if (!code) return;
@@ -90,7 +96,7 @@ function useMandoVigia(estado, manejar) {
   function publicar() {
     ultimoTiempo.current = { t: estado.tiempo || 0, en: Date.now() };
     const hash = pin && typeof window.hashPin === 'function' ? window.hashPin(pin) : '';
-    AIP.updateRemoteState(code, { ...estado, clase: 'vigia', en: Date.now(), mandoHash: hash, permiteEstudiantes: false, marcador, jaguarDesafio })
+    AIP.updateRemoteState(code, { ...estado, clase: 'vigia', en: Date.now(), mandoHash: hash, permiteEstudiantes: false, marcador, jaguarDesafio, jaguarGrupos, capibara: capibara || null, modoEquipos, capibaraMontana, metaCapibara })
       .catch((e) => console.error('[mando vigía] estado:', e));
   }
 
@@ -142,7 +148,8 @@ function cortoMando(t, n) {
 function itemMando(a, etiqueta, visto) {
   const ti = VigiaTipos.tipo(a.tipo);
   const texto = a.tipo === 'reto' ? VigiaTipos.reto(a.reto).nombre : a.tipo === 'glosario' ? (a.termino || a.texto) : (a.titulo || a.texto);
-  return { id: a.id, tipo: a.tipo, nombre: ti.nombre, color: ti.color, etiqueta, texto: cortoMando(texto), visto: !!visto };
+  const video = !!(a.youtube && window.idDeYouTube && idDeYouTube(a.youtube));   // video de YouTube en la tarjeta
+  return { id: a.id, tipo: a.tipo, nombre: ti.nombre, color: ti.color, etiqueta, texto: cortoMando(texto), visto: !!visto, video };
 }
 
 Object.assign(window, { useMandoVigia, useOrdenMando, MandoBadge, itemMando, cortoMando });

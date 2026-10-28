@@ -421,15 +421,16 @@ function ListaSiluetas({ a, onCambiar }) {
    Los equipos son los del PRIMER desafío Jaguar de la presentación (ahí se
    forman); a.palabrasEquipo[i] = texto con una palabra por renglón. Cada
    equipo tiene sus propias palabras, así no se repiten entre equipos. */
-const EQUIPOS_EDITOR = [['Verde', '#39FF14'], ['Azul', '#2F80FF'], ['Amarillo', '#FFE600'], ['Turquesa', '#00F0D0'], ['Lima', '#B6FF00'], ['Celeste', '#7FD8FF']];
+// Los mismos colores (y en el mismo orden) que presentar-jaguar.jsx.
+const EQUIPOS_EDITOR = [['Verde', '#39FF14'], ['Azul', '#2F80FF'], ['Amarillo', '#FFE600'], ['Turquesa', '#00F0D0'], ['Lima', '#B6FF00'], ['Celeste', '#7FD8FF'],
+  ['Naranja', '#FF8A00'], ['Rosado', '#FF4FD8'], ['Morado', '#A66BFF'], ['Rojo', '#FF3B4E']];
+// Los equipos son una condición de TODA la presentación: los fija el primer
+// desafío Jaguar (en el orden de la presentación); los demás los heredan.
 function equiposDelPrimerJaguar(a, act) {
-  const jaguar = ((act && act.activaciones) || []).filter((x) => /^jg-/.test(x.tipo || ''));
-  // El primero en el orden de la presentación (minuto en video/podcast; si no, el orden de la lista).
-  const conT = jaguar.every((x) => typeof x.t === 'number');
-  const orden = conT ? jaguar.slice().sort((x, y) => x.t - y.t) : jaguar;
-  const primero = orden[0];
-  if (!primero || primero.id === a.id) return { n: a.equipos || 2, propio: true };
-  return { n: primero.equipos || 2, propio: false };
+  const primero = VigiaTipos.primerJaguar((act && act.activaciones) || []);
+  const max = VigiaTipos.MAX_EQUIPOS_JAGUAR;
+  if (!primero || primero.id === a.id) return { n: Math.min(max, a.equipos || 2), propio: true };
+  return { n: Math.min(max, primero.equipos || 2), propio: false };
 }
 function ListaMimica({ a, set }) {
   const { act } = React.useContext(ListasCtx);
@@ -559,6 +560,9 @@ function EscenarioMini({ children, onClick }) {
 
 /* Miniatura fija de las escenas (sin animaciones ni sonido en la columna). */
 function PreviaEscenaMini({ a, ti }) {
+  const { act } = React.useContext(ListasCtx);
+  const nEq = equiposDelPrimerJaguar(a, act).n;
+  const kEnf = VigiaTipos.enfrentarDe(a);
   if (a.tipo === 'reto') {
     const r = VigiaTipos.reto(a.reto);
     return (
@@ -571,13 +575,24 @@ function PreviaEscenaMini({ a, ti }) {
       </div>
     );
   }
+  if (ti.capibara) {
+    return (
+      <div className="vg-previa-escena-fija capibara">
+        <img src="capibara-iniciar.jpg" alt="" />
+        <div className="k">🌿 Modo Capibara</div>
+        <div className="t">{ti.nombre}</div>
+        <div className="d">{ti.historia ? 'Tu misión: liberarlo con tu inteligencia y rapidez.' : ti.proposito}</div>
+        <div className="d extra">{nEq + ' equipos'}{ti.historia ? ' · ' + VigiaTipos.metaCapibara(act.activaciones) + ' pasos hasta Jomu' : ''}</div>
+      </div>
+    );
+  }
   return (
     <div className="vg-previa-escena-fija jaguar">
       <img src="jaguar-equipos.webp" alt="" />
       <div className="k">✊ Modo Jaguar</div>
       <div className="t">{ti.propia ? (a.tituloPropio || 'Actividad propia') : ti.nombre}</div>
       {a.texto && <div className="d">{a.texto}</div>}
-      <div className="d extra">{(a.equipos || 2) + ' equipos'}{a.duelo ? ' · ⚔ duelo por un punto' : ''}{ti.palabra && typeof palabrasDe === 'function' ? ' · ' + palabrasDe(a).length + ' palabras' : ''}{ti.mimica ? ' · ' + (a.palabrasEquipo || []).reduce((s, t) => s + (t || '').split('\n').filter((l) => l.trim()).length, 0) + ' palabras de mímica' : ''}</div>
+      <div className="d extra">{nEq + ' equipos'}{kEnf ? ' · ⚔ de ' + kEnf + ' en ' + kEnf : ' · todos juntos'}{ti.palabra && typeof palabrasDe === 'function' ? ' · ' + palabrasDe(a).length + ' palabras' : ''}{ti.mimica ? ' · ' + (a.palabrasEquipo || []).reduce((s, t) => s + (t || '').split('\n').filter((l) => l.trim()).length, 0) + ' palabras de mímica' : ''}</div>
       {a.enlace && <div className="d extra">🔗 El ganador responde: {VigiaTipos.tipo(a.enlace.tipo).nombre}{a.enlace.texto ? ' · «' + a.enlace.texto.slice(0, 60) + '»' : ''}</div>}
     </div>
   );
@@ -589,7 +604,10 @@ function PreviaGrande({ a, act, onCerrar }) {
   // Modo Jaguar: la vista previa empieza siempre desde el inicio (con el jaguar
   // y su voz). Se reinicia ANTES de pintar la escena. La frase, una sola vez.
   const [frase] = React.useState(() => {
-    if (/^jg-/.test(a.tipo) && window.jaguarReiniciar) jaguarReiniciar('vista-previa');
+    if (/^(jg|cp)-/.test(a.tipo) && window.jaguarReiniciar) {
+      jaguarReiniciar('vista-previa', VigiaTipos.equiposJaguar(act.activaciones, a),
+        /^cp-/.test(a.tipo) ? { modo: 'capibara', meta: VigiaTipos.metaCapibara(act.activaciones) } : null);
+    }
     return VigiaTipos.fraseAlAzar();
   });
   React.useEffect(() => {
@@ -630,9 +648,11 @@ function GrupoTipos({ grupo, tipos, render }) {
   return (
     <div className={'vg-grupo-card ' + grupo + (abierto ? ' abierto' : '')}>
       <button type="button" className="vg-grupo-cabeza" onClick={() => setAbierto(!abierto)} aria-expanded={abierto}>
-        <span className="vg-grupo-iconos" aria-hidden="true">
-          {tipos.slice(0, 3).map((t) => <span key={t.id} style={{ background: t.color }}><Icon name={t.icon} size={11} /></span>)}
-        </span>
+        {info.imagen
+          ? <img className="vg-grupo-imagen" src={info.imagen} alt="" aria-hidden="true" draggable="false" />
+          : <span className="vg-grupo-iconos" aria-hidden="true">
+              {tipos.slice(0, 3).map((t) => <span key={t.id} style={{ background: t.color }}><Icon name={t.icon} size={11} /></span>)}
+            </span>}
         <span style={{ minWidth: 0, flex: 1, textAlign: 'left' }}>
           <span className="vg-grupo-nombre">{info.titulo || 'Activadores ' + info.nombre}</span>
           <small>{info.desc} · {tipos.length}</small>
@@ -855,6 +875,9 @@ function ConfigActivacion({ a, onCambiar, onBorrar, tiempoActual, duracion, hayE
   const { tipo, fmtT, parseT } = VigiaTipos;
   const ti = tipo(a.tipo);
   const set = (patch) => onCambiar({ ...a, ...patch });
+  // Modo Jaguar: solo el PRIMER desafío elige los equipos (los demás los heredan).
+  const { act: actCtx } = React.useContext(ListasCtx);
+  const { n: nEquipos, propio: jaguarPropio } = equiposDelPrimerJaguar(a, actCtx);
   const [tTexto, setTTexto] = React.useState(fmtT(a.t));
   React.useEffect(() => { setTTexto(fmtT(a.t)); }, [a.t]);
   const fijarT = (txt) => {
@@ -866,6 +889,10 @@ function ConfigActivacion({ a, onCambiar, onBorrar, tiempoActual, duracion, hayE
   // Imagen opcional (solo por URL): se activa con un botón y se muestra en la tarjeta.
   const [conImagen, setConImagen] = React.useState(!!a.imagen || !!ti.pideImagen);
   const quitarImagen = () => { const { imagen, ...resto } = a; onCambiar(resto); setConImagen(false); };
+  // Video de YouTube opcional (abierto de una vez en los tipos con `pideVideo`, como imitar una escena).
+  const [conVideo, setConVideo] = React.useState(!!a.youtube || !!ti.pideVideo);
+  const quitarVideo = () => { const { youtube, ...resto } = a; onCambiar(resto); setConVideo(false); };
+  const idVideo = a.youtube ? idDeYouTube(a.youtube) : null;
 
   const opciones = a.opciones && a.opciones.length ? a.opciones : ['', ''];
   const setOpcion = (i, v) => set({ opciones: opciones.map((o, j) => (j === i ? v : o)) });
@@ -931,13 +958,39 @@ function ConfigActivacion({ a, onCambiar, onBorrar, tiempoActual, duracion, hayE
       {/* Modo Jaguar: equipos, duelo por un punto, palabra secreta o actividad propia */}
       {ti.jaguar && (
         <div className="field vg-jaguar-config">
-          <div className="vg-jaguar-aviso">
-            <span className="vg-jaguar-aviso-ico"><Icon name="puno" size={16} /></span>
-            <span>
-              <strong>El Modo Jaguar dura toda la presentación.</strong> Empieza con el primer desafío (el jaguar con su voz),
-              los equipos y sus puntos se mantienen en los siguientes («¡Que siga la LUCHA!») y <strong>termina mostrando al equipo ganador</strong> al salir de Presentar.
-            </span>
-          </div>
+          {jaguarPropio ? (
+            /* PRIMER desafío Jaguar: aquí se eligen los equipos de toda la presentación. */
+            <div className="vg-jaguar-aviso vg-jaguar-inicio">
+              <span className="vg-jaguar-aviso-ico"><Icon name="puno" size={16} /></span>
+              <div className="vg-jaguar-inicio-cuerpo">
+                <strong>¡Aquí empieza el Modo Jaguar! ¿Cuántos equipos habrá?</strong>
+                <span>Se eligen una sola vez y valen para <strong>toda la presentación</strong>: al iniciar, los estudiantes de la lista
+                  se reparten por color y aparecen en pantalla («¡Busca tu equipo!»). Los demás desafíos usan estos mismos equipos.</span>
+                <div className="vg-segmento vg-jaguar-n" role="radiogroup" aria-label="Número de equipos">
+                  {Array.from({ length: VigiaTipos.MAX_EQUIPOS_JAGUAR - 1 }, (_, k) => k + 2).map((n) => (
+                    <button key={n} role="radio" aria-checked={nEquipos === n} className={nEquipos === n ? 'on' : ''}
+                      onClick={() => set({ equipos: n, ...(VigiaTipos.enfrentarDe(a) > n ? { enfrentar: n, duelo: true } : {}) })}>{n}</button>
+                  ))}
+                </div>
+                <div className="vg-jaguar-colores">
+                  {EQUIPOS_EDITOR.slice(0, nEquipos).map(([nombre, color]) => (
+                    <span key={nombre} style={{ '--c': color }}><i></i>{nombre}</span>
+                  ))}
+                </div>
+                {!hayEstudiantes && onAbrirEstudiantes && (
+                  <button className="btn btn-sec" style={{ alignSelf: 'flex-start' }} onClick={onAbrirEstudiantes}>Agregar la lista de estudiantes</button>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="vg-jaguar-aviso">
+              <span className="vg-jaguar-aviso-ico"><Icon name="puno" size={16} /></span>
+              <span>
+                <strong>👥 {nEquipos} equipos</strong>, elegidos en el primer desafío del Modo Jaguar. Los equipos, sus estudiantes y sus puntos
+                se mantienen en toda la presentación («¡Que siga la LUCHA!»); al salir de Presentar se muestra al ganador.
+              </span>
+            </div>
+          )}
           {ti.propia && (
             <React.Fragment>
               <label>Nombre de tu actividad</label>
@@ -995,24 +1048,261 @@ function ConfigActivacion({ a, onCambiar, onBorrar, tiempoActual, duracion, hayE
               )}
             </div>
           )}
+          {/* Responde en cuaderno o tablero: pantalla del salón y cronómetro. */}
+          {ti.cuaderno && (
+            <React.Fragment>
+              <div className="vg-jaguar-fila">
+                <span>Pantalla del salón</span>
+                <div className="vg-segmento" role="radiogroup" aria-label="Pantalla del salón">
+                  {[['videobeam', '📽 Videobeam'], ['televisor', '📺 Televisor']].map(([v, txt]) => (
+                    <button key={v} role="radio" aria-checked={(a.pantalla || 'videobeam') === v} className={(a.pantalla || 'videobeam') === v ? 'on' : ''}
+                      onClick={() => set({ pantalla: v })}>{txt}</button>
+                  ))}
+                </div>
+              </div>
+              <span className="vg-jaguar-nota">
+                {(a.pantalla || 'videobeam') === 'videobeam'
+                  ? 'Videobeam: cada equipo tiene un recuadro grande proyectado en el tablero para escribir su respuesta; tú eliges el ganador tocando su recuadro.'
+                  : 'Televisor: solo aparece la pregunta; los equipos responden en el cuaderno y tú eliges el ganador.'}
+              </span>
+              <div className="vg-jaguar-fila">
+                <span>⏱ Cronómetro</span>
+                <input type="number" min="10" max="900" step="10" value={a.tiempoReto || 180} style={{ width: 80 }}
+                  onChange={(e) => set({ tiempoReto: Math.max(10, Math.min(900, Number(e.target.value) || 180)) })} />
+                <span style={{ fontWeight: 600, color: 'var(--muted)' }}>segundos para responder</span>
+              </div>
+            </React.Fragment>
+          )}
+          {/* Enfrentar equipos: todos juntos o de 2 en 2, de 3 en 3, de 4 en 4. */}
           <div className="vg-jaguar-fila">
-            <span title="Los equipos se forman en el primer desafío y se mantienen toda la presentación">Equipos (se forman en el primer desafío)</span>
-            <div className="vg-segmento" role="radiogroup" aria-label="Número de equipos">
-              {[2, 3, 4, 5, 6].map((n) => (
-                <button key={n} role="radio" aria-checked={(a.equipos || 2) === n} className={(a.equipos || 2) === n ? 'on' : ''}
-                  onClick={() => set({ equipos: n })}>{n}</button>
-              ))}
+            <span>⚔ Enfrentar equipos</span>
+            <div className="vg-segmento" role="radiogroup" aria-label="Cómo se enfrentan los equipos">
+              {[[0, 'Todos juntos'], [2, 'De 2 en 2'], [3, 'De 3 en 3'], [4, 'De 4 en 4']].map(([v, txt]) => {
+                const actual = VigiaTipos.enfrentarDe(a);
+                return (
+                  <button key={v} role="radio" aria-checked={actual === v} className={actual === v ? 'on' : ''}
+                    disabled={v > nEquipos} title={v > nEquipos ? 'Solo hay ' + nEquipos + ' equipos' : ''}
+                    onClick={() => set({ enfrentar: v, duelo: v > 0 })}>{txt}</button>
+                );
+              })}
             </div>
           </div>
-          <label className="vg-jaguar-duelo">
-            <input type="checkbox" checked={!!a.duelo} onChange={(e) => set({ duelo: e.target.checked })} />
-            <span>⚔ Se enfrentan dos equipos por un punto</span>
-          </label>
           {/* Enlace: el equipo que gane responde una activación cognitiva. */}
           <EnlaceEditor a={a} set={set} />
           {/* Por ahora en el Modo Jaguar solo aparece lo que se debe hacer (sin nombres de estudiantes). */}
           <span className="vg-jaguar-nota">
-            Al presentar se muestra solo el desafío. Los puntos de cada equipo se suman en el duelo, en el marcador (arriba a la izquierda) o desde el celular.
+            Al presentar, «👥 Ver equipos» muestra en cualquier momento los estudiantes de cada equipo. Los puntos se suman en el desafío, en el marcador (arriba a la izquierda) o desde el celular.
+          </span>
+        </div>
+      )}
+
+      {/* Modo Capibara: las mismas reglas de equipos del Modo Jaguar (número de
+          equipos, lista de estudiantes, enlace) + los pasos hasta Jomu. */}
+      {ti.capibara && (
+        <div className="field vg-jaguar-config vg-capibara-config">
+          {jaguarPropio ? (
+            <div className="vg-jaguar-aviso vg-jaguar-inicio">
+              <span className="vg-jaguar-aviso-ico" aria-hidden="true">🌿</span>
+              <div className="vg-jaguar-inicio-cuerpo">
+                <strong>¡Aquí empiezan los equipos! ¿Cuántos equipos habrá?</strong>
+                <span>Se eligen una sola vez y valen para <strong>toda la presentación</strong>: después de la historia, los estudiantes
+                  de la lista se reparten por color («¡Busca tu equipo!») y cada equipo recibe su camino en la montaña hacia Jomu.</span>
+                <div className="vg-segmento vg-jaguar-n" role="radiogroup" aria-label="Número de equipos">
+                  {Array.from({ length: VigiaTipos.MAX_EQUIPOS_JAGUAR - 1 }, (_, k) => k + 2).map((n) => (
+                    <button key={n} role="radio" aria-checked={nEquipos === n} className={nEquipos === n ? 'on' : ''}
+                      onClick={() => set({ equipos: n })}>{n}</button>
+                  ))}
+                </div>
+                <div className="vg-jaguar-colores">
+                  {EQUIPOS_EDITOR.slice(0, nEquipos).map(([nombre, color], i) => (
+                    <span key={nombre} style={{ '--c': color }}><i></i>{(window.PALETA_CAPIBARA && PALETA_CAPIBARA[i] ? PALETA_CAPIBARA[i][1] + ' ' : '') + nombre}</span>
+                  ))}
+                </div>
+                {!hayEstudiantes && onAbrirEstudiantes && (
+                  <button className="btn btn-sec" style={{ alignSelf: 'flex-start' }} onClick={onAbrirEstudiantes}>Agregar la lista de estudiantes</button>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="vg-jaguar-aviso">
+              <span className="vg-jaguar-aviso-ico" aria-hidden="true">🌿</span>
+              <span>
+                <strong>👥 {nEquipos} equipos</strong>, elegidos en la primera actividad con equipos. Los equipos, sus estudiantes y sus pasos
+                se mantienen en toda la presentación.
+              </span>
+            </div>
+          )}
+          {ti.historia && (
+            <div className="vg-jaguar-fila">
+              <span>🏔 Pasos hasta Jomu</span>
+              <input type="number" min="3" max="30" value={a.metaCapibara || VigiaTipos.META_CAPIBARA} style={{ width: 80 }}
+                onChange={(e) => set({ metaCapibara: Math.max(3, Math.min(30, Number(e.target.value) || VigiaTipos.META_CAPIBARA)) })} />
+              <span style={{ fontWeight: 600, color: 'var(--muted)' }}>cada reto superado = 1 paso del equipo en la montaña</span>
+            </div>
+          )}
+          {/* Muro Infernal: modo de juego y sus ajustes. */}
+          {ti.muro && (
+            <React.Fragment>
+              <div className="vg-jaguar-fila">
+                <span>Modo de juego</span>
+                <div className="vg-segmento" role="radiogroup" aria-label="Modo de juego">
+                  {[['beam', '📽 Video beam (equipos)'], ['individual', '⌨ Teclado y mouse (individual)']].map(([v, txt]) => (
+                    <button key={v} role="radio" aria-checked={(a.modoMuro || 'beam') === v} className={(a.modoMuro || 'beam') === v ? 'on' : ''}
+                      onClick={() => set({ modoMuro: v })}>{txt}</button>
+                  ))}
+                </div>
+              </div>
+              {(a.modoMuro || 'beam') === 'beam' ? (
+                <React.Fragment>
+                  <div className="vg-jaguar-fila">
+                    <span>¿Quién hace la pose?</span>
+                    <div className="vg-segmento" role="radiogroup" aria-label="Quién hace la pose">
+                      {[['docente', '🧍 El estudiante, con su cuerpo'], ['auto', '🖱 El personaje en pantalla']].map(([v, txt]) => (
+                        <button key={v} role="radio" aria-checked={(a.juezMuro || 'docente') === v} className={(a.juezMuro || 'docente') === v ? 'on' : ''}
+                          onClick={() => set({ juezMuro: v })}>{txt}</button>
+                      ))}
+                    </div>
+                  </div>
+                  <span className="vg-jaguar-nota">
+                    {(a.juezMuro || 'docente') === 'docente'
+                      ? 'Un estudiante de cada equipo pasa al frente e imita con su cuerpo la pose del muro. Cuando el muro llega, tú decides: ✓ pasó o ✗ al agua.'
+                      : 'El equipo mueve al personaje en pantalla (clic en cada parte, teclado o presentador). Al llegar el muro, la pose se revisa sola.'}
+                  </span>
+                  <div className="vg-jaguar-fila">
+                    <span>⏱ Tiempo por muro</span>
+                    <input type="number" min="6" max="60" value={a.tiempoMuro || 15} style={{ width: 80 }}
+                      onChange={(e) => set({ tiempoMuro: Math.max(6, Math.min(60, Number(e.target.value) || 15)) })} />
+                    <span style={{ fontWeight: 600, color: 'var(--muted)' }}>segundos (cada ronda llega un poco más rápido)</span>
+                  </div>
+                  <div className="vg-jaguar-fila">
+                    <span>Rondas</span>
+                    <input type="number" min="1" max="6" value={a.rondasMuro || 3} style={{ width: 80 }}
+                      onChange={(e) => set({ rondasMuro: Math.max(1, Math.min(6, Number(e.target.value) || 3)) })} />
+                    <span style={{ fontWeight: 600, color: 'var(--muted)' }}>un muro por equipo en cada ronda · 3 vidas por equipo</span>
+                  </div>
+                </React.Fragment>
+              ) : (
+                <span className="vg-jaguar-nota">
+                  Un estudiante juega con el mouse (clic: girar 45°, clic derecho: al revés) o el teclado (1–9 eligen la parte, ← → la giran, Espacio: ¡Listo!).
+                  3 vidas; los muros llegan cada vez más rápido. Antes de empezar se elige su equipo: cada muro superado es un paso hacia Jomu.
+                </span>
+              )}
+              {((a.modoMuro || 'beam') === 'individual' || (a.juezMuro || 'docente') === 'auto') && (
+                <div className="vg-jaguar-fila">
+                  <span>Tolerancia</span>
+                  <div className="vg-segmento" role="radiogroup" aria-label="Tolerancia">
+                    {[[0, 'Exacta'], [45, 'Flexible (±45°)']].map(([v, txt]) => (
+                      <button key={v} role="radio" aria-checked={(a.toleranciaMuro || 0) === v} className={(a.toleranciaMuro || 0) === v ? 'on' : ''}
+                        onClick={() => set({ toleranciaMuro: v })}>{txt}</button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <span className="vg-jaguar-nota">Cada muro superado = 1 paso del equipo hacia Jomu. Las poses no se repiten en la presentación.</span>
+            </React.Fragment>
+          )}
+          {/* Dedos Veloces: modo, segundos, rondas y la tecla de cada equipo. */}
+          {ti.dedos && (
+            <React.Fragment>
+              <div className="vg-jaguar-fila">
+                <span>Modo de juego</span>
+                <div className="vg-segmento" role="radiogroup" aria-label="Modo de juego">
+                  {[['auto', '✨ Automático'], ['simultaneo', '⌨ Simultáneo (teclado)'], ['turnos', '👆 Por turnos']].map(([v, txt]) => (
+                    <button key={v} role="radio" aria-checked={(a.modoDedos || 'auto') === v} className={(a.modoDedos || 'auto') === v ? 'on' : ''}
+                      onClick={() => set({ modoDedos: v })}>{txt}</button>
+                  ))}
+                </div>
+              </div>
+              <span className="vg-jaguar-nota">
+                {(a.modoDedos || 'auto') === 'auto' ? 'Con teclado juegan todos a la vez (cada uno con su tecla); en pantallas táctiles, por turnos con un botón gigante.'
+                  : (a.modoDedos === 'simultaneo' ? 'Todos a la vez, cada concursante con su tecla. Antes de la primera ronda se prueban las teclas.'
+                    : 'Un concursante a la vez toca un botón gigante en pantalla (o el celular del docente).')}
+              </span>
+              <div className="vg-jaguar-fila">
+                <span>⏱ Tiempo</span>
+                <input type="number" min="3" max="60" value={a.tiempoDedos || 10} style={{ width: 80 }}
+                  onChange={(e) => set({ tiempoDedos: Math.max(3, Math.min(60, Number(e.target.value) || 10)) })} />
+                <span style={{ fontWeight: 600, color: 'var(--muted)' }}>segundos por ronda (el desempate dura 5 s)</span>
+              </div>
+              <div className="vg-jaguar-fila">
+                <span>Rondas</span>
+                <input type="number" min="1" max="10" value={a.rondasDedos || 3} style={{ width: 80 }}
+                  onChange={(e) => set({ rondasDedos: Math.max(1, Math.min(10, Number(e.target.value) || 3)) })} />
+                <span style={{ fontWeight: 600, color: 'var(--muted)' }}>cada ronda ganada = 1 paso hacia Jomu</span>
+              </div>
+              {(a.modoDedos || 'auto') !== 'turnos' && (
+                <div className="vg-jaguar-fila">
+                  <span>Teclas</span>
+                  {EQUIPOS_EDITOR.slice(0, nEquipos).map(([nombre, color], i) => {
+                    const teclas = a.teclasDedos || ['Q', 'O', 'Z', 'K', 'T', 'B', 'Y', 'H', 'X', 'U'];
+                    return (
+                      <input key={nombre} type="text" maxLength={1} value={teclas[i] || ''} title={'Tecla del equipo ' + nombre}
+                        style={{ width: 46, textAlign: 'center', fontWeight: 900, textTransform: 'uppercase', borderColor: color, borderWidth: 2 }}
+                        onChange={(e) => {
+                          const t = (e.target.value || '').toUpperCase().replace(/[^A-Z0-9Ñ]/g, '');
+                          if (/^[PRNMFLD]$/.test(t)) return;   // atajos de la plataforma
+                          const nuevas = teclas.slice(); nuevas[i] = t; set({ teclasDedos: nuevas });
+                        }} />
+                    );
+                  })}
+                  <span style={{ fontWeight: 600, color: 'var(--muted)' }}>separadas entre sí · no P, R, N, M, F, L ni D (atajos)</span>
+                </div>
+              )}
+            </React.Fragment>
+          )}
+          {/* Movimiento de la Jungla: modo, velocidad inicial, escalada, rondas y pasos. */}
+          {ti.jungla && (
+            <React.Fragment>
+              <div className="vg-jaguar-fila">
+                <span>Modo de juego</span>
+                <div className="vg-segmento" role="radiogroup" aria-label="Modo de juego">
+                  {[['beam', '📽 Video beam (equipos)'], ['individual', '⌨ Teclado (individual)']].map(([v, txt]) => (
+                    <button key={v} role="radio" aria-checked={(a.modoJungla || 'beam') === v} className={(a.modoJungla || 'beam') === v ? 'on' : ''}
+                      onClick={() => set({ modoJungla: v })}>{txt}</button>
+                  ))}
+                </div>
+              </div>
+              <span className="vg-jaguar-nota">
+                {(a.modoJungla || 'beam') === 'beam'
+                  ? 'Un estudiante por equipo se para frente a la proyección y se mueve de verdad: izquierda, centro o derecha, y hace la acción de cada animal. El juego corre solo; tú presionas «FALLÓ» (celular, Espacio o el botón grande del presentador) cuando se equivoca.'
+                  : 'Un estudiante juega con el teclado: ← → cambian de carril, ↑ salta, ↓ se agacha y cada animal tiene su tecla. El juego revisa solo.'}
+              </span>
+              <div className="vg-jaguar-fila">
+                <span>🐢 Velocidad inicial</span>
+                <div className="vg-segmento" role="radiogroup" aria-label="Velocidad inicial">
+                  {[['lenta', 'Lenta'], ['media', 'Media'], ['rapida', 'Rápida']].map(([v, txt]) => (
+                    <button key={v} role="radio" aria-checked={(a.velocidadJungla || 'lenta') === v} className={(a.velocidadJungla || 'lenta') === v ? 'on' : ''}
+                      onClick={() => set({ velocidadJungla: v })}>{txt}</button>
+                  ))}
+                </div>
+              </div>
+              <div className="vg-jaguar-fila">
+                <span>Nueva instrucción cada</span>
+                <input type="number" min="3" max="30" value={a.rachaJungla || 8} style={{ width: 80 }}
+                  onChange={(e) => set({ rachaJungla: Math.max(3, Math.min(30, Number(e.target.value) || 8)) })} />
+                <span style={{ fontWeight: 600, color: 'var(--muted)' }}>objetos superados seguidos (se suma un animal: ave = saltar, cerdo = agacharse…)</span>
+              </div>
+              {(a.modoJungla || 'beam') === 'beam' && (
+                <div className="vg-jaguar-fila">
+                  <span>Rondas</span>
+                  <input type="number" min="1" max="6" value={a.rondasJungla || 2} style={{ width: 80 }}
+                    onChange={(e) => set({ rondasJungla: Math.max(1, Math.min(6, Number(e.target.value) || 2)) })} />
+                  <span style={{ fontWeight: 600, color: 'var(--muted)' }}>un concursante por equipo en cada ronda</span>
+                </div>
+              )}
+              <div className="vg-jaguar-fila">
+                <span>🏔 1 paso cada</span>
+                <input type="number" min="3" max="50" value={a.objetosPorPaso || 10} style={{ width: 80 }}
+                  onChange={(e) => set({ objetosPorPaso: Math.max(3, Math.min(50, Number(e.target.value) || 10)) })} />
+                <span style={{ fontWeight: 600, color: 'var(--muted)' }}>objetos superados (pasos del equipo hacia Jomu)</span>
+              </div>
+            </React.Fragment>
+          )}
+          {/* Enlace: el equipo que supere el reto responde una activación cognitiva (en los juegos, no en la historia). */}
+          {!ti.historia && <EnlaceEditor a={a} set={set} />}
+          <span className="vg-jaguar-nota">
+            Al presentar, «👥 Ver equipos» y «🏔 Ver la montaña» están en el marcador (arriba a la izquierda) y en el celular.
+            Allí también se suman o quitan pasos.{ti.historia ? ' El enlace con preguntas se elige en cada juego del Modo Capibara.' : ''}
           </span>
         </div>
       )}
@@ -1056,6 +1346,13 @@ function ConfigActivacion({ a, onCambiar, onBorrar, tiempoActual, duracion, hayE
         </div>
       )}
 
+      {ti.historia ? (
+        /* Modo Capibara: la historia de Jomu ya viene escrita. */
+        <div className="field vg-capibara-nota">
+          🌿 La historia ya viene escrita: «Jomu… ¡Corre!!», el lazo de los cazadores y la jaula,
+          con sus tres imágenes. Termina con el botón «¿Listos aventureros de las llanuras?».
+        </div>
+      ) : (
       <div className="field">
         <EtiquetaCampo texto={ti.etiqueta} valor={a.texto} onBorrar={() => set({ texto: '' })} />
         <AreaTexto minRows={a.tipo === 'contexto' || a.tipo === 'escritura' ? 4 : 3} value={a.texto || ''}
@@ -1066,6 +1363,7 @@ function ConfigActivacion({ a, onCambiar, onBorrar, tiempoActual, duracion, hayE
           </div>
         )}
       </div>
+      )}
 
       {a.tipo === 'glosario' && (
         <div className="field">
@@ -1113,6 +1411,34 @@ function ConfigActivacion({ a, onCambiar, onBorrar, tiempoActual, duracion, hayE
               <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <CampoUrlImagen valor={a.imagen || ''} onCambiar={(url) => set({ imagen: url })} autoFocus={!a.imagen} />
                 <span style={{ fontSize: 12, color: 'var(--muted)' }}>Se muestra en la tarjeta al presentar. {AYUDA_IMAGEN}</span>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>}
+
+      {/* Video de YouTube (opcional): se ve y se reproduce dentro de la tarjeta al presentar. */}
+      {!ti.silueta && !ti.mimica && <div className="field">
+        {!conVideo ? (
+          <button type="button" className="vg-mini-accion vg-agregar-img" onClick={() => setConVideo(true)}
+            title="Mostrar un video de YouTube en la tarjeta al presentar">▶ Agregar video de YouTube</button>
+        ) : (
+          <div className="vg-act-img-editor">
+            <div className="vg-etiqueta-campo">
+              <label>Video de YouTube en la tarjeta</label>
+              <span style={{ flex: 1 }}></span>
+              <button type="button" className="vg-mini-accion" onClick={quitarVideo}>✕ Quitar video</button>
+            </div>
+            <div className="vg-act-img-fila">
+              <MiniImagen src={idVideo ? 'https://img.youtube.com/vi/' + idVideo + '/mqdefault.jpg' : ''} vacia="Pega el enlace →" />
+              <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <input type="text" value={a.youtube || ''} autoFocus={!a.youtube} placeholder="https://www.youtube.com/watch?v=…"
+                  onChange={(e) => set({ youtube: e.target.value.trim() })} />
+                <span style={{ fontSize: 12, color: a.youtube && !idVideo ? 'var(--naranja-ink)' : 'var(--muted)' }}>
+                  {a.youtube && !idVideo
+                    ? 'Ese enlace no parece de YouTube (youtube.com/watch?v=… o youtu.be/…).'
+                    : 'Se reproduce dentro de la tarjeta (también desde el celular). Si el enlace trae el minuto (…&t=90), empieza ahí.'}
+                </span>
               </div>
             </div>
           </div>

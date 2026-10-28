@@ -55,6 +55,9 @@ const MANDO_CSS = `
   color: var(--c); font: inherit; font-weight: 800; font-size: 14px; cursor: pointer; }
 .vgm-chip.on { background: var(--c); color: #031006; }
 .vgm-chip:active { transform: scale(.96); }
+/* Muro Infernal: las 9 partes del personaje con ↺ / ↻ */
+.vgm-segmentos { display: flex; flex-direction: column; gap: 6px; --c: #9CD38A; }
+.vgm-segmentos .vgm-equipo.on { background: rgba(156,211,138,.18); }
 .vgm-mascara { text-align: center; font-weight: 900; font-size: 26px; letter-spacing: .28em; word-break: break-all; color: #39FF14; }
 .vgm-campo { width: 100%; min-height: 52px; padding: 10px 14px; border-radius: 14px; border: 1.5px solid rgba(57,255,20,.5); background: rgba(0,0,0,.3); color: inherit; font: inherit; font-size: 17px; user-select: text; -webkit-user-select: text; }
 .vgm-teclado { display: flex; flex-direction: column; gap: 6px; }
@@ -139,6 +142,29 @@ function PalabraMando({ p, eq, orden }) {
   );
 }
 
+/* Dedos Veloces (por turnos): el celular como botón gigante. Cuenta aquí y
+   envía el TOTAL del turno cada 200 ms (si una orden se pierde, la siguiente
+   lo corrige). `id` cambia con cada turno: el contador vuelve a cero. */
+function TocarDedosCel({ id, activo, color, orden }) {
+  const [n, setN] = React.useState(0);
+  const cuenta = React.useRef(0), enviado = React.useRef(0);
+  React.useEffect(() => { setN(0); cuenta.current = 0; enviado.current = 0; }, [id]);
+  React.useEffect(() => {
+    if (!activo) return undefined;
+    const t = setInterval(() => {
+      if (cuenta.current !== enviado.current) { enviado.current = cuenta.current; orden('dd-toques', { id, n: cuenta.current }); }
+    }, 200);
+    return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activo, id]);
+  return (
+    <button className="vgm-btn grande" disabled={!activo} onPointerDown={(e) => { e.preventDefault(); if (activo) { cuenta.current += 1; setN(cuenta.current); } }}
+      style={{ minHeight: 200, fontSize: 40, background: activo ? color : undefined, color: '#031006', touchAction: 'manipulation' }}>
+      {activo ? '👆 ' + n : 'Espera…'}
+    </button>
+  );
+}
+
 function VigiaMandoCelular({ code, state, send }) {
   const st = state || {};
   React.useEffect(() => {
@@ -191,7 +217,240 @@ function VigiaMandoCelular({ code, state, send }) {
         <div className="vgm-panel tarjeta" style={{ '--c': (itemActivo && itemActivo.color) || '#FF8A00' }}>
           <div className="vgm-kicker">En pantalla · {itemActivo ? itemActivo.nombre : 'Activación'}{activa.pequena ? ' (pequeña)' : ''}</div>
           {itemActivo && itemActivo.texto && <div style={{ fontWeight: 700, fontSize: 15 }}>{itemActivo.texto}</div>}
-          {activa.tipo === 'reto' || /^jg-/.test(activa.tipo) ? (
+          {/^cp-/.test(activa.tipo) ? (
+            /* Modo Capibara · historia de Jomu: los mismos botones de la pantalla */
+            <React.Fragment>
+              {st.capibara && st.capibara.juego === 'dedos' ? (() => {
+                /* Dedos Veloces: iniciar, repetir, pausar y (por turnos) siguiente concursante */
+                const c = st.capibara, eq = st.marcador || [];
+                const enRonda = ['presenta', 'cuenta', 'jugando', 'congela', 'finTurno', 'resultado'].includes(c.fase);
+                const eqA = c.actual !== null && c.actual !== undefined ? eq[c.actual] : null;
+                return (
+                  <React.Fragment>
+                    <div style={{ fontSize: 13, opacity: 0.85 }}>
+                      ⚡ Dedos Veloces · {c.modo === 'turnos' ? 'por turnos' : 'todos a la vez'}
+                      {enRonda ? ' · ' + (c.desempate ? 'desempate' : 'ronda ' + c.ronda + '/' + c.rondas) : ''}
+                      {enRonda && eqA ? ' · turno: ' + eqA.nombre : ''}
+                    </div>
+                    {enRonda && (
+                      <div style={{ fontSize: 14, fontWeight: 800 }}>
+                        {c.toques.map((t) => (eq[t.i] ? eq[t.i].nombre.replace(/^Equipo\s+/, '') + ': ' + (t.fijo !== undefined && c.modo === 'turnos' ? t.fijo : t.n) : '')).join(' · ')}
+                      </div>
+                    )}
+                    {c.fase === 'menu' && (
+                      <React.Fragment>
+                        <div className="vgm-chips">
+                          {[['simultaneo', '⌨ Todos a la vez'], ['turnos', '👆 Por turnos']].map(([v, t]) => (
+                            <button key={v} className={'vgm-chip' + (c.modo === v ? ' on' : '')} style={{ '--c': '#9CD38A' }} onClick={() => orden('dd-modo', { v })}>{t}</button>
+                          ))}
+                        </div>
+                        <div className="vgm-fila">
+                          <button className="vgm-btn borde" onClick={() => orden('dd-tiempo', { d: -1 })}>−</button>
+                          <div className="vgm-centro">{c.tiempo} s<small>por ronda</small></div>
+                          <button className="vgm-btn borde" onClick={() => orden('dd-tiempo', { d: 1 })}>+</button>
+                        </div>
+                        <button className="vgm-btn grande" onClick={() => orden('dd-empezar')}>▶ ¡Empezar!</button>
+                      </React.Fragment>
+                    )}
+                    {c.fase === 'prueba' && (
+                      <React.Fragment>
+                        <div style={{ fontSize: 14 }}>
+                          {c.probadas.map((ok, i) => (eq[i] ? (ok ? '✓ ' : '… ') + eq[i].nombre.replace(/^Equipo\s+/, '') + ' (' + c.teclas[i] + ')' : '')).join(' · ')}
+                        </div>
+                        <button className="vgm-btn grande" onClick={() => orden('dd-listo')}>▶ Todo listo</button>
+                        <button className="vgm-btn borde" onClick={() => orden('dd-turnos')}>👆 Sin teclado: por turnos</button>
+                      </React.Fragment>
+                    )}
+                    {c.fase === 'presenta' && <button className="vgm-btn grande" onClick={() => orden('dd-iniciar')}>▶ {c.modo === 'turnos' ? 'Iniciar turno' : 'Iniciar ronda'}</button>}
+                    {c.modo === 'turnos' && (c.fase === 'cuenta' || c.fase === 'jugando') && (
+                      <TocarDedosCel id={c.idTurno} activo={c.fase === 'jugando' && !c.pausado} color={(eqA && eqA.color) || '#9CD38A'} orden={orden} />
+                    )}
+                    {c.fase === 'finTurno' && <button className="vgm-btn grande" onClick={() => orden('dd-siguiente')}>▶ Siguiente concursante</button>}
+                    {c.fase === 'resultado' && c.ganadores.length > 1 && <button className="vgm-btn grande" onClick={() => orden('dd-desempate')}>⚔ Desempate (5 s)</button>}
+                    {c.fase === 'resultado' && c.registrado && <button className="vgm-btn grande" onClick={() => orden('dd-ronda')}>{c.ronda >= c.rondas ? '🏁 Resultado final' : '▶ Siguiente ronda'}</button>}
+                    {enRonda && (
+                      <div className="vgm-fila">
+                        <button className="vgm-btn borde" onClick={() => orden('dd-pausa')}>{c.pausado ? '▶ Seguir' : '⏸ Pausa'}</button>
+                        {!c.registrado && <button className="vgm-btn borde" onClick={() => orden('dd-repetir')}>↻ Repetir ronda</button>}
+                      </div>
+                    )}
+                    {enRonda && <button className="vgm-btn borde" onClick={() => orden('dd-terminar')}>🏁 Terminar juego</button>}
+                    {c.fase === 'fin' && (
+                      <div className="vgm-fila">
+                        <button className="vgm-btn borde" onClick={() => orden('dd-otra')}>↻ Jugar otra vez</button>
+                        <button className="vgm-btn grande" onClick={() => orden('dd-montana')}>🏔 Ver la montaña</button>
+                      </div>
+                    )}
+                    {c.fase === 'montana' && <button className="vgm-btn grande" onClick={() => orden('dd-continuar')}>Continuar ›</button>}
+                    <button className="vgm-btn borde" onClick={() => orden('dd-silencio')}>{c.silencio ? '🔇 Sin sonido' : '🔊 Con sonido'}</button>
+                  </React.Fragment>
+                );
+              })() : st.capibara && st.capibara.juego === 'jungla' ? (() => {
+                /* Movimiento de la Jungla: el mando es el centro del modo video beam.
+                   FALLÓ va primero y es el botón más grande (rojo). */
+                const c = st.capibara, eq = st.marcador || [];
+                const enCarrera = c.fase === 'corre' || c.fase === 'anuncio';
+                const enJuego = ['turno', 'corre', 'anuncio', 'fallo', 'resultado'].includes(c.fase);
+                return (
+                  <React.Fragment>
+                    {c.modo === 'beam' && enCarrera && (
+                      <button className="vgm-btn grande vgm-rojo" style={{ minHeight: 120, fontSize: 30 }} onClick={() => orden('jn-fallo')}>💥 FALLÓ</button>
+                    )}
+                    {c.modo === 'beam' && c.fase === 'fallo' && c.deshacer > 0 && (
+                      <button className="vgm-btn grande" style={{ minHeight: 90, fontSize: 22 }} onClick={() => orden('jn-deshacer')}>↩ Deshacer ({c.deshacer})</button>
+                    )}
+                    <div style={{ fontSize: 13, opacity: 0.85 }}>
+                      🌴 Jungla · {c.modo === 'beam' ? 'equipos' : 'teclado'}
+                      {enJuego && c.modo === 'beam' && eq[c.turno] ? ' · ' + eq[c.turno].nombre + (c.pasa ? ' · ' + c.pasa : '') + ' · ronda ' + c.ronda + '/' + c.rondas : ''}
+                      {enJuego ? ' · ⭐ ' + c.puntos : ''}
+                    </div>
+                    {enJuego && c.instrucciones.length > 0 && <div style={{ fontSize: 13, opacity: 0.85 }}>{c.instrucciones.join(' · ')}</div>}
+                    {c.fase === 'menu' && (
+                      <React.Fragment>
+                        {c.personajes.length > 0 && (
+                          <div className="vgm-chips">
+                            {c.personajes.map((p, i) => (
+                              <button key={i} className={'vgm-chip' + (c.personaje === i ? ' on' : '')} style={{ '--c': '#9CD38A' }} onClick={() => orden('jn-personaje', { i })}>{p}</button>
+                            ))}
+                          </div>
+                        )}
+                        {c.modo === 'individual' && (
+                          <div className="vgm-chips">
+                            {eq.map((e, i) => (
+                              <button key={i} className={'vgm-chip' + (c.equipoInd === i ? ' on' : '')} style={{ '--c': e.color }} onClick={() => orden('jn-equipo', { i })}>{e.nombre}</button>
+                            ))}
+                          </div>
+                        )}
+                        {c.modo === 'beam' && (
+                          <div className="vgm-chips">
+                            {[['lenta', '🐢 Lenta'], ['media', 'Media'], ['rapida', '🐆 Rápida']].map(([v, t]) => (
+                              <button key={v} className={'vgm-chip' + (c.velocidad === v ? ' on' : '')} style={{ '--c': '#9CD38A' }} onClick={() => orden('jn-velocidad', { v })}>{t}</button>
+                            ))}
+                          </div>
+                        )}
+                        <button className="vgm-btn grande" onClick={() => orden('jn-empezar')}>▶ ¡Empezar!</button>
+                      </React.Fragment>
+                    )}
+                    {c.fase === 'turno' && <button className="vgm-btn grande" onClick={() => orden('jn-listo')}>▶ ¡A correr!</button>}
+                    {c.fase === 'fallo' && c.modo === 'beam' && <button className="vgm-btn borde" onClick={() => orden('jn-siguiente')}>✓ Registrar ya</button>}
+                    {c.fase === 'resultado' && (
+                      <button className="vgm-btn grande" onClick={() => orden('jn-siguiente')}>{c.modo === 'beam' ? '▶ Siguiente concursante' : '↻ Reintentar'}</button>
+                    )}
+                    {enJuego && (
+                      <div className="vgm-fila">
+                        <button className="vgm-btn borde" onClick={() => orden('jn-pausa')}>{c.pausado ? '▶ Seguir' : '⏸ Pausa'}</button>
+                        <button className="vgm-btn borde" onClick={() => orden('jn-reiniciar')}>↻ Reiniciar turno</button>
+                        {c.modo === 'beam' && <button className="vgm-btn borde" onClick={() => orden('jn-saltar')}>⏭ Saltar turno</button>}
+                      </div>
+                    )}
+                    {enJuego && <button className="vgm-btn borde" onClick={() => orden('jn-terminar')}>🏁 Terminar juego</button>}
+                    {c.fase === 'fin' && (
+                      <div className="vgm-fila">
+                        <button className="vgm-btn borde" onClick={() => orden('jn-otra')}>↻ Jugar otra vez</button>
+                        <button className="vgm-btn grande" onClick={() => orden('jn-montana')}>🏔 Ver la montaña</button>
+                      </div>
+                    )}
+                    {c.fase === 'montana' && <button className="vgm-btn grande" onClick={() => orden('jn-continuar')}>Continuar ›</button>}
+                    <button className="vgm-btn borde" onClick={() => orden('jn-silencio')}>{c.silencio ? '🔇 Sin sonido' : '🔊 Con sonido'}</button>
+                  </React.Fragment>
+                );
+              })() : st.capibara && st.capibara.juego === 'muro' ? (() => {
+                /* Muro Infernal: los mismos botones de la pantalla */
+                const c = st.capibara, eq = st.marcador || [];
+                const enJuego = ['turno', 'previa', 'muro', 'juez', 'exito', 'fallo'].includes(c.fase);
+                return (
+                  <React.Fragment>
+                    <div style={{ fontSize: 13, opacity: 0.85 }}>
+                      🔥 Muro Infernal · {c.modo === 'beam' ? 'equipos' : 'individual'}
+                      {enJuego && c.modo === 'beam' && eq[c.turno] ? ' · turno: ' + eq[c.turno].nombre + ' · ronda ' + c.ronda + '/' + c.rondas : ''}
+                      {enJuego && c.modo === 'individual' ? ' · ⭐ ' + c.puntos + ' · ' + '♥'.repeat(Math.max(0, c.vidas)) : ''}
+                      {enJuego && c.pose ? ' · pose: ' + c.pose : ''}
+                    </div>
+                    {c.fase === 'menu' && (
+                      <React.Fragment>
+                        {c.personajes.length > 0 && (
+                          <div className="vgm-chips">
+                            {c.personajes.map((p, i) => (
+                              <button key={i} className={'vgm-chip' + (c.personaje === i ? ' on' : '')} style={{ '--c': '#9CD38A' }} onClick={() => orden('mu-personaje', { i })}>{p}</button>
+                            ))}
+                          </div>
+                        )}
+                        {c.modo === 'individual' && (
+                          <div className="vgm-chips">
+                            {eq.map((e, i) => (
+                              <button key={i} className={'vgm-chip' + (c.equipoInd === i ? ' on' : '')} style={{ '--c': e.color }} onClick={() => orden('mu-equipo', { i })}>{e.nombre}</button>
+                            ))}
+                          </div>
+                        )}
+                        {c.modo === 'beam' && (
+                          <div className="vgm-fila">
+                            <button className="vgm-btn borde" onClick={() => orden('mu-tiempo', { d: -1 })}>−</button>
+                            <div className="vgm-centro">{c.tiempo} s<small>por muro</small></div>
+                            <button className="vgm-btn borde" onClick={() => orden('mu-tiempo', { d: 1 })}>+</button>
+                          </div>
+                        )}
+                        <button className="vgm-btn grande" onClick={() => orden('mu-empezar')}>▶ ¡Empezar!</button>
+                      </React.Fragment>
+                    )}
+                    {c.fase === 'turno' && <button className="vgm-btn grande" onClick={() => orden('mu-listo')}>▶ ¡Que venga el muro!</button>}
+                    {(c.fase === 'previa' || c.fase === 'muro') && <button className="vgm-btn grande" onClick={() => orden('mu-listo')}>✓ ¡Listo!</button>}
+                    {c.fase === 'juez' && (
+                      <div className="vgm-fila">
+                        <button className="vgm-btn grande" onClick={() => orden('mu-juez', { ok: true })}>✓ ¡Sí, pasó!</button>
+                        <button className="vgm-btn borde" onClick={() => orden('mu-juez', { ok: false })}>✗ ¡Al agua!</button>
+                      </div>
+                    )}
+                    {/* Mover al personaje desde el celular */}
+                    {(c.fase === 'previa' || c.fase === 'muro') && c.segmentos.length > 0 && (
+                      <div className="vgm-segmentos">
+                        {c.segmentos.map((s, k) => (
+                          <div key={k} className={'vgm-equipo' + (c.seg === k ? ' on' : '')}>
+                            <span className="vgm-equipo-nombre">{k + 1}. {s}</span>
+                            <button className="vgm-btn borde" onClick={() => orden('mu-seg', { k, d: -1 })}>↺</button>
+                            <button className="vgm-btn" onClick={() => orden('mu-seg', { k, d: 1 })}>↻</button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {enJuego && (
+                      <div className="vgm-fila">
+                        <button className="vgm-btn borde" onClick={() => orden('mu-pausa')}>{c.pausado ? '▶ Seguir' : '⏸ Pausa'}</button>
+                        <button className="vgm-btn borde" onClick={() => orden('mu-repetir')}>↻ Repetir</button>
+                        <button className="vgm-btn borde" onClick={() => orden('mu-saltar')}>⏭ {c.modo === 'beam' ? 'Saltar turno' : 'Otro muro'}</button>
+                      </div>
+                    )}
+                    {enJuego && <button className="vgm-btn borde" onClick={() => orden('mu-terminar')}>🏁 Terminar juego</button>}
+                    {c.fase === 'fin' && (
+                      <div className="vgm-fila">
+                        <button className="vgm-btn borde" onClick={() => orden('mu-otra')}>↻ Jugar otra vez</button>
+                        <button className="vgm-btn grande" onClick={() => orden('mu-montana')}>🏔 Ver la montaña</button>
+                      </div>
+                    )}
+                    {c.fase === 'montana' && <button className="vgm-btn grande" onClick={() => orden('mu-continuar')}>Continuar ›</button>}
+                    <button className="vgm-btn borde" onClick={() => orden('mu-silencio')}>{c.silencio ? '🔇 Sin sonido' : '🔊 Con sonido'}</button>
+                  </React.Fragment>
+                );
+              })() : (() => {
+                const c = st.capibara;
+                const fase = c ? c.fase || 'historia' : 'historia';
+                return (
+                  <React.Fragment>
+                    <div style={{ fontSize: 13, opacity: 0.8 }}>
+                      {fase === 'grupos' ? '¡Busca tu equipo!' : fase === 'montana' ? '🏔 El camino hacia Jomu' : c ? 'Historia · paso ' + (c.paso + 1) + ' de ' + c.total : 'Historia'}
+                    </div>
+                    {fase === 'grupos' && <button className="vgm-btn borde" onClick={() => orden('cp-resortear')}>🔀 Volver a sortear</button>}
+                    <div className="vgm-fila">
+                      <button className="vgm-btn borde" onClick={() => orden('cp-anterior')} disabled={!c || (fase === 'historia' && c.paso === 0)}>‹ Anterior</button>
+                      {fase === 'grupos' ? <button className="vgm-btn grande" onClick={() => orden('cp-siguiente')}>Ver el camino hacia Jomu ›</button>
+                        : fase === 'montana' ? <button className="vgm-btn grande" onClick={() => orden('cp-siguiente')}>🌿 ¡A la aventura!</button>
+                        : c && c.final ? <button className="vgm-btn grande" onClick={() => orden('cp-listos')}>🌿 ¿Listos aventureros de las llanuras?</button>
+                        : <button className="vgm-btn grande" onClick={() => orden('cp-siguiente')}>Siguiente ›</button>}
+                    </div>
+                  </React.Fragment>
+                );
+              })()}
+            </React.Fragment>
+          ) : activa.tipo === 'reto' || /^jg-/.test(activa.tipo) ? (
             <div className="vgm-fila">
               {activa.tipo === 'reto' && <button className="vgm-btn azul" onClick={() => orden('reto-sortear')}>↻ Sortear</button>}
               <button className="vgm-btn grande" onClick={() => orden('reto-terminar')}>{activa.tipo === 'reto' ? 'Terminar reto' : 'Terminar desafío'}</button>
@@ -199,7 +458,15 @@ function VigiaMandoCelular({ code, state, send }) {
           ) : (
             <button className="vgm-btn grande" onClick={() => orden('continuar')}>{esMedio ? '▶ Continuar' : '✓ Cerrar tarjeta'}</button>
           )}
-          {!activa.pequena && (
+          {/* Video de YouTube de la tarjeta: los mismos botones de la pantalla */}
+          {itemActivo && itemActivo.video && (
+            <div className="vgm-fila">
+              <button className="vgm-btn azul" onClick={() => orden('video-tarjeta', { cmd: 'alternar' })}>▶ / ❚❚ Video</button>
+              <button className="vgm-btn borde" onClick={() => orden('video-tarjeta', { cmd: 'inicio' })}>↺ Inicio</button>
+              <button className="vgm-btn borde" onClick={() => orden('video-tarjeta', { cmd: 'agrandar' })}>⛶ Agrandar</button>
+            </div>
+          )}
+          {!activa.pequena && !/^cp-/.test(activa.tipo) && (
             <div className="vgm-fila">
               <button className="vgm-btn borde" onClick={() => orden('letra', { dir: -1 })}>A−</button>
               <button className="vgm-btn borde" onClick={() => orden('letra', { dir: 0 })}>Aa</button>
@@ -272,6 +539,14 @@ function VigiaMandoCelular({ code, state, send }) {
         return (
           <div className="vgm-panel vgm-jaguar">
             <div className="vgm-kicker" style={{ color: '#39FF14' }}>✊ Desafío en pantalla</div>
+            {/* Inicio del Modo Jaguar: "¡Busca tu equipo!" con los estudiantes de cada equipo */}
+            {d.grupos && (
+              <React.Fragment>
+                <div className="vgm-kicker">¡Busca tu equipo! · {eq.length} equipos</div>
+                <button className="vgm-btn grande" onClick={() => orden('continuar')}>¡A luchar! ▶</button>
+                <button className="vgm-btn borde" onClick={() => orden('jg-resortear')}>🔀 Volver a sortear</button>
+              </React.Fragment>
+            )}
             {d.ppt === 'elegir' && (
               <React.Fragment>
                 <div className="vgm-fila">
@@ -356,6 +631,17 @@ function VigiaMandoCelular({ code, state, send }) {
                       <button className="vgm-btn borde" onClick={() => orden('mm-siguiente')}>⏭ Siguiente palabra</button>
                     </React.Fragment>
                   )}
+                  {varios && m.paso === 1 && (
+                    <React.Fragment>
+                      <div className="vgm-kicker">¿Quién hace la mímica?</div>
+                      <div className="vgm-chips">
+                        {m.participantes.filter((i) => eq[i]).map((i) => (
+                          <button key={i} className={'vgm-chip' + (m.equipo === i ? ' on' : '')} style={{ '--c': eq[i].color }}
+                            onClick={() => orden('mm-turno', { i })}>{eq[i].nombre}{m.equipo === i ? ' 🎭' : ''}</button>
+                        ))}
+                      </div>
+                    </React.Fragment>
+                  )}
                   {varios && <button className="vgm-btn borde" onClick={() => orden('mm-cambio')}>⇄ Cambio de equipo</button>}
                 </React.Fragment>
               );
@@ -394,6 +680,44 @@ function VigiaMandoCelular({ code, state, send }) {
                 </React.Fragment>
               );
             })()}
+            {/* Responde en cuaderno o tablero: 1 pregunta · 2 responder · 3 ¿ganador? (con cronómetro) */}
+            {d.cuaderno && (() => {
+              const g = d.cuaderno;
+              const r = g.restante || 0;
+              const elegibles = (g.participantes || []).filter((i) => eq[i]);
+              return (
+                <React.Fragment>
+                  <div className="vgm-kicker">{g.videobeam ? 'Responde en el tablero' : 'Responde en el cuaderno'} · tarjeta {g.paso} de 3</div>
+                  {g.paso < 3 && (
+                    <div className="vgm-centro">{g.tiempo ? '¡Tiempo!' : '⏱ ' + Math.floor(r / 60) + ':' + String(r % 60).padStart(2, '0')}<small>{g.corriendo ? 'corriendo' : r < g.total ? 'en pausa' : 'listo para empezar'}</small></div>
+                  )}
+                  {g.paso < 3 && !g.tiempo && (
+                    g.corriendo
+                      ? <button className="vgm-btn borde" onClick={() => orden('cq-pausar')}>❚❚ Pausar</button>
+                      : <button className="vgm-btn borde" onClick={() => orden('cq-empezar')}>▶ {r < g.total ? 'Seguir' : 'Empezar'}</button>
+                  )}
+                  {g.paso === 1 && <button className="vgm-btn grande" onClick={() => orden('cq-responder')}>{g.videobeam ? 'Mostrar recuadros ▶' : 'Responder ▶'}</button>}
+                  {g.paso >= 2 && (
+                    <React.Fragment>
+                      <div className="vgm-kicker">{g.paso === 2 ? 'Elige al ganador (+1 punto)' : '¿Ganador? Toca para cambiarlo'}</div>
+                      <div className="vgm-chips">
+                        {elegibles.map((i) => (
+                          <button key={i} className={'vgm-chip' + (d.ganador === i ? ' on' : '')} style={{ '--c': eq[i].color }}
+                            onClick={() => orden('cq-ganador', { i })}>{eq[i].nombre}{d.ganador === i ? ' ✓' : ''} · {eq[i].puntos}</button>
+                        ))}
+                      </div>
+                    </React.Fragment>
+                  )}
+                  {g.paso === 2 && <button className="vgm-btn borde" onClick={() => orden('cq-ganador-paso')}>¿Ganador? ▶</button>}
+                  {g.paso === 3 && (
+                    <div className="vgm-fila">
+                      <button className="vgm-btn borde" onClick={() => orden('cq-volver')}>← {g.videobeam ? 'Recuadros' : 'Pregunta'}</button>
+                      <button className="vgm-btn borde" onClick={() => orden('cq-otra')}>↻ Otra ronda</button>
+                    </div>
+                  )}
+                </React.Fragment>
+              );
+            })()}
             {d.pideGanador && (
               <React.Fragment>
                 <div className="vgm-kicker">¿Quién ganó? (+1 punto)</div>
@@ -426,16 +750,32 @@ function VigiaMandoCelular({ code, state, send }) {
       {/* Modo Jaguar: marcador con − / + y el ganador */}
       {st.marcador && st.marcador.length > 0 && (
         <div className="vgm-panel vgm-jaguar">
-          <div className="vgm-kicker" style={{ color: '#39FF14' }}>✊ Marcador · Modo Jaguar</div>
+          <div className="vgm-kicker" style={{ color: st.modoEquipos === 'capibara' ? '#9CD38A' : '#39FF14' }}>
+            {st.modoEquipos === 'capibara' ? '🏔 Pasos hacia Jomu' + (st.metaCapibara ? ' · meta ' + st.metaCapibara : '') : '✊ Marcador · Modo Jaguar'}
+          </div>
           {st.marcador.map((e, i) => (
             <div key={i} className="vgm-equipo" style={{ '--c': e.color }}>
               <span className="vgm-equipo-nombre">{e.nombre}</span>
               <button className="vgm-btn borde" onClick={() => orden('punto', { i, delta: -1 })} disabled={!e.puntos}>−</button>
               <b>{e.puntos}</b>
-              <button className="vgm-btn" onClick={() => orden('punto', { i, delta: 1 })}>+1</button>
+              <button className="vgm-btn" onClick={() => orden('punto', { i, delta: 1 })}>{st.modoEquipos === 'capibara' ? '+1 paso' : '+1'}</button>
             </div>
           ))}
-          <button className="vgm-btn borde" onClick={() => orden('jaguar-ganador')}>🏁 Finalizar lucha</button>
+          <button className="vgm-btn borde" onClick={() => orden('jaguar-grupos')}>{st.jaguarGrupos ? '✕ Cerrar los equipos en pantalla' : '👥 Ver equipos en pantalla'}</button>
+          {st.modoEquipos === 'capibara' && (
+            <button className="vgm-btn borde" onClick={() => orden('cp-montana')}>{st.capibaraMontana ? '✕ Cerrar la montaña en pantalla' : '🏔 Ver la montaña en pantalla'}</button>
+          )}
+          {/* También aquí, en el celular: quién está en cada equipo. */}
+          <details className="vgm-grupos">
+            <summary>Estudiantes de cada equipo</summary>
+            {st.marcador.map((e, i) => (
+              <div key={i} className="vgm-grupo" style={{ borderLeft: '4px solid ' + e.color, padding: '4px 0 4px 10px', margin: '6px 0' }}>
+                <b style={{ color: e.color }}>{e.nombre}</b>
+                <div style={{ fontSize: 14, opacity: 0.9 }}>{(e.miembros || []).length ? e.miembros.join(' · ') : 'Sin estudiantes'}</div>
+              </div>
+            ))}
+          </details>
+          {st.modoEquipos !== 'capibara' && <button className="vgm-btn borde" onClick={() => orden('jaguar-ganador')}>🏁 Finalizar lucha</button>}
         </div>
       )}
 
