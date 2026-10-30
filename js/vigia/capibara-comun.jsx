@@ -11,7 +11,10 @@
      sigue entre un juego y otro de la misma presentación).
    · Turnos: `siguienteTurnoCp(…)` = siguiente equipo en orden y su ronda.
    · Interfaz común: `SelectorPersonajeCp`, `ChipsEquiposCp`, `TablaFinalCp`,
-     `MontanaFinalCp` (la montaña al terminar cada juego). */
+     `MontanaFinalCp` (la montaña al terminar cada juego).
+   · Jugadores en pie (juegos de eliminación: Semáforo, Verdadero o Falso…):
+     `nuevoEnPieCp`, `cambiarEnPieCp`, `deshacerEnPieCp`, `registrarGanadoresCp`,
+     `JugadoresEnPieCp`, `TarjetasEnPieCp`, `ContadoresEnPieCp`, `equipoDeTeclaCp`. */
 
 /* ============================== AUDIO ============================== */
 let audioCtxCp = null;
@@ -172,7 +175,113 @@ function MontanaFinalCp({ equipos, meta, onContinuar, titulo }) {
   );
 }
 
+/* =================== JUGADORES EN PIE (juegos de eliminación) ===================
+   Semáforo, Verdadero o Falso en Movimiento… Cada equipo empieza con N jugadores
+   en pie; el docente descuenta (−1) o corrige (+1, hasta los del inicio) y puede
+   deshacer. Gana el último equipo en pie (o el que tenga más, si se termina antes).
+   El estado `E` vive dentro del estado del juego (sus campos se mezclan en él).
+   En Vigía solo se guardan nombres: esto queda en memoria. */
+// Jugadores al empezar: `fijo` (editor) o los integrantes del equipo (o 5).
+function jugadoresInicialesCp(equipos, fijo) {
+  const lim = (v) => Math.max(1, Math.min(40, Number(v) || 5));
+  return (equipos || []).map((e) => lim(fijo || ((e && e.miembros) || []).length || 5));
+}
+function nuevoEnPieCp(jugadores) {
+  return { enPie: jugadores.slice(), inicial: jugadores.slice(), fuera: {}, ordenFuera: 0, historial: [], ganadores: [], registrado: false };
+}
+// d = −1 descuenta, +1 corrige. Devuelve true si cambió algo.
+function cambiarEnPieCp(E, i, d) {
+  if (i < 0 || i >= E.enPie.length) return false;
+  const nuevo = Math.max(0, Math.min(E.inicial[i], E.enPie[i] + d));
+  if (nuevo === E.enPie[i]) return false;
+  E.historial.push({ i, antes: E.enPie[i], fuera: E.fuera[i] });
+  E.enPie[i] = nuevo;
+  if (nuevo === 0) { E.ordenFuera += 1; E.fuera[i] = E.ordenFuera; } else delete E.fuera[i];
+  return true;
+}
+function deshacerEnPieCp(E) {
+  const h = E.historial.pop();
+  if (!h) return false;
+  E.enPie[h.i] = h.antes;
+  if (h.fuera) E.fuera[h.i] = h.fuera; else delete E.fuera[h.i];
+  return true;
+}
+const equiposEnPieCp = (E) => E.enPie.filter((n) => n > 0).length;
+// Ganadores (más jugadores en pie; empate = todos) y sus pasos hacia Jomu (una sola vez).
+function registrarGanadoresCp(E, pasos) {
+  const max = Math.max(0, ...E.enPie);
+  E.ganadores = max > 0 ? E.enPie.map((n, k) => (n === max ? k : -1)).filter((k) => k >= 0) : [];
+  if (!E.registrado && E.ganadores.length) { E.registrado = true; E.ganadores.forEach((k) => jaguarPunto(k, pasos)); }
+}
+// Al deshacer desde el final: devuelve los pasos.
+function anularGanadoresCp(E, pasos) {
+  if (E.registrado) E.ganadores.forEach((k) => jaguarPunto(k, -pasos));
+  E.registrado = false; E.ganadores = [];
+}
+// Filas para TablaFinalCp: más en pie primero; empate → el que cayó después.
+function tablaEnPieCp(eqV, E) {
+  return eqV.map((e, i) => ({ ...e, i, puntos: E.enPie[i], detalle: E.enPie[i] + ' de ' + E.inicial[i] + ' en pie' }))
+    .sort((x, y) => y.puntos - x.puntos || (E.fuera[y.i] || 0) - (E.fuera[x.i] || 0));
+}
+// Menú: jugadores en pie por equipo (− n +).
+function JugadoresEnPieCp({ eqV, jugadores, onCambiar }) {
+  return (
+    <div className="vg-ep-jug">
+      {eqV.map((e, i) => (
+        <span key={i} style={{ '--c': e.color }}>
+          <span className="emo">{e.emoji}</span>
+          <button type="button" onClick={() => onCambiar(i, -1)} disabled={jugadores[i] <= 1} aria-label={'Menos jugadores en ' + e.nombre}>−</button>
+          <b>{jugadores[i]}</b>
+          <button type="button" onClick={() => onCambiar(i, 1)} disabled={jugadores[i] >= 40} aria-label={'Más jugadores en ' + e.nombre}>+</button>
+        </span>
+      ))}
+    </div>
+  );
+}
+// Tarjetas grandes por equipo con −1 / +1 (pausa del Semáforo…). Tecla = 1–9, 0.
+function TarjetasEnPieCp({ eqV, E, onCambiar }) {
+  return (
+    <div className="vg-ep-tarjetas">
+      {eqV.map((e, i) => (
+        <div key={i} className={'vg-ep-tarjeta' + (E.enPie[i] ? '' : ' fuera')} style={{ '--c': e.color }}>
+          <div className="cab"><span className="emo">{e.emoji}</span><strong>{e.corto}</strong><kbd>{i === 9 ? 0 : i + 1}</kbd></div>
+          <b>{E.enPie[i]}</b>
+          <small>de {E.inicial[i]} en pie</small>
+          <div className="fila">
+            <button type="button" className="menos" onClick={() => onCambiar(i, -1)} disabled={!E.enPie[i]} aria-label={'Descontar 1 a ' + e.nombre}>−1</button>
+            <button type="button" className="mas" onClick={() => onCambiar(i, 1)} disabled={E.enPie[i] >= E.inicial[i]} aria-label={'Devolver 1 a ' + e.nombre}>+1</button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+/* Contadores por equipo (fila de chips). `onTocar(i)`: al tocar un chip.
+   `onCambiar(i, d)`: muestra − y + en cada chip. `grande`: contador enorme. */
+function ContadoresEnPieCp({ eqV, E, onTocar, onCambiar, grande, clase }) {
+  return (
+    <div className={'vg-ep-equipos' + (grande ? ' grande' : '') + (clase ? ' ' + clase : '')}>
+      {eqV.map((e, i) => (
+        <div key={i} className={'vg-ep-eq' + (E.enPie[i] ? '' : ' fuera')} style={{ '--c': e.color }}
+          onClick={onTocar ? () => onTocar(i) : undefined} role={onTocar ? 'button' : undefined}
+          title={'Tecla ' + (i === 9 ? 0 : i + 1) + (onCambiar ? ' (Shift + tecla: +1)' : '')}>
+          {onCambiar && <button type="button" className="menos" onClick={(ev) => { ev.stopPropagation(); onCambiar(i, -1); }} disabled={!E.enPie[i]} aria-label={'Descontar 1 a ' + e.nombre}>−1</button>}
+          <span className="emo">{e.emoji}</span><b>{E.enPie[i]}</b><small>🧍</small>
+          {onCambiar && <button type="button" className="mas" onClick={(ev) => { ev.stopPropagation(); onCambiar(i, 1); }} disabled={E.enPie[i] >= E.inicial[i]} aria-label={'Devolver 1 a ' + e.nombre}>+1</button>}
+        </div>
+      ))}
+    </div>
+  );
+}
+// Teclas 1–9 y 0 (fila o teclado numérico) → índice del equipo, o -1.
+function equipoDeTeclaCp(e) {
+  const m = /^(?:Digit|Numpad)(\d)$/.exec((e && e.code) || '');
+  return m ? (m[1] === '0' ? 9 : Number(m[1]) - 1) : -1;
+}
+
 Object.assign(window, {
   audioCapibara, lineaCp, circuloCp, rrCp, useLienzoCp, siguienteConcursanteCp, siguienteTurnoCp,
   SelectorPersonajeCp, ChipsEquiposCp, TablaFinalCp, MontanaFinalCp,
+  jugadoresInicialesCp, nuevoEnPieCp, cambiarEnPieCp, deshacerEnPieCp, equiposEnPieCp, registrarGanadoresCp, anularGanadoresCp,
+  tablaEnPieCp, JugadoresEnPieCp, TarjetasEnPieCp, ContadoresEnPieCp, equipoDeTeclaCp,
 });

@@ -3,20 +3,59 @@ rules_version = '2';
 // Reglas de seguridad de Firestore para "Actividades Interactivas".
 //
 // Modelo de datos:
-//   users/{uid}/presentations/{presId}
-//
-// Principio: cada docente solo puede leer y escribir SUS propias presentaciones.
-// Nadie puede acceder a los datos de otro usuario, ni siquiera estando autenticado.
+//   users/{uid}/presentations/{presId}   -> presentaciones de cada docente
+//   accessRequests/{uid}                 -> solicitudes de acceso (modo admin)
+//   remoteSessions/{code}/participants   -> mando y aula en vivo
+//   terminos/{uid}                       -> aceptación de los Términos y Condiciones
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Documentos de presentaciones, anidados bajo el uid del dueño.
-    match /users/{uid}/presentations/{presId} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
+    // ---------- Funciones auxiliares (van a ESTE nivel) ----------
+    function esAdmin() {
+      return request.auth != null && request.auth.uid in ['NiPfi5dd3dbzyBMzltrf7VcanlT2'];
+    }
+    // Cuentas sin solicitud (anteriores al modo admin) cuentan como aprobadas.
+    function aprobado(uid) {
+      return !exists(/databases/$(database)/documents/accessRequests/$(uid))
+          || get(/databases/$(database)/documents/accessRequests/$(uid)).data.estado == 'aprobado';
     }
 
-    // Todo lo demás queda bloqueado por defecto.
+    // ---------- Presentaciones: solo el dueño, y solo si está aprobado ----------
+    match /users/{uid}/presentations/{presId} {
+      allow read, write: if request.auth != null && request.auth.uid == uid && aprobado(uid);
+    }
+
+    // ---------- Solicitudes de acceso ----------
+    match /accessRequests/{uid} {
+      // Cada usuario crea SU solicitud al registrarse, siempre 'pendiente'.
+      allow create: if request.auth != null && request.auth.uid == uid
+                    && request.resource.data.estado == 'pendiente';
+      allow read: if request.auth != null && (request.auth.uid == uid || esAdmin());
+      // Aprobar o rechazar: solo el administrador.
+      allow update, delete: if esAdmin();
+    }
+
+    // ---------- Control remoto y aula (sin sesión: entran con el código) ----------
+    match /remoteSessions/{code} {
+      allow read: if true;
+      allow create, update: if true;
+      allow delete: if request.auth != null && resource.data.ownerUid == request.auth.uid;
+
+      match /participants/{pid} {
+        allow read, write: if true;
+      }
+    }
+
+    // ---------- Términos y Condiciones (js/terminos.jsx) ----------
+    // Cada usuario lee y escribe SU aceptación (nombre, versión, fecha, bienvenida vista).
+    // El administrador puede leerlas todas (lista en el panel de Administración).
+    match /terminos/{uid} {
+      allow read: if request.auth != null && (request.auth.uid == uid || esAdmin());
+      allow write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // ---------- Todo lo demás queda bloqueado (siempre AL FINAL y vacío) ----------
     match /{document=**} {
       allow read, write: if false;
     }

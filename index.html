@@ -17,6 +17,28 @@
   </style>
 </head>
 <body>
+  <!-- Pantalla de carga Res Cogitans. Solo con sesión: al recargar con la sesión
+       abierta (marca 'rc_sesion', la pone app.jsx) y justo después de iniciar
+       sesión (app.jsx llama a rcMostrarCarga). Nunca en la pantalla de ingreso
+       ni en el control remoto (?remote=). La retira app.jsx cuando todo está listo. -->
+  <script src="js/rc-loader.js?v=20261029c"></script>
+  <script>
+    window.rcMostrarCarga = function () {
+      if (!window.RCLoader || /[?&]remote=/.test(location.search)) return null;
+      if (RCLoader.current && !RCLoader.current.hidden && !RCLoader.current._hideRequest) return RCLoader.current;
+      // Primera vez del día: animación completa. Las siguientes del mismo día: versión breve.
+      var hoy = new Date(), dia = hoy.getFullYear() + '-' + (hoy.getMonth() + 1) + '-' + hoy.getDate();
+      var rapido = false;
+      try { rapido = localStorage.getItem('rcl_dia') === dia; localStorage.setItem('rcl_dia', dia); } catch (e) {}
+      var carga = RCLoader.current = RCLoader.show({ theme: 'light', quick: rapido });
+      // Respaldo: si algo falla, no dejar la pantalla de carga para siempre.
+      setTimeout(function () { carga.hide(); }, 25000);
+      return carga;
+    };
+    var rcHaySesion = false;
+    try { rcHaySesion = localStorage.getItem('rc_sesion') === '1'; } catch (e) {}
+    if (rcHaySesion) window.rcMostrarCarga();
+  </script>
   <div id="root"></div>
 
   <!-- React + Babel. React en versión de PRODUCCIÓN (más liviana y rápida).
@@ -25,6 +47,26 @@
   <script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js" crossorigin="anonymous"></script>
   <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js" crossorigin="anonymous"></script>
   <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin="anonymous"></script>
+  <script>
+    // Preparar (compilar) la plataforma congela la pantalla unos segundos. Si se
+    // ve la pantalla de carga, se hace cuando el logo ya está dibujado y la frase
+    // apareció, para que la animación sea fluida.
+    (function () {
+      var carga = window.RCLoader && RCLoader.current;
+      if (!carga || !window.Babel || !Babel.disableScriptTags || !Babel.transformScriptTags) return;
+      Babel.disableScriptTags();
+      var hecho = false;
+      var compilar = function () {
+        if (hecho) return;
+        hecho = true;
+        var ya = function () { setTimeout(function () { Babel.transformScriptTags(); }, 30); };
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ya, { once: true });
+        else ya();
+      };
+      carga.whenRead(compilar);
+      setTimeout(compilar, 15000);   // respaldo: nunca dejar la plataforma sin cargar
+    })();
+  </script>
 
   <!-- Firebase (compat: expone la global `firebase`, sin necesidad de bundler) -->
   <script src="https://www.gstatic.com/firebasejs/12.3.0/firebase-app-compat.js"></script>
@@ -84,15 +126,17 @@
   <!-- Componentes (text/babel + preset react para compilar JSX en el navegador) -->
   <script type="text/babel" data-presets="react" src="js/tweaks-panel.jsx?v=20260626"></script>
   <script type="text/babel" data-presets="react" src="js/canvas.jsx?v=20260730c"></script>
-  <script type="text/babel" data-presets="react" src="js/ui.jsx?v=20261024m"></script>
+  <script type="text/babel" data-presets="react" src="js/ui.jsx?v=20261029c"></script>
   <script type="text/babel" data-presets="react" src="js/actividades/comun.jsx?v=20261017a"></script>
   <script type="text/babel" data-presets="react" src="js/login.jsx?v=20260626"></script>
-  <script type="text/babel" data-presets="react" src="js/dashboard.jsx?v=20261026b"></script>
-  <script type="text/babel" data-presets="react" src="js/vigia.jsx?v=20261028c"></script>
+  <script type="text/babel" data-presets="react" src="js/dashboard.jsx?v=20261029a"></script>
+  <script type="text/babel" data-presets="react" src="js/vigia.jsx?v=20261029e"></script>
   <script type="text/babel" data-presets="react" src="js/editor.jsx?v=20261024i"></script>
   <script type="text/babel" data-presets="react" src="js/presenter.jsx?v=20261017b"></script>
   <script type="text/babel" data-presets="react" src="js/student.jsx?v=20261017b"></script>
   <script type="text/babel" data-presets="react" src="js/remote.jsx?v=20261024i"></script>
-  <script type="text/babel" data-presets="react" src="js/app.jsx?v=20261024j"></script>
+  <script type="text/babel" data-presets="react" src="js/bienvenida.jsx?v=20261029a"></script>
+  <script type="text/babel" data-presets="react" src="js/terminos.jsx?v=20261029b"></script>
+  <script type="text/babel" data-presets="react" src="js/app.jsx?v=20261029c"></script>
 </body>
 </html>

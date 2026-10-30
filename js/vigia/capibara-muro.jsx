@@ -29,9 +29,12 @@
 /* =========================== CONFIGURACIÓN =========================== */
 const MI = {
   W: 1600, H: 900, V: { x: 800, y: 470 },          // lienzo lógico y punto de fuga
-  CADERA: { x: 800, y: 560 }, PELVIS: 30, TORSO: 150, HOMBRO: 56, HOMBRO_Y: 16,
-  BRAZO: 105, ANTEBRAZO: 98, MUSLO: 118, PIERNA: 118, CABEZA_R: 46,
-  ANCHO: { brazo: 30, antebrazo: 26, muslo: 36, pierna: 32, torso: 92 },
+  // Proporciones de los personajes de Res Cogitans (SVG 240×320 escalado ×1,6; cabeza ×1,3).
+  // Los pies (con zapato) quedan sobre la plataforma (y = 800). PIES: base del zapato en reposo.
+  CADERA: { x: 800, y: 618 }, PELVIS: 38, TORSO: 125, HOMBRO: 62, HOMBRO_Y: 35, CABEZA_Y: 168,
+  BRAZO: 80, ANTEBRAZO: 76, MUSLO: 80, PIERNA: 76, CABEZA_R: 65, PIES: 800,
+  // ANCHO = grosor total con el contorno (brazo 32 + 13, pierna 35 + 13).
+  ANCHO: { brazo: 45, antebrazo: 45, muslo: 48, pierna: 48, torso: 130 },
   MURO: { x: 230, y: 96, w: 1140, h: 716 }, LEJOS: 0.12, HUECO: 16,
   PREVIA_MS: 2200, EXITO_MS: 2400, FALLO_MS: 2800, LISTO_MS: 600,
   BASE: 100, BONO_SEG: 10, VIDAS: 3,
@@ -53,15 +56,6 @@ const SEGMENTOS_MURO = [
 ];
 const NEUTRA_MURO = { bi1: 0, bi2: 0, bd1: 0, bd2: 0, pi1: 0, pi2: 0, pd1: 0, pd2: 0, t: 0 };
 
-/* Concursantes originales (dibujados por código). */
-const PERSONAJES_MURO = [
-  { id: 'tito', nombre: 'Tito', piel: '#E8B48A', camisa: '#E4572E', pantalon: '#2F5D8C', zapato: '#3A2614', extra: 'gorra', pelo: '#4A2C17' },
-  { id: 'lupe', nombre: 'Lupe', piel: '#C98B5E', camisa: '#F2B134', pantalon: '#7D5CC4', zapato: '#5A2E1A', extra: 'colitas', pelo: '#2B1A10' },
-  { id: 'zeta', nombre: 'Zombi Zeta', piel: '#9CC67A', camisa: '#7A8F9C', pantalon: '#5B4636', zapato: '#2F2A25', extra: 'zombi', pelo: '#3D4A2E' },
-  { id: 'robo', nombre: 'Robo-7', piel: '#B8C4CC', camisa: '#5B7C99', pantalon: '#44515C', zapato: '#2A333B', extra: 'robot' },
-  { id: 'capi', nombre: 'Capi', piel: '#B07A4A', camisa: '#5E9B57', pantalon: '#6B4A2B', zapato: '#3A2614', extra: 'capibara' },
-];
-
 /* ============================ PERSONAJE ============================ */
 const radMI = (g) => g * Math.PI / 180;
 function rotarMI(v, g) { const a = radMI(g), c = Math.cos(a), s = Math.sin(a); return { x: v.x * c - v.y * s, y: v.x * s + v.y * c }; }
@@ -73,7 +67,7 @@ function esqueletoMI(p) {
   const C = MI.CADERA, t = p.t || 0;
   const seg = {}, manos = [], pies = [], caderas = [];
   const cuello = masMI(C, rotarMI({ x: 0, y: -MI.TORSO }, t));
-  const cabeza = masMI(C, rotarMI({ x: 0, y: -MI.TORSO - MI.CABEZA_R - 6 }, t));
+  const cabeza = masMI(C, rotarMI({ x: 0, y: -MI.CABEZA_Y }, t));
   [-1, 1].forEach((lado) => {
     const b = lado < 0 ? 'bi' : 'bd';
     const hombro = masMI(C, rotarMI({ x: lado * MI.HOMBRO, y: -MI.TORSO + MI.HOMBRO_Y }, t));
@@ -94,128 +88,322 @@ const anchoMI = (s) => MI.ANCHO[s.tipo];
 // Ayudas de dibujo compartidas (capibara-comun.jsx).
 const lineaMI = lineaCp, circuloMI = circuloCp, rrMI = rrCp;
 
-/* Dibuja al personaje. op: { resaltar: id (mouse encima), seleccion: id (teclado),
-   numeros: bool, espalda: bool (visto desde atrás: sin cara; lo usa la Jungla) } */
+/* Dibuja al personaje (diseños de Res Cogitans: Tito, Lupe, Zombi Zeta, Robo-7
+   y Capi, de frente y de espaldas). Cabeza y torso se pintan con las mismas
+   formas de los SVG originales (viewBox 240×320; cadera en 120,214 y centro de
+   la cabeza en 120,98); brazos y piernas son articulados (esqueletoMI), con
+   los colores, el contorno y el zapato del diseño.
+   op: { resaltar: id (mouse encima), seleccion: id (teclado), numeros: bool,
+   espalda: bool (visto desde atrás; lo usa la Jungla) } */
+const B_MI = '#2b1a10';
+const SVG_K = 1.6, SVG_KH = 1.3;   // escala del torso y de la cabeza (unidades del SVG → lienzo)
+const TORSO_D = 'M86 150 Q120 136 154 150 Q166 186 160 226 Q120 238 80 226 Q74 186 86 150 Z';
+const ZAPATO_D = 'M78 296 L78 288 Q78 274 96 274 Q114 274 114 288 L114 296 Z';
+
+// Mini pintor de figuras SVG en canvas: { c:[cx,cy,r] | e:[cx,cy,rx,ry] | r:[x,y,w,h,rx] | p:'d',
+// f: relleno, s: contorno, w: grosor, op: opacidad, cap } o { clip: figura, hijos: [...] }.
+function trazoSVG(f) {
+  if (f._p) return f._p;
+  let P;
+  if (f.p) P = new Path2D(f.p);
+  else {
+    P = new Path2D();
+    if (f.c) P.arc(f.c[0], f.c[1], f.c[2], 0, Math.PI * 2);
+    else if (f.e) P.ellipse(f.e[0], f.e[1], f.e[2], f.e[3], 0, 0, Math.PI * 2);
+    else if (f.r) {
+      const [x, y, w, h, r] = f.r;
+      P.moveTo(x + r, y); P.arcTo(x + w, y, x + w, y + h, r); P.arcTo(x + w, y + h, x, y + h, r);
+      P.arcTo(x, y + h, x, y, r); P.arcTo(x, y, x + w, y, r); P.closePath();
+    }
+  }
+  f._p = P;
+  return P;
+}
+function pintarSVG(ctx, lista) {
+  for (const f of lista) {
+    if (f.clip) { ctx.save(); ctx.clip(trazoSVG(f.clip)); pintarSVG(ctx, f.hijos); ctx.restore(); continue; }
+    const P = trazoSVG(f);
+    ctx.save();
+    if (f.op != null) ctx.globalAlpha *= f.op;
+    if (f.f) { ctx.fillStyle = f.f; ctx.fill(P); }
+    if (f.s) { ctx.strokeStyle = f.s; ctx.lineWidth = f.w || 4; ctx.lineCap = f.cap || 'round'; ctx.lineJoin = 'round'; ctx.stroke(P); }
+    ctx.restore();
+  }
+}
+// Cabeza redonda con luz (de frente la luz va a la izquierda; de espaldas, a la derecha).
+const cabezaRedonda = (base, luz, dx) => [
+  { c: [120, 98, 50], f: base }, { clip: { c: [120, 98, 50] }, hijos: [{ c: [120 + dx, 92, 50], f: luz }] }, { c: [120, 98, 50], s: B_MI, w: 4 },
+];
+// Cara de ojos grandes (Tito y Lupe).
+const ojosMI = (mejillas) => [
+  { e: [102, 116, 6.5, 8.5], f: B_MI }, { e: [139, 116, 6.5, 8.5], f: B_MI },
+  { c: [104.5, 112.5, 2.6], f: '#fff' }, { c: [141.5, 112.5, 2.6], f: '#fff' },
+  { e: [90, 129, 8, 5], f: mejillas, op: 0.55 }, { e: [151, 129, 8, 5], f: mejillas, op: 0.55 },
+  { p: 'M108 129 Q120 144 132 129 Z', f: '#7d2318', s: B_MI, w: 3.5 }, { p: 'M114 136 Q120 133 126 136 Q120 141 114 136 Z', f: '#e8665a' },
+];
+const ZIGZAG_MI = 'M82 222 L90 232 L98 222 L106 234 L114 224 L122 234 L130 224 L138 234 L146 222 L154 232 L160 222';
+
+/* Concursantes. Colores de piernas, zapatos, mangas (izq. oscura / der. clara), manos y torso; y las
+   figuras de la cabeza y del torso, de frente y de espaldas (tal como en los SVG). */
+const PERSONAJES_MURO = [
+  { id: 'tito', nombre: 'Tito', pierna: '#2f5f94', piernaLuz: '#3b74b0', zapato: '#5a3a22', zapatoRaya: '#e9d6b0',
+    mangas: ['#c9431f', '#e8582f'], manos: ['#f1b98a', '#f1b98a'], manosEspalda: ['#dd9a6c', '#f1b98a'], torso: ['#c9431f', '#e8582f', '#a8361a'],
+    torsoFrente: [
+      { p: 'M98 196 Q120 190 142 196 L146 218 Q120 224 94 218 Z', s: B_MI, w: 3, op: 0.55 },
+      { p: 'M112 150 L110 172', s: '#fbf1de', w: 3 }, { p: 'M128 150 L130 172', s: '#fbf1de', w: 3 },
+    ],
+    torsoEspalda: [
+      { p: 'M94 146 Q120 140 146 146 Q144 176 120 180 Q96 176 94 146 Z', f: '#b8391b', s: B_MI, w: 4 },
+      { p: 'M104 150 Q120 146 136 150 Q132 168 120 170 Q108 168 104 150 Z', f: '#8f2a14' },
+    ],
+    cabezaFrente: [
+      { c: [72, 104, 11], f: '#e0a273', s: B_MI, w: 4 }, { c: [168, 104, 11], f: '#e0a273', s: B_MI, w: 4 },
+      ...cabezaRedonda('#dd9a6c', '#f1b98a', -6),
+      { p: 'M78 86 Q84 98 92 88 Q98 98 106 86', f: '#5a3a22', s: B_MI, w: 3 },
+      { p: 'M70 92 Q70 42 120 40 Q170 42 170 92 Q120 80 70 92 Z', f: '#b8301f' },
+      { clip: { p: 'M70 92 Q70 42 120 40 Q170 42 170 92 Q120 80 70 92 Z' }, hijos: [{ p: 'M60 30 Q120 30 140 30 Q128 60 132 100 L60 100 Z', f: '#d93d2a' }] },
+      { p: 'M70 92 Q70 42 120 40 Q170 42 170 92 Q120 80 70 92 Z', s: B_MI, w: 4 },
+      { p: 'M120 42 Q116 60 118 82', s: B_MI, w: 2.5, op: 0.45 }, { c: [120, 42, 5], f: '#d93d2a', s: B_MI, w: 3 },
+      { p: 'M70 90 Q100 80 140 84 Q120 100 74 100 Z', f: '#9e2818', s: B_MI, w: 4 },
+      { p: 'M95 104 Q102 100 108 104', s: B_MI, w: 3.5 }, { p: 'M132 104 Q139 100 146 104', s: B_MI, w: 3.5 },
+      ...ojosMI('#ee7f6c'),
+    ],
+    cabezaEspalda: [
+      { c: [70, 106, 11], f: '#dd9a6c', s: B_MI, w: 4 }, { c: [170, 106, 11], f: '#f1b98a', s: B_MI, w: 4 },
+      { c: [120, 98, 50], f: '#4a2e1a' },
+      { clip: { c: [120, 98, 50] }, hijos: [{ c: [128, 92, 50], f: '#5f3c22' },
+        { p: 'M84 132 Q96 120 104 136 Q114 122 122 138 Q132 122 140 136 Q148 120 158 132 L160 160 L80 160 Z', f: '#dd9a6c' }] },
+      { c: [120, 98, 50], s: B_MI, w: 4 },
+      { p: 'M70 96 Q68 42 120 40 Q172 42 170 96 Q120 86 70 96 Z', f: '#b8301f' },
+      { clip: { p: 'M70 96 Q68 42 120 40 Q172 42 170 96 Q120 86 70 96 Z' }, hijos: [{ p: 'M104 30 L180 30 L180 100 L110 100 Q100 60 104 30 Z', f: '#d93d2a' }] },
+      { p: 'M70 96 Q68 42 120 40 Q172 42 170 96 Q120 86 70 96 Z', s: B_MI, w: 4 },
+      { p: 'M104 92 Q104 76 120 76 Q136 76 136 92 Q120 89 104 92 Z', f: '#4a2e1a', s: B_MI, w: 3.5 },
+      { p: 'M106 88 L134 88', s: '#e9d6b0', w: 4 }, { c: [120, 42, 5], f: '#d93d2a', s: B_MI, w: 3 },
+    ] },
+  { id: 'lupe', nombre: 'Lupe', pierna: '#6a43a0', piernaLuz: '#8a62c2', zapato: '#fbf1de', zapatoRaya: '#c86b8f',
+    mangas: ['#dc9a22', '#f5b83f'], manos: ['#c98a5f', '#c98a5f'], manosEspalda: ['#a96c45', '#c98a5f'], torso: ['#dc9a22', '#f5b83f', '#c7861a'],
+    torsoFrente: [
+      { p: 'M100 146 Q120 162 140 146', s: B_MI, w: 4 }, { p: 'M104 150 Q120 160 136 150', s: '#fbf1de', w: 3 },
+      { p: 'M120 180 L124 190 L134 190 L126 196 L129 206 L120 200 L111 206 L114 196 L106 190 L116 190 Z', f: '#fbf1de', s: B_MI, w: 3 },
+    ],
+    torsoEspalda: [{ p: 'M100 146 Q120 154 140 146', s: B_MI, w: 4 }],
+    cabezaFrente: [
+      { c: [120, 40, 20], f: '#3a2418', s: B_MI, w: 4 }, { c: [114, 35, 9], f: '#57371f' }, { p: 'M104 56 Q120 48 136 56', s: '#c86b8f', w: 7 },
+      { c: [72, 104, 11], f: '#a96c45', s: B_MI, w: 4 }, { c: [168, 104, 11], f: '#a96c45', s: B_MI, w: 4 },
+      { c: [72, 118, 4], f: '#f5b83f', s: B_MI, w: 2.5 }, { c: [168, 118, 4], f: '#f5b83f', s: B_MI, w: 2.5 },
+      ...cabezaRedonda('#b07247', '#c98a5f', -6),
+      { p: 'M68 104 Q62 44 120 42 Q178 44 172 104 Q166 78 150 70 Q138 86 108 82 Q88 84 68 104 Z', f: '#3a2418' },
+      { clip: { p: 'M68 104 Q62 44 120 42 Q178 44 172 104 Q166 78 150 70 Q138 86 108 82 Q88 84 68 104 Z' }, hijos: [{ p: 'M60 30 L120 30 Q100 60 106 84 L60 110 Z', f: '#57371f' }] },
+      { p: 'M68 104 Q62 44 120 42 Q178 44 172 104 Q166 78 150 70 Q138 86 108 82 Q88 84 68 104 Z', s: B_MI, w: 4 },
+      { p: 'M95 102 Q102 98 108 102', s: B_MI, w: 3.5 }, { p: 'M132 102 Q139 98 146 102', s: B_MI, w: 3.5 },
+      { p: 'M94 110 L91 107 M146 110 L149 107', s: B_MI, w: 3 },
+      ...ojosMI('#e86f6a'),
+    ],
+    cabezaEspalda: [
+      { c: [72, 108, 11], f: '#a96c45', s: B_MI, w: 4 }, { c: [168, 108, 11], f: '#c98a5f', s: B_MI, w: 4 },
+      { c: [120, 98, 50], f: '#3a2418' }, { clip: { c: [120, 98, 50] }, hijos: [{ c: [128, 92, 50], f: '#57371f' }] },
+      { c: [120, 98, 50], s: B_MI, w: 4 },
+      { clip: { c: [120, 98, 50] }, hijos: [{ p: 'M86 140 Q104 128 120 142 Q136 128 154 140 L156 160 L84 160 Z', f: '#b07247' }] },
+      { p: 'M120 52 Q114 90 120 132', s: B_MI, w: 2.5, op: 0.35 },
+      { c: [120, 40, 20], f: '#3a2418', s: B_MI, w: 4 }, { c: [126, 35, 9], f: '#57371f' },
+      { p: 'M104 56 Q120 48 136 56', s: '#c86b8f', w: 7 }, { p: 'M104 56 Q120 48 136 56', s: B_MI, w: 2, op: 0.4 },
+    ] },
+  { id: 'zeta', nombre: 'Zombi Zeta', pierna: '#4d3a2c', piernaLuz: '#664d3a', zapato: '#3a2a20', zapatoRaya: '#8d9a7a',
+    mangas: ['#6d8396', '#8aa0b2'], manos: ['#9cc777', '#9cc777'], manosEspalda: ['#7ca85a', '#9cc777'], torso: ['#6d8396', '#8aa0b2', '#5a6e80'],
+    torsoFrente: [
+      { r: [128, 186, 20, 18, 3], f: '#b8a37a', s: B_MI, w: 3 },
+      { p: 'M131 190 L135 190 M131 200 L135 200 M141 190 L145 190 M141 200 L145 200', s: B_MI, w: 2 },
+      { p: ZIGZAG_MI, s: B_MI, w: 3 }, { p: 'M96 168 L102 176 L98 182', s: B_MI, w: 3, op: 0.6 },
+    ],
+    torsoEspalda: [
+      { p: ZIGZAG_MI, s: B_MI, w: 3 }, { p: 'M96 168 L102 176 L98 182', s: B_MI, w: 3, op: 0.6 }, { p: 'M140 170 L146 178 L142 186', s: B_MI, w: 3, op: 0.6 },
+    ],
+    cabezaFrente: [
+      { c: [72, 104, 11], f: '#7ca85a', s: B_MI, w: 4 }, { c: [168, 104, 11], f: '#7ca85a', s: B_MI, w: 4 },
+      ...cabezaRedonda('#7ca85a', '#9cc777', -6),
+      { p: 'M70 92 L76 62 L88 72 L96 48 L110 64 L120 42 L132 62 L146 48 L152 70 L164 60 L170 92 Q148 74 120 78 Q92 74 70 92 Z', f: '#3d5634', s: B_MI, w: 4 },
+      { p: 'M96 52 L100 70 M120 46 L118 70', s: '#577a49', w: 4 },
+      { p: 'M134 82 Q146 88 156 98', s: B_MI, w: 3 }, { p: 'M138 80 L136 88 M145 84 L141 91 M152 90 L147 96', s: B_MI, w: 2.5 },
+      { e: [102, 122, 12, 7], f: '#5f8a45', op: 0.6 }, { e: [139, 122, 12, 7], f: '#5f8a45', op: 0.6 },
+      { c: [102, 114, 10], f: '#fbf6e6', s: B_MI, w: 3.5 }, { c: [105, 116, 4.5], f: B_MI },
+      { p: 'M132 108 L146 122 M146 108 L132 122', s: B_MI, w: 4 },
+      { p: 'M104 134 Q114 140 122 134 Q130 130 138 136', s: B_MI, w: 3.5 },
+      { p: 'M114 137 L114 143 L120 143 L120 136', f: '#fbf6e6', s: B_MI, w: 2.5 },
+    ],
+    cabezaEspalda: [
+      { c: [72, 106, 11], f: '#7ca85a', s: B_MI, w: 4 }, { c: [168, 106, 11], f: '#9cc777', s: B_MI, w: 4 },
+      ...cabezaRedonda('#7ca85a', '#9cc777', 8),
+      { p: 'M70 96 L76 62 L88 72 L96 48 L110 64 L120 42 L132 62 L146 48 L152 70 L164 60 L170 96 L160 112 L150 102 L140 116 L130 104 L120 118 L110 104 L100 116 L90 102 L80 112 Z', f: '#3d5634', s: B_MI, w: 4 },
+      { p: 'M110 64 L112 92 M132 62 L130 92', s: '#577a49', w: 4 },
+      { p: 'M104 124 L136 132', s: B_MI, w: 3 }, { p: 'M110 120 L108 130 M120 122 L118 132 M130 124 L128 134', s: B_MI, w: 2.5 },
+    ] },
+  { id: 'robo', nombre: 'Robo-7', pierna: '#46525f', piernaLuz: '#5d6b7a', zapato: '#2f3943', zapatoRaya: '#f2b33d',
+    mangas: ['#8796a6', '#a9b6c3'], manos: ['#c3cfdb', '#c3cfdb'], manosEspalda: ['#a2b0bf', '#c3cfdb'], torso: ['#426f9e', '#5b8cc0', '#375e87'],
+    torsoFrente: [
+      { r: [100, 168, 40, 30, 8], f: '#2a3540', s: B_MI, w: 3.5 }, { c: [112, 183, 5], f: '#6fe3f0' }, { c: [128, 183, 5], f: '#f2b33d' },
+      { p: 'M106 210 L134 210', s: B_MI, w: 3, op: 0.5 },
+    ],
+    torsoEspalda: [
+      { r: [98, 164, 44, 40, 8], f: '#426f9e', s: B_MI, w: 3.5 },
+      { r: [106, 174, 28, 8, 3], f: '#7ee08a', s: B_MI, w: 2.5 }, { r: [106, 186, 20, 8, 3], f: '#7ee08a', s: B_MI, w: 2.5 },
+      { c: [103, 169, 2], f: B_MI }, { c: [137, 169, 2], f: B_MI },
+    ],
+    cabezaFrente: [
+      { p: 'M120 54 L120 30', s: B_MI, w: 5 }, { c: [120, 26, 8], f: '#e8582f', s: B_MI, w: 4 }, { c: [117, 23, 2.5], f: '#fff', op: 0.8 },
+      { r: [60, 86, 16, 30, 6], f: '#8796a6', s: B_MI, w: 4 }, { r: [164, 86, 16, 30, 6], f: '#8796a6', s: B_MI, w: 4 },
+      { r: [72, 52, 96, 92, 26], f: '#8f9fb0' }, { clip: { r: [72, 52, 96, 92, 26] }, hijos: [{ r: [64, 46, 96, 92, 26], f: '#c3cfdb' }] },
+      { r: [72, 52, 96, 92, 26], s: B_MI, w: 4 },
+      { r: [84, 78, 72, 42, 16], f: '#23303b', s: B_MI, w: 3.5 },
+      { c: [104, 99, 11], f: '#6fe3f0', op: 0.25 }, { c: [136, 99, 11], f: '#6fe3f0', op: 0.25 },
+      { r: [98, 91, 12, 16, 6], f: '#6fe3f0' }, { r: [130, 91, 12, 16, 6], f: '#6fe3f0' },
+      { p: 'M90 84 Q100 80 110 82', s: '#fff', w: 3, op: 0.35 },
+      { r: [102, 126, 36, 11, 5], f: '#46525f', s: B_MI, w: 3 }, { p: 'M111 127 L111 136 M120 127 L120 136 M129 127 L129 136', s: B_MI, w: 2 },
+      { e: [88, 128, 6, 4], f: '#ee7f6c', op: 0.45 }, { e: [152, 128, 6, 4], f: '#ee7f6c', op: 0.45 },
+    ],
+    cabezaEspalda: [
+      { p: 'M120 54 L120 30', s: B_MI, w: 5 }, { c: [120, 26, 8], f: '#e8582f', s: B_MI, w: 4 }, { c: [117, 23, 2.5], f: '#fff', op: 0.8 },
+      { r: [60, 86, 16, 30, 6], f: '#8796a6', s: B_MI, w: 4 }, { r: [164, 86, 16, 30, 6], f: '#8796a6', s: B_MI, w: 4 },
+      { r: [72, 52, 96, 92, 26], f: '#8f9fb0' }, { clip: { r: [72, 52, 96, 92, 26] }, hijos: [{ r: [82, 46, 96, 92, 26], f: '#c3cfdb' }] },
+      { r: [72, 52, 96, 92, 26], s: B_MI, w: 4 },
+      { r: [94, 84, 52, 38, 10], f: '#8f9fb0', s: B_MI, w: 3.5 }, { p: 'M102 94 L138 94 M102 103 L138 103 M102 112 L138 112', s: B_MI, w: 3 },
+      { c: [84, 64, 2.5], f: B_MI }, { c: [156, 64, 2.5], f: B_MI }, { c: [84, 132, 2.5], f: B_MI }, { c: [156, 132, 2.5], f: B_MI },
+    ] },
+  { id: 'capi', nombre: 'Capi', pierna: '#5e4029', piernaLuz: '#775339', zapato: '#3a2a20', zapatoRaya: '#e9d6b0',
+    mangas: ['#4f8f46', '#6cae5f'], manos: ['#b8804f', '#b8804f'], manosEspalda: ['#9a6a3f', '#b8804f'], torso: ['#4f8f46', '#6cae5f', '#447d3c'],
+    torsoFrente: [
+      { p: 'M100 146 Q120 160 140 146', s: B_MI, w: 4 },
+      { p: 'M110 196 Q110 174 132 170 Q134 194 110 196 Z', f: '#fbf1de', s: B_MI, w: 3 }, { p: 'M112 194 L126 178', s: B_MI, w: 2.5 },
+    ],
+    torsoEspalda: [{ p: 'M100 146 Q120 154 140 146', s: B_MI, w: 4 }, { c: [120, 222, 10], f: '#b8804f', s: B_MI, w: 3.5 }],
+    cabezaFrente: [
+      { c: [80, 58, 17], f: '#94603a', s: B_MI, w: 4 }, { c: [160, 58, 17], f: '#94603a', s: B_MI, w: 4 },
+      { c: [80, 58, 8], f: '#e6bf91' }, { c: [160, 58, 8], f: '#e6bf91' },
+      ...cabezaRedonda('#94603a', '#b8804f', -6),
+      { p: 'M112 50 Q118 40 122 50 Q126 42 130 52', s: B_MI, w: 3 },
+      { e: [120, 124, 24, 18], f: '#e6bf91', s: B_MI, w: 3.5 }, { e: [120, 114, 9, 6.5], f: B_MI }, { e: [117, 112, 3, 1.8], f: '#fff', op: 0.7 },
+      { p: 'M120 120 L120 127 M110 128 Q115 134 120 127 Q125 134 130 128', s: B_MI, w: 3 },
+      { e: [98, 100, 6.5, 8.5], f: B_MI }, { e: [142, 100, 6.5, 8.5], f: B_MI },
+      { c: [100.5, 96.5, 2.6], f: '#fff' }, { c: [144.5, 96.5, 2.6], f: '#fff' },
+      { p: 'M90 88 Q97 84 104 88 M136 88 Q143 84 150 88', s: B_MI, w: 3.5 },
+      { e: [86, 118, 8, 5], f: '#e0745c', op: 0.55 }, { e: [154, 118, 8, 5], f: '#e0745c', op: 0.55 },
+    ],
+    cabezaEspalda: [
+      { c: [80, 58, 17], f: '#94603a', s: B_MI, w: 4 }, { c: [160, 58, 17], f: '#94603a', s: B_MI, w: 4 },
+      ...cabezaRedonda('#94603a', '#b8804f', 8),
+      { p: 'M110 50 Q116 40 120 50 Q124 42 128 52', s: B_MI, w: 3 },
+      { p: 'M96 130 Q120 140 144 130', s: B_MI, w: 3, op: 0.35 },
+    ] },
+];
+
+// Brazo o pierna articulado (dos tramos con codo/rodilla redondeados), con contorno.
+function extremidadMI(ctx, puntos, ancho, color) {
+  const camino = () => { ctx.beginPath(); ctx.moveTo(puntos[0].x, puntos[0].y); puntos.slice(1).forEach((q) => ctx.lineTo(q.x, q.y)); };
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  camino(); ctx.strokeStyle = B_MI; ctx.lineWidth = ancho + 13; ctx.stroke();
+  camino(); ctx.strokeStyle = color; ctx.lineWidth = ancho; ctx.stroke();
+}
+// Franja de luz de la pierna (como en el diseño: un poco a la izquierda).
+function franjaMI(ctx, puntos, color) {
+  ctx.save(); ctx.beginPath();
+  puntos.forEach((q, i) => {
+    const a = puntos[Math.max(0, i - 1)], b = puntos[Math.min(puntos.length - 1, i + 1)];
+    const dx = b.x - a.x, dy = b.y - a.y, l = Math.hypot(dx, dy) || 1;
+    const x = q.x - (dy / l) * 9.6, y = q.y + (dx / l) * 9.6;
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  });
+  ctx.strokeStyle = color; ctx.lineWidth = 12.8; ctx.lineCap = 'butt'; ctx.lineJoin = 'round'; ctx.stroke(); ctx.restore();
+}
+// Ángulo para girar una pieza que "cuelga" (0,1) hacia la dirección p→q.
+const anguloMI = (p, q) => Math.atan2(-(q.x - p.x), q.y - p.y);
+function zapatoMI(ctx, rodilla, pie, pj, m, color) {
+  ctx.save(); ctx.translate(pie.x, pie.y); ctx.rotate(anguloMI(rodilla, pie)); ctx.scale(SVG_K, SVG_K); ctx.translate(-96, -280);   // (en el SVG el pie está en 96,280)
+  const P = trazoSVG({ p: ZAPATO_D });
+  if (color) { ctx.fillStyle = ctx.strokeStyle = color; ctx.lineWidth = 4 + (2 * (m || 0)) / SVG_K; ctx.lineJoin = 'round'; ctx.fill(P); ctx.stroke(P); }
+  else {
+    ctx.fillStyle = pj.zapato; ctx.fill(P); ctx.strokeStyle = B_MI; ctx.lineWidth = 4; ctx.lineJoin = 'round'; ctx.stroke(P);
+    ctx.beginPath(); ctx.moveTo(80, 290); ctx.lineTo(112, 290); ctx.strokeStyle = pj.zapatoRaya; ctx.lineWidth = 4; ctx.lineCap = 'butt'; ctx.stroke();
+  }
+  ctx.restore();
+}
+// Lleva el lienzo al espacio del SVG (torso: cadera 120,214 · cabeza: 120,98).
+function aTorsoSVG(ctx, E) { ctx.translate(MI.CADERA.x, MI.CADERA.y); ctx.rotate(radMI(E.t)); ctx.scale(SVG_K, SVG_K); ctx.translate(-120, -214); }
+function aCabezaSVG(ctx, E) { ctx.translate(E.cabeza.x, E.cabeza.y); ctx.rotate(radMI(E.t)); ctx.scale(SVG_KH, SVG_KH); ctx.translate(-120, -98); }
+
 function dibujarPersonajeMI(ctx, pose, pj, op) {
   op = op || {};
-  const E = esqueletoMI(pose), A = MI.ANCHO, B = '#2A1A0C';
-  const brillo = (id) => {
-    if (op.resaltar !== id && op.seleccion !== id) return;
-    const [p, q] = E.seg[id], s = SEGMENTOS_MURO.find((x) => x.id === id);
-    ctx.save(); ctx.globalAlpha = op.resaltar === id ? 0.95 : 0.7;
-    lineaMI(ctx, p, q, anchoMI(s) + 28, op.resaltar === id ? '#FFE066' : '#FFFFFF'); ctx.restore();
-  };
-  SEGMENTOS_MURO.forEach((s) => brillo(s.id));
-  // Piernas (borde y luego color), pelvis y zapatos
-  const grupo = (lista) => {
-    lista.forEach(([p, q, w]) => lineaMI(ctx, p, q, w + 9, B));
-    lista.forEach(([p, q, w, c]) => lineaMI(ctx, p, q, w, c));
-  };
-  grupo([
-    [E.caderas[0], E.caderas[1], 44, pj.pantalon],
-    [...E.seg.pi1, A.muslo, pj.pantalon], [...E.seg.pi2, A.pierna, pj.pantalon],
-    [...E.seg.pd1, A.muslo, pj.pantalon], [...E.seg.pd2, A.pierna, pj.pantalon],
-  ]);
-  E.pies.forEach((f) => circuloMI(ctx, f.x, f.y, 19, pj.zapato, B, 5));
-  // Torso
-  const base = masMI(MI.CADERA, rotarMI({ x: 0, y: -8 }, E.t));
-  grupo([[base, E.cuello, A.torso, pj.camisa]]);
-  if (pj.extra === 'zombi') {   // camisa rota
-    ctx.save(); ctx.translate(MI.CADERA.x, MI.CADERA.y); ctx.rotate(radMI(E.t));
-    ctx.strokeStyle = '#4E5E68'; ctx.lineWidth = 4;
-    ctx.beginPath(); ctx.moveTo(-30, -40); ctx.lineTo(-12, -60); ctx.lineTo(4, -42); ctx.lineTo(20, -64); ctx.stroke(); ctx.restore();
-  }
-  if (pj.extra === 'robot') {   // panel con luces
-    ctx.save(); ctx.translate(MI.CADERA.x, MI.CADERA.y); ctx.rotate(radMI(E.t));
-    rrMI(ctx, -26, -110, 52, 40, 8); ctx.fillStyle = '#2A333B'; ctx.fill();
-    circuloMI(ctx, -10, -90, 7, '#5FF0FF'); circuloMI(ctx, 10, -90, 7, '#FFD166'); ctx.restore();
-  }
-  // Brazos (mangas y piel) y manos
-  [['bi', 0], ['bd', 1]].forEach(([b, k]) => {
-    grupo([[...E.seg[b + '1'], A.brazo, pj.camisa], [...E.seg[b + '2'], A.antebrazo, pj.piel]]);
-    circuloMI(ctx, E.manos[k].x, E.manos[k].y, 15, pj.piel, B, 5);
+  const E = esqueletoMI(pose), espalda = !!op.espalda;
+  // Brillo de la parte señalada (mouse o teclado)
+  SEGMENTOS_MURO.forEach((s) => {
+    if (op.resaltar !== s.id && op.seleccion !== s.id) return;
+    const [p, q] = E.seg[s.id];
+    ctx.save(); ctx.globalAlpha = op.resaltar === s.id ? 0.95 : 0.7;
+    lineaMI(ctx, p, q, anchoMI(s) + 26, op.resaltar === s.id ? '#FFE066' : '#FFFFFF'); ctx.restore();
   });
+  // Piernas con su franja de luz y el zapato
+  [['pi', 0], ['pd', 1]].forEach(([k, i]) => {
+    const pts = [E.caderas[i], E.seg[k + '1'][1], E.pies[i]];
+    extremidadMI(ctx, pts, MI.ANCHO.muslo - 13, pj.pierna);
+    franjaMI(ctx, pts, pj.piernaLuz);
+    zapatoMI(ctx, E.seg[k + '1'][1], E.pies[i], pj);
+  });
+  const brazos = () => [['bi', 0], ['bd', 1]].forEach(([k, i]) => {
+    extremidadMI(ctx, [E.seg[k + '1'][0], E.seg[k + '1'][1], E.manos[i]], MI.ANCHO.brazo - 13, pj.mangas[i]);
+    circuloMI(ctx, E.manos[i].x, E.manos[i].y, 17.6, (espalda ? pj.manosEspalda : pj.manos)[i], B_MI, 6.4);
+  });
+  if (espalda) brazos();   // de espaldas, los brazos van detrás del torso
+  // Torso (forma del diseño, con su luz, su borde inferior y sus detalles)
+  ctx.save(); aTorsoSVG(ctx, E);
+  pintarSVG(ctx, [
+    { p: TORSO_D, f: pj.torso[0] },
+    { clip: { p: TORSO_D }, hijos: [
+      { p: espalda ? 'M104 140 L170 140 L170 240 L100 240 Q110 190 104 140 Z' : 'M80 140 L136 140 Q130 190 140 240 L70 240 Z', f: pj.torso[1] },
+      { p: 'M74 222 Q120 236 166 222 L166 240 L74 240 Z', f: pj.torso[2] },
+    ] },
+    { p: TORSO_D, s: B_MI, w: 4 },
+    ...(espalda ? pj.torsoEspalda : pj.torsoFrente),
+  ]);
+  ctx.restore();
+  if (!espalda) brazos();
   // Cabeza
-  ctx.save(); ctx.translate(E.cabeza.x, E.cabeza.y); ctx.rotate(radMI(E.t));
-  cabezaMI(ctx, pj, MI.CABEZA_R, op.espalda); ctx.restore();
+  ctx.save(); aCabezaSVG(ctx, E); pintarSVG(ctx, espalda ? pj.cabezaEspalda : pj.cabezaFrente); ctx.restore();
   // Números de las partes (cuando se usa el teclado)
   if (op.numeros) {
     SEGMENTOS_MURO.forEach((s, i) => {
       const [p, q] = E.seg[s.id];
       const m = { x: (p.x + q.x) / 2, y: (p.y + q.y) / 2 };
-      circuloMI(ctx, m.x, m.y, 17, op.seleccion === s.id ? '#FFE066' : '#FFFDF6', B, 4);
-      ctx.fillStyle = B; ctx.font = '900 22px Georgia, serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      circuloMI(ctx, m.x, m.y, 17, op.seleccion === s.id ? '#FFE066' : '#FFFDF6', B_MI, 4);
+      ctx.fillStyle = B_MI; ctx.font = '900 22px Georgia, serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillText(String(i + 1), m.x, m.y + 1);
     });
   }
 }
 
-function cabezaMI(ctx, pj, R, espalda) {
-  const B = '#2A1A0C';
-  ctx.lineWidth = 6; ctx.strokeStyle = B; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-  if (espalda) {   // de espaldas: solo la forma de la cabeza, el pelo o la gorra
-    if (pj.extra === 'robot') {
-      lineaMI(ctx, { x: 0, y: -R * 0.9 }, { x: 0, y: -R * 1.25 }, 6, B); circuloMI(ctx, 0, -R * 1.28, 8, '#E4572E', B, 4);
-      rrMI(ctx, -R * 0.9, -R * 0.88, R * 1.8, R * 1.72, 14); ctx.fillStyle = pj.piel; ctx.fill(); ctx.stroke(); return;
-    }
-    if (pj.extra === 'capibara') {
-      circuloMI(ctx, -R * 0.66, -R * 0.78, 12, '#8E5E36', B, 5); circuloMI(ctx, R * 0.66, -R * 0.78, 12, '#8E5E36', B, 5);
-      ctx.beginPath(); ctx.ellipse(0, 0, R * 1.06, R * 0.94, 0, 0, Math.PI * 2); ctx.fillStyle = pj.piel; ctx.fill(); ctx.stroke(); return;
-    }
-    if (pj.extra === 'colitas') { circuloMI(ctx, -R * 0.92, -R * 0.05, 16, pj.pelo, B, 5); circuloMI(ctx, R * 0.92, -R * 0.05, 16, pj.pelo, B, 5); }
-    circuloMI(ctx, 0, 0, R, pj.extra === 'gorra' ? '#C0392B' : (pj.pelo || pj.piel), B, 6);
-    return;
-  }
-  if (pj.extra === 'robot') {
-    lineaMI(ctx, { x: 0, y: -R * 0.9 }, { x: 0, y: -R * 1.25 }, 6, B); circuloMI(ctx, 0, -R * 1.28, 8, '#E4572E', B, 4);
-    rrMI(ctx, -R * 0.9, -R * 0.88, R * 1.8, R * 1.72, 14); ctx.fillStyle = pj.piel; ctx.fill(); ctx.stroke();
-    rrMI(ctx, -R * 0.55, -R * 0.35, R * 0.38, R * 0.26, 4); ctx.fillStyle = '#5FF0FF'; ctx.fill();
-    rrMI(ctx, R * 0.17, -R * 0.35, R * 0.38, R * 0.26, 4); ctx.fill();
-    ctx.lineWidth = 4; [-0.3, -0.1, 0.1, 0.3].forEach((x) => { ctx.beginPath(); ctx.moveTo(R * x, R * 0.3); ctx.lineTo(R * x, R * 0.52); ctx.stroke(); });
-    return;
-  }
-  if (pj.extra === 'capibara') {
-    circuloMI(ctx, -R * 0.66, -R * 0.78, 12, '#8E5E36', B, 5); circuloMI(ctx, R * 0.66, -R * 0.78, 12, '#8E5E36', B, 5);
-    ctx.beginPath(); ctx.ellipse(0, 0, R * 1.06, R * 0.94, 0, 0, Math.PI * 2); ctx.fillStyle = pj.piel; ctx.fill(); ctx.stroke();
-    ctx.beginPath(); ctx.ellipse(0, R * 0.3, R * 0.62, R * 0.46, 0, 0, Math.PI * 2); ctx.fillStyle = '#C99566'; ctx.fill();
-    ctx.beginPath(); ctx.ellipse(0, R * 0.14, 15, 10, 0, 0, Math.PI * 2); ctx.fillStyle = '#3A2614'; ctx.fill();
-    circuloMI(ctx, -R * 0.4, -R * 0.24, 6, B); circuloMI(ctx, R * 0.4, -R * 0.24, 6, B);
-    ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(0, R * 0.38, 12, 0.2 * Math.PI, 0.8 * Math.PI); ctx.stroke();
-    return;
-  }
-  if (pj.extra === 'colitas') { circuloMI(ctx, -R * 0.92, -R * 0.05, 16, pj.pelo, B, 5); circuloMI(ctx, R * 0.92, -R * 0.05, 16, pj.pelo, B, 5); }
-  circuloMI(ctx, 0, 0, R, pj.piel, B, 6);
-  if (pj.extra === 'gorra') {
-    ctx.beginPath(); ctx.arc(0, -R * 0.12, R * 0.98, Math.PI, 0); ctx.closePath(); ctx.fillStyle = '#C0392B'; ctx.fill(); ctx.stroke();
-    ctx.beginPath(); ctx.ellipse(R * 0.52, -R * 0.14, R * 0.5, 8, 0, 0, Math.PI * 2); ctx.fillStyle = '#A93226'; ctx.fill(); ctx.stroke();
-  } else if (pj.extra === 'colitas') {
-    ctx.beginPath(); ctx.arc(0, -R * 0.08, R * 0.98, Math.PI * 1.02, Math.PI * 1.98); ctx.closePath(); ctx.fillStyle = pj.pelo; ctx.fill();
-  } else if (pj.extra === 'zombi') {
-    ctx.fillStyle = pj.pelo; ctx.beginPath(); ctx.moveTo(-R * 0.8, -R * 0.5);
-    [-0.5, -0.2, 0.1, 0.4, 0.75].forEach((x, i) => { ctx.lineTo(R * x, -R * (i % 2 ? 1.08 : 0.82)); });
-    ctx.lineTo(R * 0.85, -R * 0.45); ctx.closePath(); ctx.fill();
-    ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(-R * 0.5, -R * 0.42); ctx.lineTo(R * 0.1, -R * 0.52); ctx.stroke();
-    [-0.38, -0.22, -0.06].forEach((x) => { ctx.beginPath(); ctx.moveTo(R * x, -R * 0.56); ctx.lineTo(R * x + 4, -R * 0.36); ctx.stroke(); });
-    circuloMI(ctx, -R * 0.36, -R * 0.02, 12, '#FFFDF0', B, 3); circuloMI(ctx, -R * 0.36, 0, 4, B);
-    ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(R * 0.22, -R * 0.14); ctx.lineTo(R * 0.5, R * 0.1); ctx.moveTo(R * 0.5, -R * 0.14); ctx.lineTo(R * 0.22, R * 0.1); ctx.stroke();
-    ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(-R * 0.35, R * 0.45);
-    [-0.2, -0.05, 0.1, 0.25, 0.38].forEach((x, i) => ctx.lineTo(R * x, R * (i % 2 ? 0.55 : 0.4))); ctx.stroke();
-    return;
-  }
-  circuloMI(ctx, -R * 0.34, R * 0.02, 6, B); circuloMI(ctx, R * 0.34, R * 0.02, 6, B);
-  ctx.save(); ctx.globalAlpha = 0.45; circuloMI(ctx, -R * 0.55, R * 0.3, 8, '#FF8A80'); circuloMI(ctx, R * 0.55, R * 0.3, 8, '#FF8A80'); ctx.restore();
-  ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(0, R * 0.22, R * 0.3, 0.15 * Math.PI, 0.85 * Math.PI); ctx.stroke();
-}
-
-/* La silueta de una pose (agujero del muro y vista previa). m: margen extra. */
+/* La silueta de una pose (agujero del muro y vista previa), con las MISMAS
+   formas del personaje: piernas y brazos con su contorno, zapatos, manos, el
+   torso del diseño y una cabeza con orejas/moño (sirve para los cinco). m: margen extra. */
 function siluetaMI(ctx, pose, m, color) {
   const E = esqueletoMI(pose);
-  ctx.fillStyle = color; ctx.lineJoin = 'round';
-  SEGMENTOS_MURO.forEach((s) => { const [p, q] = E.seg[s.id]; lineaMI(ctx, p, q, anchoMI(s) + 2 * m, color); });
-  lineaMI(ctx, E.caderas[0], E.caderas[1], 44 + 2 * m, color);
-  circuloMI(ctx, E.cabeza.x, E.cabeza.y, MI.CABEZA_R + 10 + m, color);
-  E.manos.forEach((h) => circuloMI(ctx, h.x, h.y, 16 + m, color));
-  E.pies.forEach((f) => circuloMI(ctx, f.x, f.y, 20 + m, color));
+  ctx.fillStyle = ctx.strokeStyle = color; ctx.lineJoin = 'round';
+  [['pi', 0], ['pd', 1]].forEach(([k, i]) => {
+    extremidadSilueta(ctx, [E.caderas[i], E.seg[k + '1'][1], E.pies[i]], MI.ANCHO.muslo + 2 * m, color);
+    zapatoMI(ctx, E.seg[k + '1'][1], E.pies[i], null, m, color);
+  });
+  [['bi', 0], ['bd', 1]].forEach(([k, i]) => {
+    extremidadSilueta(ctx, [E.seg[k + '1'][0], E.seg[k + '1'][1], E.manos[i]], MI.ANCHO.brazo + 2 * m, color);
+    circuloMI(ctx, E.manos[i].x, E.manos[i].y, 21 + m, color);
+  });
+  ctx.save(); aTorsoSVG(ctx, E);
+  const T = trazoSVG({ p: TORSO_D });
+  ctx.lineWidth = 4 + (2 * m) / SVG_K; ctx.fill(T); ctx.stroke(T);
+  ctx.restore();
+  ctx.save(); aCabezaSVG(ctx, E);
+  const r = (2 + m / SVG_KH);
+  [[120, 98, 52], [80, 60, 18], [160, 60, 18], [120, 40, 21]].forEach(([x, y, rr]) => circuloMI(ctx, x, y, rr + r, color));
+  ctx.restore();
+}
+function extremidadSilueta(ctx, puntos, ancho, color) {
+  ctx.beginPath(); ctx.moveTo(puntos[0].x, puntos[0].y); puntos.slice(1).forEach((q) => ctx.lineTo(q.x, q.y));
+  ctx.strokeStyle = color; ctx.lineWidth = ancho; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.stroke();
 }
 
 /* ======================== GENERADOR DE POSES ========================
@@ -422,7 +610,7 @@ function previaMI(ctx, objetivo, luz) {
   ctx.fillStyle = '#4A3220'; ctx.font = 'italic 800 26px Fraunces, Georgia, serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
   ctx.fillText(objetivo.nombre, x + w / 2, y + 40);
   ctx.beginPath(); rrMI(ctx, x + 10, y + 52, w - 20, h - 62, 14); ctx.clip();
-  ctx.translate(x + w / 2, y + 52 + (h - 62) / 2); ctx.scale(0.27, 0.27); ctx.translate(-800, -520);
+  ctx.translate(x + w / 2, y + 52 + (h - 62) / 2); ctx.scale(0.4, 0.4); ctx.translate(-800, -578);
   siluetaMI(ctx, objetivo.p, 0, '#3A2614');
   ctx.restore();
 }
@@ -495,8 +683,8 @@ function RetratoMI({ pj }) {
     if (!c) return;
     const dpr = window.devicePixelRatio || 1, w = 150, h = 190;
     c.width = w * dpr; c.height = h * dpr;
-    const ctx = c.getContext('2d'), k = 0.34 * dpr;
-    ctx.setTransform(k, 0, 0, k, 0, 0); ctx.translate(-800 + (w * dpr / k) / 2, -265);
+    const ctx = c.getContext('2d'), k = 0.36 * dpr;
+    ctx.setTransform(k, 0, 0, k, 0, 0); ctx.translate(-800 + (w * dpr / k) / 2, -312);
     dibujarPersonajeMI(ctx, { ...NEUTRA_MURO, bd1: 135, bd2: 45 }, pj, {});
   }, [pj]);
   return <canvas ref={ref} style={{ width: 150, height: 190 }} aria-hidden="true" />;
@@ -956,4 +1144,5 @@ function MuroInfernal({ a, estudiantes, onContinuar }) {
 }
 
 // El personaje (y su retrato) también lo usan los otros juegos del Capibara.
-Object.assign(window, { MuroInfernal, POSES_MURO, SEGMENTOS_MURO, PERSONAJES_MURO, NEUTRA_MURO, dibujarPersonajeMI, RetratoMI });
+// siluetaMI, esqueletoMI y MEDIDAS_MURO también los usa Espejo en Vivo (capibara-espejo.jsx).
+Object.assign(window, { MuroInfernal, POSES_MURO, SEGMENTOS_MURO, PERSONAJES_MURO, NEUTRA_MURO, dibujarPersonajeMI, RetratoMI, siluetaMI, esqueletoMI, MEDIDAS_MURO: MI });

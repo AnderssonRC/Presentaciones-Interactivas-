@@ -306,6 +306,14 @@ function AdminPanel({ onBack }) {
   const pend = (lista || []).filter((s) => s.estado === 'pendiente');
   const resueltas = (lista || []).filter((s) => s.estado !== 'pendiente');
 
+  // Quienes aceptaron los Términos y Condiciones (js/terminos.jsx), aunque el correo no llegue.
+  const [aceptaron, setAceptaron] = React.useState(null);
+  React.useEffect(() => {
+    window.fbDB.collection('terminos').orderBy('aceptado', 'desc').get()
+      .then((snap) => setAceptaron(snap.docs.map((d) => ({ uid: d.id, ...d.data() }))))
+      .catch((e) => { console.error(e); setAceptaron('error'); });
+  }, []);
+
   const Fila = ({ s, acciones }) => (
     <div style={{ display: 'flex', alignItems: 'center', gap: 14, background: 'var(--surface)',
       border: '1px solid var(--line)', borderRadius: 12, padding: '14px 18px' }}>
@@ -338,6 +346,11 @@ function AdminPanel({ onBack }) {
       <header className="topnav">
         <button className="btn btn-sm" onClick={onBack}>← Volver</button>
         <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 16, marginLeft: 8 }}>Administración</span>
+        {window.rcVerBienvenida && (
+          <button className="btn btn-sm" style={{ marginLeft: 'auto' }} onClick={() => window.rcVerBienvenida()}>
+            ▶ Ver bienvenida BETA 1.1
+          </button>
+        )}
       </header>
       <main className="main-wrap" style={{ maxWidth: 760 }}>
         <h2 style={{ fontSize: 22, fontWeight: 800, margin: '10px 0 16px' }}>
@@ -358,6 +371,30 @@ function AdminPanel({ onBack }) {
               {resueltas.map((s) => <Fila key={s.uid} s={s} />)}
             </div>
           </React.Fragment>
+        )}
+
+        <h2 style={{ fontSize: 18, fontWeight: 800, margin: '34px 0 14px', color: 'var(--muted)' }}>
+          Aceptaron los Términos y Condiciones {Array.isArray(aceptaron) && <span style={{ fontWeight: 600 }}>· {aceptaron.length}</span>}
+        </h2>
+        {aceptaron === null && <p style={{ color: 'var(--muted)' }}>Cargando…</p>}
+        {aceptaron === 'error' && (
+          <p style={{ color: 'var(--naranja-ink)' }}>
+            No se pudo leer la lista. Revisa que las reglas de Firestore permitan al administrador leer «terminos».
+          </p>
+        )}
+        {Array.isArray(aceptaron) && aceptaron.length === 0 && <p style={{ color: 'var(--muted)' }}>Todavía nadie.</p>}
+        {Array.isArray(aceptaron) && aceptaron.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {aceptaron.map((a) => (
+              <div key={a.uid} style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'var(--surface)',
+                border: '1px solid var(--line)', borderRadius: 12, padding: '11px 16px' }}>
+                <span style={{ flex: 1, minWidth: 0, fontWeight: 700 }}>{a.nombre || '(sin nombre)'}</span>
+                <span style={{ fontSize: 13, color: 'var(--muted)' }}>
+                  {new Date(a.aceptado).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' })}
+                </span>
+              </div>
+            ))}
+          </div>
         )}
       </main>
     </div>

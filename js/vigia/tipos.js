@@ -145,6 +145,18 @@
     { id: 'cp-dedos', nombre: 'Dedos Veloces', icon: 'trofeo', dedos: true,
       proposito: 'Un concursante por equipo presiona su tecla (o el botón gigante) lo más rápido que pueda. ¡Gana quien haga más toques!',
       etiqueta: 'Indicaciones (opcional)', placeholder: 'Un dedo por persona. ¡Sin golpear el teclado!' },
+    // Espejo en Vivo (capibara-espejo.jsx): seguir como un espejo a una silueta que se mueve sin parar.
+    { id: 'cp-espejo', nombre: 'Espejo en Vivo', icon: 'user', espejo: true,
+      proposito: 'Una silueta se mueve lenta y sin parar: un concursante por equipo la sigue como un espejo. Tú marcas «Se desconectó» cuando pierde el ritmo. ¡Gana quien aguante más!',
+      etiqueta: 'Indicaciones (opcional)', placeholder: 'Deja espacio libre frente al tablero. Movimientos suaves.' },
+    // Semáforo (capibara-semaforo.jsx): cada color es una acción; gana el último equipo con jugadores en pie.
+    { id: 'cp-semaforo', nombre: 'Semáforo', icon: 'rayo', semaforo: true,
+      proposito: 'La pantalla se llena de un color y cada color es una acción (verde = moverse, rojo = congelarse…). Quien se equivoque, se sienta. ¡Gana el último equipo en pie!',
+      etiqueta: 'Indicaciones (opcional)', placeholder: 'Todos de pie junto a su puesto. ¡Movimientos en el sitio!' },
+    // Verdadero o Falso en Movimiento (capibara-vf.jsx): correr al lado del salón que corresponde.
+    { id: 'cp-vf', nombre: 'Verdadero o Falso en Movimiento', icon: 'check', vfMovimiento: true,
+      proposito: 'Aparece una afirmación: todos corren a la izquierda (verdadero) o a la derecha (falso) antes de que acabe el tiempo. Quien quede en el lado incorrecto, se sienta.',
+      etiqueta: 'Indicaciones (opcional)', placeholder: 'Despejen el centro del salón. ¡Sin empujar!' },
   ];
   DESAFIOS_CAPIBARA.forEach((d) => TIPOS.push(Object.assign({
     grupo: 'capibara', ruleta: false, escena: true, capibara: true, titular: d.nombre,
@@ -250,6 +262,13 @@
     // Movimiento de la Jungla: modo, velocidad inicial, objetos seguidos para cada instrucción nueva, rondas y objetos por paso.
     // Dedos Veloces: modo (auto = según el dispositivo), segundos, rondas y la tecla de cada equipo.
     if (ti.dedos) { a.modoDedos = 'auto'; a.tiempoDedos = 10; a.rondasDedos = 3; a.teclasDedos = ['Q', 'O', 'Z', 'K', 'T', 'B', 'Y', 'H', 'X', 'U']; }
+    // Espejo en Vivo: velocidad inicial, rondas y segundos aguantados por cada paso hacia Jomu.
+    if (ti.espejo) { a.velocidadEspejo = 'lenta'; a.rondasEspejo = 1; a.segPorPasoEspejo = 15; }
+    // Semáforo: velocidad inicial, cambios para cada color nuevo, trampas, jugadores por equipo (0 = los del equipo) y pasos del ganador.
+    // Verdadero o Falso en Movimiento: segundos para correr, jugadores por equipo (0 = los del equipo), pasos del ganador y
+    // las afirmaciones (formato de la actividad «Verdadero o falso»: «Afirmación | V | explicación»).
+    if (ti.vfMovimiento) { a.tiempoVF = 8; a.jugadoresVF = 0; a.pasosVF = 3; a.afirmaciones = []; }
+    if (ti.semaforo) { a.velocidadSemaforo = 'lenta'; a.cambiosSemaforo = 6; a.trampasSemaforo = true; a.jugadoresSemaforo = 0; a.pasosSemaforo = 3; }
     if (ti.jungla) { a.modoJungla = 'beam'; a.velocidadJungla = 'lenta'; a.rachaJungla = 8; a.rondasJungla = 2; a.objetosPorPaso = 10; }
     if (ti.jaguar) { a.equipos = 3; a.enfrentar = ti.duelo ? 2 : 0; a.duelo = !!ti.duelo; if (ti.palabra) a.listaPalabras = (a.fragmento || '').trim().split(/\s+/)[0] || ''; }
     return a;

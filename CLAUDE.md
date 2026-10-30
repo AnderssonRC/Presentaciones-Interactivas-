@@ -15,8 +15,10 @@ El usuario es docente y escribe en español: responder en español, simple y sin
 - `presentar-jaguar.jsx`: Modo Jaguar (sesión, escena, PPT, Silueta, Adivina la palabra, Origami, Mímica).
 - `presentar-capibara.jsx`: Modo Capibara (infantil, acuarela; misma sesión de equipos del Jaguar, puntos = pasos en la montaña hacia Jomu).
   Juegos del Capibara en archivos propios: `capibara-muro.jsx` (Muro Infernal), `capibara-jungla.jsx`
-  (Movimiento de la Jungla), `capibara-dedos.jsx` (Dedos Veloces). Lo compartido (audio, lienzo, concursantes, turnos, menú, tabla, montaña)
-  está en `capibara-comun.jsx`: los juegos nuevos lo reutilizan.
+  (Movimiento de la Jungla), `capibara-dedos.jsx` (Dedos Veloces), `capibara-espejo.jsx` (Espejo en Vivo;
+  usa el banco de poses y la silueta del Muro), `capibara-semaforo.jsx` (Semáforo; banco de colores `BANCO_SEMAFORO`), `capibara-vf.jsx` (Verdadero o Falso
+  en Movimiento; afirmaciones en el formato de la actividad `vf` de la plataforma). Lo compartido (audio, lienzo, concursantes, turnos, menú, tabla, montaña)
+  está en `capibara-comun.jsx`: los juegos nuevos lo reutilizan (también «jugadores en pie» para juegos de eliminación).
 - `mando.jsx` (lado televisor) · `mando-celular.jsx` (lado celular, con su propio CSS).
 - `herramientas.jsx`: pincel (lupa, marcador, puntero, texto, QR, sortear).
 - `estilos.css`: todos los estilos de Vigía.

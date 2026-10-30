@@ -16,7 +16,7 @@ const VIGIA_LOGO = 'condor-vigia-icono.webp';   // 10 KB (el PNG pesa 96 KB)
 // Módulos del Modo Vigía, en orden. Al editar uno, sube su versión aquí
 // (y la de este archivo en index.html) para que el navegador no use la vieja.
 const VIGIA_MODULOS = [
-  ['js/vigia/tipos.js', '20261028c'],
+  ['js/vigia/tipos.js', '20261029d'],
   ['js/vigia/youtube.jsx', '20261020p'],
   ['js/vigia/audio.jsx', '20261024d'],
   ['js/vigia/drive.jsx', '20261020a'],
@@ -24,7 +24,7 @@ const VIGIA_MODULOS = [
   ['js/vigia/epub.jsx', '20261020f'],
   ['js/vigia/respaldo.jsx', '20261024h'],
   ['js/vigia/ruleta.jsx', '20261020l'],
-  ['js/vigia/editor.jsx', '20261028c'],
+  ['js/vigia/editor.jsx', '20261029e'],
   ['js/vigia/editor-pdf.jsx', '20261026d'],
   ['js/vigia/editor-epub.jsx', '20261026d'],
   ['js/vigia/editor-podcast.jsx', '20261026d'],
@@ -34,19 +34,22 @@ const VIGIA_MODULOS = [
   ['js/vigia/presentar.jsx', '20261027f'],
   ['js/vigia/presentar-reto.jsx', '20261026b'],
   ['js/vigia/presentar-jaguar.jsx', '20261028b'],
-  ['js/vigia/presentar-capibara.jsx', '20261028c'],
-  ['js/vigia/capibara-comun.jsx', '20261028b'],
-  ['js/vigia/capibara-muro.jsx', '20261028b'],
-  ['js/vigia/capibara-jungla.jsx', '20261028b'],
+  ['js/vigia/presentar-capibara.jsx', '20261029d'],
+  ['js/vigia/capibara-comun.jsx', '20261029a'],
+  ['js/vigia/capibara-muro.jsx', '20261029b'],
+  ['js/vigia/capibara-jungla.jsx', '20261029a'],
   ['js/vigia/capibara-dedos.jsx', '20261028c'],
+  ['js/vigia/capibara-espejo.jsx', '20261029b'],
+  ['js/vigia/capibara-semaforo.jsx', '20261029c'],
+  ['js/vigia/capibara-vf.jsx', '20261029a'],
   ['js/vigia/presentar-pdf.jsx', '20261024l'],
   ['js/vigia/presentar-epub.jsx', '20261024l'],
   ['js/vigia/presentar-podcast.jsx', '20261024l'],
   ['js/vigia/presentar-imagenes.jsx', '20261024l'],
 ];
-const VIGIA_ESTILOS = ['js/vigia/estilos.css', '20261028c'];
+const VIGIA_ESTILOS = ['js/vigia/estilos.css', '20261029e'];
 // Pantalla del mando en el celular (la carga remote.jsx solo en el celular).
-const VIGIA_MANDO_VERSION = '20261028c';
+const VIGIA_MANDO_VERSION = '20261029d';
 let promesaVigia = null;
 // Tipografía de los títulos de las tarjetas (Fraunces, cursiva "suave"): elegante y juguetona.
 const VIGIA_FUENTE = 'https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT,WONK@1,9..144,600..900,100,1&display=swap';

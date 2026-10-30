@@ -71,6 +71,9 @@ function CapibaraActivacion(props) {
   if (props.a && props.a.tipo === 'cp-muro' && window.MuroInfernal) return <MuroInfernal {...props} />;   // capibara-muro.jsx
   if (props.a && props.a.tipo === 'cp-jungla' && window.JunglaCapibara) return <JunglaCapibara {...props} />;   // capibara-jungla.jsx
   if (props.a && props.a.tipo === 'cp-dedos' && window.DedosVeloces) return <DedosVeloces {...props} />;   // capibara-dedos.jsx
+  if (props.a && props.a.tipo === 'cp-espejo' && window.EspejoEnVivo) return <EspejoEnVivo {...props} />;   // capibara-espejo.jsx
+  if (props.a && props.a.tipo === 'cp-semaforo' && window.SemaforoCapibara) return <SemaforoCapibara {...props} />;   // capibara-semaforo.jsx
+  if (props.a && props.a.tipo === 'cp-vf' && window.VerdaderoFalsoMovimiento) return <VerdaderoFalsoMovimiento {...props} />;   // capibara-vf.jsx
   return <HistoriaCapibara {...props} />;
 }
 

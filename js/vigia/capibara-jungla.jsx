@@ -341,7 +341,7 @@ function dibujarJugadorJN(ctx, G, pj) {
   ctx.save();
   // sombra
   ctx.fillStyle = 'rgba(31,20,8,.28)'; elipseJN(ctx, G.xPj, 872, 90, 18); ctx.fill();
-  ctx.translate(G.xPj, 870 + dy); ctx.scale(0.62 * sx, 0.62 * sy); ctx.translate(-800, -796);
+  ctx.translate(G.xPj, 870 + dy); ctx.scale(0.66 * sx, 0.66 * sy); ctx.translate(-800, -800);   // pies del personaje en y = 800 (MI.PIES)
   dibujarPersonajeMI(ctx, pose, pj, { espalda: true });
   ctx.restore();
 }

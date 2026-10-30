@@ -1250,6 +1250,160 @@ function ConfigActivacion({ a, onCambiar, onBorrar, tiempoActual, duracion, hayE
               )}
             </React.Fragment>
           )}
+          {/* Semáforo: velocidad, cambios por color nuevo, trampas, jugadores por equipo y pasos del ganador. */}
+          {ti.semaforo && (
+            <React.Fragment>
+              <div className="vg-jaguar-fila">
+                <span>Velocidad inicial</span>
+                <div className="vg-segmento" role="radiogroup" aria-label="Velocidad inicial">
+                  {[['lenta', '🐢 Lenta'], ['media', 'Media'], ['rapida', '🐆 Rápida']].map(([v, txt]) => (
+                    <button key={v} role="radio" aria-checked={(a.velocidadSemaforo || 'lenta') === v} className={(a.velocidadSemaforo || 'lenta') === v ? 'on' : ''}
+                      onClick={() => set({ velocidadSemaforo: v })}>{txt}</button>
+                  ))}
+                </div>
+              </div>
+              <div className="vg-jaguar-fila">
+                <span>Color nuevo cada</span>
+                <input type="number" min="3" max="20" value={a.cambiosSemaforo || 6} style={{ width: 80 }}
+                  onChange={(e) => set({ cambiosSemaforo: Math.max(3, Math.min(20, Number(e.target.value) || 6)) })} />
+                <span style={{ fontWeight: 600, color: 'var(--muted)' }}>cambios (amarillo, azul, morado, naranja…)</span>
+              </div>
+              <div className="vg-jaguar-fila">
+                <span>Colores trampa</span>
+                <div className="vg-segmento" role="radiogroup" aria-label="Colores trampa">
+                  {[[true, 'Sí'], [false, 'No']].map(([v, txt]) => (
+                    <button key={txt} role="radio" aria-checked={(a.trampasSemaforo !== false) === v} className={(a.trampasSemaforo !== false) === v ? 'on' : ''}
+                      onClick={() => set({ trampasSemaforo: v })}>{txt}</button>
+                  ))}
+                </div>
+              </div>
+              <div className="vg-jaguar-fila">
+                <span>🧍 Jugadores por equipo</span>
+                <input type="number" min="0" max="40" value={a.jugadoresSemaforo || 0} style={{ width: 80 }}
+                  onChange={(e) => set({ jugadoresSemaforo: Math.max(0, Math.min(40, Number(e.target.value) || 0)) })} />
+                <span style={{ fontWeight: 600, color: 'var(--muted)' }}>0 = los integrantes de cada equipo (se puede cambiar al empezar)</span>
+              </div>
+              <div className="vg-jaguar-fila">
+                <span>🏔 Pasos del ganador</span>
+                <input type="number" min="1" max="10" value={a.pasosSemaforo || 3} style={{ width: 80 }}
+                  onChange={(e) => set({ pasosSemaforo: Math.max(1, Math.min(10, Number(e.target.value) || 3)) })} />
+                <span style={{ fontWeight: 600, color: 'var(--muted)' }}>para el último equipo en pie</span>
+              </div>
+              {/* Colores propios: el docente crea sus instrucciones (color + ícono + acción). Salen en este orden. */}
+              {(() => {
+                const propios = a.coloresSemaforo || [];
+                const cambiar = (k, cambio) => set({ coloresSemaforo: propios.map((c, j) => (j === k ? { ...c, ...cambio } : c)) });
+                const mover = (k, d) => {
+                  const j = k + d;
+                  if (j < 0 || j >= propios.length) return;
+                  const l = propios.slice(); [l[k], l[j]] = [l[j], l[k]]; set({ coloresSemaforo: l });
+                };
+                const SUGERIDOS = ['#FF00FF', '#7CFF00', '#00FFC8', '#8B4A1C', '#FFFFFF', '#000000'];
+                const agregar = () => set({ coloresSemaforo: propios.concat([{
+                  id: 'p' + AIP.uid(), color: SUGERIDOS[propios.length % SUGERIDOS.length], icono: '⭐', accion: '', detalle: '',
+                }]) });
+                const tintaDe = (window.tintaSemaforo || (() => '#FFFFFF'));
+                return (
+                  <React.Fragment>
+                    <div className="vg-jaguar-fila">
+                      <span>🎨 Colores nuevos</span>
+                      <div className="vg-segmento" role="radiogroup" aria-label="Colores nuevos">
+                        {[['todos', 'Los míos + los del juego'], ['propios', 'Solo los míos']].map(([v, txt]) => (
+                          <button key={v} role="radio" aria-checked={(a.soloPropiosSemaforo ? 'propios' : 'todos') === v} className={(a.soloPropiosSemaforo ? 'propios' : 'todos') === v ? 'on' : ''}
+                            onClick={() => set({ soloPropiosSemaforo: v === 'propios' })}>{txt}</button>
+                        ))}
+                      </div>
+                    </div>
+                    <span className="vg-jaguar-nota">
+                      Verde (moverse) y rojo (congelarse) están siempre. Tus colores salen primero, en este orden
+                      {a.soloPropiosSemaforo ? '.' : '; después, amarillo, azul, morado, naranja, rosado y celeste.'}
+                      {' '}Usa colores fuertes y acciones seguras para el salón.
+                    </span>
+                    {propios.map((c, k) => (
+                      <div key={c.id} className="vg-jaguar-fila vg-sf-propio">
+                        <input type="color" value={c.color || '#FF00FF'} title="Color" aria-label="Color" onChange={(e) => cambiar(k, { color: e.target.value })} />
+                        <input type="text" value={c.icono || ''} maxLength={4} placeholder="⭐" title="Ícono (un emoji)" aria-label="Ícono"
+                          style={{ width: 52, textAlign: 'center', fontSize: 20 }} onChange={(e) => cambiar(k, { icono: e.target.value })} />
+                        <input type="text" value={c.accion || ''} maxLength={24} placeholder="¡Salta!" aria-label="Acción"
+                          style={{ width: 150, fontWeight: 800 }} onChange={(e) => cambiar(k, { accion: e.target.value })} />
+                        <input type="text" value={c.detalle || ''} maxLength={60} placeholder="Explicación corta (opcional)" aria-label="Explicación"
+                          style={{ flex: '1 1 160px', minWidth: 120 }} onChange={(e) => cambiar(k, { detalle: e.target.value })} />
+                        {/* Vista previa: así se verá en pantalla */}
+                        <span className="vg-sf-muestra" style={{ background: c.color, color: tintaDe(c.color) }} title="Vista previa">
+                          {c.icono || '⭐'} {c.accion || '¿Acción?'}
+                        </span>
+                        <button type="button" className="vg-mini-accion" onClick={() => mover(k, -1)} disabled={k === 0} title="Subir" aria-label="Subir">↑</button>
+                        <button type="button" className="vg-mini-accion" onClick={() => mover(k, 1)} disabled={k === propios.length - 1} title="Bajar" aria-label="Bajar">↓</button>
+                        <button type="button" className="vg-mini-accion" onClick={() => set({ coloresSemaforo: propios.filter((_, j) => j !== k) })} title="Quitar" aria-label="Quitar">✕</button>
+                      </div>
+                    ))}
+                    <div className="vg-jaguar-fila">
+                      <button type="button" className="vg-mini-accion" onClick={agregar} disabled={propios.length >= 12}>+ Agregar color</button>
+                      {propios.some((c) => !(c.accion || '').trim()) && <span className="vg-jaguar-nota">Los colores sin acción no salen en el juego.</span>}
+                      {a.soloPropiosSemaforo && !propios.some((c) => (c.accion || '').trim()) && <span className="vg-jaguar-nota">Sin colores propios, el juego será solo verde y rojo.</span>}
+                    </div>
+                  </React.Fragment>
+                );
+              })()}
+              <span className="vg-jaguar-nota">
+                Pausa (celular, Espacio o P) para descontar a los eliminados de cada equipo; «+1» y «Deshacer» corrigen un error.
+              </span>
+            </React.Fragment>
+          )}
+          {/* Verdadero o Falso en Movimiento: tiempo, jugadores, pasos y las afirmaciones. */}
+          {ti.vfMovimiento && (
+            <React.Fragment>
+              <div className="vg-jaguar-fila">
+                <span>⏱ Tiempo para correr</span>
+                <input type="number" min="3" max="60" value={a.tiempoVF || 8} style={{ width: 80 }}
+                  onChange={(e) => set({ tiempoVF: Math.max(3, Math.min(60, Number(e.target.value) || 8)) })} />
+                <span style={{ fontWeight: 600, color: 'var(--muted)' }}>segundos por afirmación (se puede cambiar al empezar)</span>
+              </div>
+              <div className="vg-jaguar-fila">
+                <span>🧍 Jugadores por equipo</span>
+                <input type="number" min="0" max="40" value={a.jugadoresVF || 0} style={{ width: 80 }}
+                  onChange={(e) => set({ jugadoresVF: Math.max(0, Math.min(40, Number(e.target.value) || 0)) })} />
+                <span style={{ fontWeight: 600, color: 'var(--muted)' }}>0 = los integrantes de cada equipo (se puede cambiar al empezar)</span>
+              </div>
+              <div className="vg-jaguar-fila">
+                <span>🏔 Pasos del ganador</span>
+                <input type="number" min="1" max="10" value={a.pasosVF || 3} style={{ width: 80 }}
+                  onChange={(e) => set({ pasosVF: Math.max(1, Math.min(10, Number(e.target.value) || 3)) })} />
+                <span style={{ fontWeight: 600, color: 'var(--muted)' }}>para el último equipo en pie</span>
+              </div>
+              <EditorAfirmacionesVF a={a} set={set} />
+            </React.Fragment>
+          )}
+          {/* Espejo en Vivo: velocidad inicial, rondas y segundos por paso. */}
+          {ti.espejo && (
+            <React.Fragment>
+              <div className="vg-jaguar-fila">
+                <span>Velocidad inicial</span>
+                <div className="vg-segmento" role="radiogroup" aria-label="Velocidad inicial">
+                  {[['lenta', '🐢 Lenta'], ['media', 'Media'], ['rapida', '🐆 Rápida']].map(([v, txt]) => (
+                    <button key={v} role="radio" aria-checked={(a.velocidadEspejo || 'lenta') === v} className={(a.velocidadEspejo || 'lenta') === v ? 'on' : ''}
+                      onClick={() => set({ velocidadEspejo: v })}>{txt}</button>
+                  ))}
+                </div>
+              </div>
+              <span className="vg-jaguar-nota">
+                La silueta va cada vez más rápido y mueve más partes a la vez. Todos siguen la misma coreografía.
+                Cuando el estudiante pierde el ritmo, presiona «SE DESCONECTÓ» (celular, Espacio o Av Pág); «Deshacer» (Re Pág) si fue un error.
+              </span>
+              <div className="vg-jaguar-fila">
+                <span>Rondas</span>
+                <input type="number" min="1" max="6" value={a.rondasEspejo || 1} style={{ width: 80 }}
+                  onChange={(e) => set({ rondasEspejo: Math.max(1, Math.min(6, Number(e.target.value) || 1)) })} />
+                <span style={{ fontWeight: 600, color: 'var(--muted)' }}>un concursante por equipo en cada ronda</span>
+              </div>
+              <div className="vg-jaguar-fila">
+                <span>🏔 1 paso cada</span>
+                <input type="number" min="5" max="60" value={a.segPorPasoEspejo || 15} style={{ width: 80 }}
+                  onChange={(e) => set({ segPorPasoEspejo: Math.max(5, Math.min(60, Number(e.target.value) || 15)) })} />
+                <span style={{ fontWeight: 600, color: 'var(--muted)' }}>segundos aguantados (suma del equipo, al final del juego)</span>
+              </div>
+            </React.Fragment>
+          )}
           {/* Movimiento de la Jungla: modo, velocidad inicial, escalada, rondas y pasos. */}
           {ti.jungla && (
             <React.Fragment>
@@ -1466,4 +1620,149 @@ function ConfigActivacion({ a, onCambiar, onBorrar, tiempoActual, duracion, hayE
   );
 }
 
-Object.assign(window, { AreaTexto, EtiquetaCampo, VigiaEditor, VigiaEditorVideo, RecursoChips, EstudiantesPopover, PasoEnlace, MinutoExacto, LineaTiempo, ConfigActivacion, TiposAgrupados, VistaPrevia, siluetasDe });
+/* ============ Verdadero o Falso en Movimiento · editor de afirmaciones ============
+   Guarda `a.afirmaciones` en el MISMO formato de la actividad «Verdadero o
+   falso» de la plataforma: una línea «Afirmación | V | Explicación (opcional)»
+   (lectura y escritura en capibara-vf.jsx: leerAfirmacionVF / lineaAfirmacionVF).
+   Formas de cargar: fila por fila, como texto (una por línea), importar un JSON
+   ([{ afirmacion, valor, explicacion }]) o traerlas de las actividades
+   «Verdadero o falso» del docente. También se descargan como JSON. */
+function EditorAfirmacionesVF({ a, set }) {
+  const leer = window.leerAfirmacionVF, escribir = window.lineaAfirmacionVF;
+  /* Cada fila tal cual, SIN recortar espacios (se guarda con cada tecla: si se
+     recortara, no se podría escribir un espacio al final). El separador es « | »;
+     el juego sí recorta al leer. Las filas sin afirmación el juego las ignora. */
+  const limpio = (s) => String(s || '').replace(/\|/g, '/').replace(/\r?\n/g, ' ');
+  const leerFila = (l) => {
+    const p = String(l || '').split('|');
+    return { texto: (p[0] || '').replace(/ $/, ''), valor: String(p[1] || 'V').trim().toUpperCase().startsWith('V'), explicacion: p.slice(2).join('/').replace(/^ /, '') };
+  };
+  const filaTexto = (x) => limpio(x.texto) + ' | ' + (x.valor ? 'V' : 'F') + (x.explicacion ? ' | ' + limpio(x.explicacion) : '');
+  const items = (a.afirmaciones || []).map(leerFila);
+  const guardar = (lista) => set({ afirmaciones: lista.map(filaTexto) });
+  const cambiar = (k, cambio) => guardar(items.map((x, j) => (j === k ? { ...x, ...cambio } : x)));
+  const mover = (k, d) => {
+    const j = k + d;
+    if (j < 0 || j >= items.length) return;
+    const l = items.slice(); [l[k], l[j]] = [l[j], l[k]]; guardar(l);
+  };
+  const sumar = (nuevas, origen) => {
+    if (!nuevas.length) { vigiaAviso('No se encontraron afirmaciones en ' + origen + '.', { titulo: 'Nada que agregar' }); return; }
+    guardar(items.filter((x) => x.texto).concat(nuevas));
+    vigiaAviso('Se agregaron ' + nuevas.length + (nuevas.length === 1 ? ' afirmación' : ' afirmaciones') + ' desde ' + origen + '.', { titulo: 'Listo' });
+  };
+  // Como texto: una por línea (el formato de la plataforma).
+  const [comoTexto, setComoTexto] = React.useState(false);
+  const [texto, setTexto] = React.useState('');
+  const abrirTexto = () => { setTexto(items.filter((x) => x.texto).map(escribir).join('\n')); setComoTexto(true); };
+  const aplicarTexto = () => {
+    const t = texto.trim();
+    let lista = null;
+    if (/^[[{]/.test(t)) { try { lista = window.afirmacionesDeJSON(JSON.parse(t)); } catch (e) { lista = null; } }   // también acepta JSON pegado
+    if (!lista) lista = t.split(/\r?\n/).map(leer).filter(Boolean);
+    guardar(lista); setComoTexto(false);
+  };
+  // Importar / descargar JSON.
+  const archivo = React.useRef(null);
+  const importar = (ev) => {
+    const f = ev.target.files && ev.target.files[0];
+    ev.target.value = '';
+    if (!f) return;
+    const lector = new FileReader();
+    lector.onload = () => {
+      try { sumar(window.afirmacionesDeJSON(JSON.parse(String(lector.result || ''))), '«' + f.name + '»'); }
+      catch (e) { vigiaAviso('El archivo no es un JSON válido. Revisa que tenga la forma [{ "afirmacion": "…", "valor": true, "explicacion": "…" }].', { titulo: 'No se pudo leer' }); }
+    };
+    lector.readAsText(f);
+  };
+  const descargar = () => {
+    const datos = items.filter((x) => x.texto).map((x) => ({ afirmacion: x.texto, valor: x.valor, ...(x.explicacion ? { explicacion: x.explicacion } : {}) }));
+    const url = URL.createObjectURL(new Blob([JSON.stringify(datos, null, 2)], { type: 'application/json' }));
+    const enlace = document.createElement('a');
+    enlace.href = url; enlace.download = (a.texto || 'afirmaciones').trim().slice(0, 40).replace(/[^\wáéíóúñ -]/gi, '') + '.json';
+    document.body.appendChild(enlace); enlace.click(); enlace.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  };
+  // Traer de las actividades «Verdadero o falso» de la plataforma (mismo formato).
+  const [actividades, setActividades] = React.useState(null);   // null | 'cargando' | [{ nombre, items }]
+  const buscarActividades = () => {
+    setActividades('cargando');
+    Promise.resolve(AIP.loadPresentations()).then((pres) => {
+      const encontradas = [];
+      (pres || []).forEach((p) => (p.slides || []).forEach((s) => {
+        if (s && s.type === 'actividad' && s.tool === 'vf' && s.config && (s.config.items || []).length) {
+          encontradas.push({ nombre: (p.titulo || p.title || 'Presentación') + ' · ' + (s.config.titulo || 'Verdadero o falso'), items: s.config.items });
+        }
+      }));
+      setActividades(encontradas);
+    }).catch(() => { setActividades(null); vigiaAviso('No se pudieron cargar tus presentaciones. Revisa la conexión.', { titulo: 'Sin conexión' }); });
+  };
+
+  return (
+    <div className="vg-vf-editor">
+      <div className="vg-jaguar-fila">
+        <span>✔✗ Afirmaciones ({items.filter((x) => x.texto).length})</span>
+        <span style={{ fontWeight: 600, color: 'var(--muted)' }}>salen al azar y no se repiten en la partida</span>
+      </div>
+      {comoTexto ? (
+        <React.Fragment>
+          <span className="vg-jaguar-nota">Una por línea: <b>Afirmación | V</b> o <b>Afirmación | F</b>, y si quieres <b>| explicación</b>. También puedes pegar un JSON.</span>
+          <textarea className="vg-vf-texto" value={texto} rows={Math.min(14, Math.max(5, texto.split('\n').length + 1))}
+            placeholder={'Las ballenas son mamíferos | V | Respiran aire y amamantan a sus crías\nLas arañas son insectos | F | Tienen ocho patas: son arácnidos'}
+            onChange={(e) => setTexto(e.target.value)} />
+          <div className="vg-jaguar-fila">
+            <button type="button" className="vg-mini-accion on" onClick={aplicarTexto}>✓ Aplicar</button>
+            <button type="button" className="vg-mini-accion" onClick={() => setComoTexto(false)}>Cancelar</button>
+          </div>
+        </React.Fragment>
+      ) : (
+        <React.Fragment>
+          {items.map((x, k) => (
+            <div key={k} className={'vg-vf-fila' + (x.valor ? ' es-v' : ' es-f')}>
+              <span className="vg-vf-n">{k + 1}</span>
+              <div className="vg-vf-campos">
+                <AreaTexto value={x.texto} onChange={(e) => cambiar(k, { texto: e.target.value })} minRows={1} max={220} placeholder="Escribe la afirmación…" aria-label={'Afirmación ' + (k + 1)} />
+                <input type="text" value={x.explicacion} maxLength={200} placeholder="Explicación breve al revelar (opcional)" aria-label="Explicación"
+                  onChange={(e) => cambiar(k, { explicacion: e.target.value })} />
+              </div>
+              <div className="vg-segmento" role="radiogroup" aria-label="Respuesta">
+                {[[true, '✔ V'], [false, '✗ F']].map(([v, txt]) => (
+                  <button key={txt} type="button" role="radio" aria-checked={x.valor === v} className={x.valor === v ? 'on' : ''} onClick={() => cambiar(k, { valor: v })}>{txt}</button>
+                ))}
+              </div>
+              <div className="vg-vf-acciones">
+                <button type="button" className="vg-mini-accion" onClick={() => mover(k, -1)} disabled={k === 0} title="Subir" aria-label="Subir">↑</button>
+                <button type="button" className="vg-mini-accion" onClick={() => mover(k, 1)} disabled={k === items.length - 1} title="Bajar" aria-label="Bajar">↓</button>
+                <button type="button" className="vg-mini-accion" onClick={() => guardar(items.filter((_, j) => j !== k))} title="Quitar" aria-label="Quitar">✕</button>
+              </div>
+            </div>
+          ))}
+          {!items.length && <span className="vg-jaguar-nota">Aún no hay afirmaciones. Agrégalas una por una, pégalas como texto o impórtalas.</span>}
+          <div className="vg-jaguar-fila">
+            <button type="button" className="vg-mini-accion" onClick={() => guardar(items.concat([{ texto: '', valor: true, explicacion: '' }]))}>+ Agregar afirmación</button>
+            <button type="button" className="vg-mini-accion" onClick={abrirTexto}>✎ Editar como texto</button>
+            <button type="button" className="vg-mini-accion" onClick={() => archivo.current && archivo.current.click()}>⬆ Importar JSON</button>
+            <button type="button" className="vg-mini-accion" onClick={descargar} disabled={!items.some((x) => x.texto)}>⬇ Descargar JSON</button>
+            <button type="button" className="vg-mini-accion" onClick={buscarActividades} disabled={actividades === 'cargando'}>
+              {actividades === 'cargando' ? 'Buscando…' : '📚 Traer de mis «Verdadero o falso»'}
+            </button>
+            <input ref={archivo} type="file" accept=".json,application/json" style={{ display: 'none' }} onChange={importar} />
+          </div>
+          {Array.isArray(actividades) && (
+            <div className="vg-vf-traer">
+              {actividades.length ? actividades.map((x, k) => (
+                <button key={k} type="button" className="vg-mini-accion" onClick={() => { sumar(x.items.map(leer).filter(Boolean), '«' + x.nombre + '»'); setActividades(null); }}>
+                  {x.nombre} ({x.items.length})
+                </button>
+              )) : <span className="vg-jaguar-nota">No tienes actividades «Verdadero o falso» en tus presentaciones.</span>}
+              <button type="button" className="vg-btn-texto" onClick={() => setActividades(null)}>Cerrar</button>
+            </div>
+          )}
+          <span className="vg-jaguar-nota">JSON: [{'{'} "afirmacion": "Las ballenas son mamíferos", "valor": true, "explicacion": "…" {'}'}]</span>
+        </React.Fragment>
+      )}
+    </div>
+  );
+}
+
+Object.assign(window, { AreaTexto, EtiquetaCampo, VigiaEditor, EditorAfirmacionesVF, VigiaEditorVideo, RecursoChips, EstudiantesPopover, PasoEnlace, MinutoExacto, LineaTiempo, ConfigActivacion, TiposAgrupados, VistaPrevia, siluetasDe });

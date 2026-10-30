@@ -165,6 +165,35 @@ function TocarDedosCel({ id, activo, color, orden }) {
   );
 }
 
+/* Juegos de eliminación del Capibara (Semáforo, Verdadero o Falso…): una fila
+   por equipo. `prefijo` = 'sf' | 'vf' → órdenes `<prefijo>-descontar` / `-sumar`
+   (en juego) y `<prefijo>-jugadores` (menú). c = estado `capibara` del juego. */
+function EnPieCel({ c, orden, prefijo, activo }) {
+  return (c.eqs || []).map((e, i) => (
+    <div key={i} className="vgm-equipo" style={{ '--c': e.color, opacity: c.enPie[i] ? 1 : 0.5 }}>
+      <span className="vgm-equipo-nombre">{e.emoji} {e.corto}</span>
+      <b>{c.enPie[i]}</b><small style={{ opacity: 0.7 }}>/ {c.inicial[i]}</small>
+      <button className="vgm-btn vgm-rojo" disabled={!activo || !c.enPie[i]} onClick={() => orden(prefijo + '-descontar', { i })}>−1</button>
+      <button className="vgm-btn borde" disabled={!activo || c.enPie[i] >= c.inicial[i]} onClick={() => orden(prefijo + '-sumar', { i })}>+1</button>
+    </div>
+  ));
+}
+function JugadoresCel({ c, orden, prefijo }) {
+  return (
+    <React.Fragment>
+      <div style={{ fontSize: 13, opacity: 0.85 }}>🧍 Jugadores en pie por equipo</div>
+      {(c.eqs || []).map((e, i) => (
+        <div key={i} className="vgm-equipo" style={{ '--c': e.color }}>
+          <span className="vgm-equipo-nombre">{e.emoji} {e.corto}</span>
+          <button className="vgm-btn borde" onClick={() => orden(prefijo + '-jugadores', { i, d: -1 })}>−</button>
+          <b>{(c.jugadores || [])[i]}</b>
+          <button className="vgm-btn borde" onClick={() => orden(prefijo + '-jugadores', { i, d: 1 })}>+</button>
+        </div>
+      ))}
+    </React.Fragment>
+  );
+}
+
 function VigiaMandoCelular({ code, state, send }) {
   const st = state || {};
   React.useEffect(() => {
@@ -220,7 +249,155 @@ function VigiaMandoCelular({ code, state, send }) {
           {/^cp-/.test(activa.tipo) ? (
             /* Modo Capibara · historia de Jomu: los mismos botones de la pantalla */
             <React.Fragment>
-              {st.capibara && st.capibara.juego === 'dedos' ? (() => {
+              {st.capibara && st.capibara.juego === 'espejo' ? (() => {
+                /* Espejo en Vivo: SE DESCONECTÓ va primero y es el botón más grande (rojo). */
+                const c = st.capibara, eq = st.marcador || [];
+                const enTurno = ['turno', 'cuenta', 'jugando', 'desconecto', 'completa'].includes(c.fase);
+                const congelado = c.fase === 'desconecto' || c.fase === 'completa';
+                return (
+                  <React.Fragment>
+                    {c.fase === 'jugando' && !c.pausado && (
+                      <button className="vgm-btn grande vgm-rojo" style={{ minHeight: 140, fontSize: 30 }} onClick={() => orden('ej-desconecto')}>🔌 SE DESCONECTÓ</button>
+                    )}
+                    {c.fase === 'desconecto' && (
+                      <button className="vgm-btn grande" style={{ minHeight: 90, fontSize: 22 }} onClick={() => orden('ej-deshacer')}>↩ Deshacer (fue un error)</button>
+                    )}
+                    <div style={{ fontSize: 13, opacity: 0.85 }}>
+                      🪞 Espejo en Vivo
+                      {enTurno && eq[c.turno] ? ' · ' + eq[c.turno].nombre + (c.pasa ? ' · ' + c.pasa : '') + ' · ronda ' + c.ronda + '/' + c.rondas + ' · nivel ' + c.nivel : ''}
+                    </div>
+                    {congelado && c.seg && <div style={{ fontSize: 22, fontWeight: 900 }}>{c.fase === 'completa' ? '🏆 ¡Completa! ' : '⏱ '}{c.seg} s</div>}
+                    {enTurno && (
+                      <div style={{ fontSize: 14, fontWeight: 800 }}>
+                        {(c.totales || []).map((t, i) => (eq[i] ? eq[i].nombre.replace(/^Equipo\s+/, '') + ': ' + t + ' s' : '')).join(' · ')}
+                      </div>
+                    )}
+                    {c.fase === 'menu' && (
+                      <React.Fragment>
+                        <div className="vgm-chips">
+                          {[['lenta', '🐢 Lenta'], ['media', 'Media'], ['rapida', '🐆 Rápida']].map(([v, t]) => (
+                            <button key={v} className={'vgm-chip' + (c.velocidad === v ? ' on' : '')} style={{ '--c': '#9CD38A' }} onClick={() => orden('ej-velocidad', { v })}>{t}</button>
+                          ))}
+                        </div>
+                        <button className="vgm-btn grande" onClick={() => orden('ej-empezar')}>▶ ¡Empezar!</button>
+                      </React.Fragment>
+                    )}
+                    {c.fase === 'espejo' && <button className="vgm-btn grande" onClick={() => orden('ej-entendido')}>✓ ¡Entendido!</button>}
+                    {c.fase === 'turno' && <button className="vgm-btn grande" onClick={() => orden('ej-iniciar')}>▶ Iniciar</button>}
+                    {congelado && (
+                      <button className="vgm-btn grande" onClick={() => orden('ej-siguiente')}>{c.ultimoTurno ? '🏁 Ver resultados' : '▶ Siguiente concursante'}</button>
+                    )}
+                    {(c.fase === 'cuenta' || c.fase === 'jugando') && (
+                      <button className="vgm-btn borde" onClick={() => orden('ej-pausa')}>{c.pausado ? '▶ Seguir (3, 2, 1)' : '⏸ Pausa'}</button>
+                    )}
+                    {enTurno && (
+                      <div className="vgm-fila">
+                        <button className="vgm-btn borde" onClick={() => orden('ej-reiniciar')}>↻ Reiniciar turno</button>
+                        <button className="vgm-btn borde" onClick={() => orden('ej-saltar')}>⏭ Saltar turno</button>
+                      </div>
+                    )}
+                    {(enTurno || c.fase === 'espejo') && <button className="vgm-btn borde" onClick={() => orden('ej-terminar')}>🏁 Terminar juego</button>}
+                    {c.fase === 'fin' && (
+                      <div className="vgm-fila">
+                        <button className="vgm-btn borde" onClick={() => orden('ej-otra')}>↻ Jugar otra vez</button>
+                        <button className="vgm-btn grande" onClick={() => orden('ej-montana')}>🏔 Ver la montaña</button>
+                      </div>
+                    )}
+                    {c.fase === 'montana' && <button className="vgm-btn grande" onClick={() => orden('ej-continuar')}>Continuar ›</button>}
+                    <button className="vgm-btn borde" onClick={() => orden('ej-silencio')}>{c.silencio ? '🔇 Sin sonido' : '🔊 Con sonido'}</button>
+                  </React.Fragment>
+                );
+              })() : st.capibara && st.capibara.juego === 'vf' ? (() => {
+                /* Verdadero o Falso en Movimiento: REVELAR / SIGUIENTE van primero (grandes);
+                   el celular muestra la respuesta antes (solo lo ve el docente). */
+                const c = st.capibara, af = c.afirmacion;
+                const enRonda = ['afirmacion', 'tiempo', 'revela'].includes(c.fase);
+                return (
+                  <React.Fragment>
+                    {(c.fase === 'afirmacion' || c.fase === 'tiempo') && (
+                      <button className="vgm-btn grande" style={{ minHeight: 110, fontSize: 28 }} onClick={() => orden('vf-revelar')}>👁 Revelar</button>
+                    )}
+                    {c.fase === 'revela' && (
+                      <button className="vgm-btn grande" style={{ minHeight: 100, fontSize: 26 }} onClick={() => orden('vf-siguiente')}>
+                        {c.unEquipo || c.quedan <= 0 ? '🏁 Ver ganador' : '▶ Siguiente afirmación'}
+                      </button>
+                    )}
+                    <div style={{ fontSize: 13, opacity: 0.85 }}>✔✗ Verdadero o Falso{enRonda ? ' · ' + c.n + '/' + c.total : ' · ' + c.total + ' afirmaciones'}</div>
+                    {enRonda && af && (
+                      <div style={{ fontSize: 15, fontWeight: 700 }}>
+                        «{af.texto}» <b style={{ color: af.valor ? '#39D353' : '#FF5470' }}>{af.valor ? '✔ Verdadero' : '✗ Falso'}</b>
+                      </div>
+                    )}
+                    {c.fase === 'afirmacion' && <button className="vgm-btn borde" onClick={() => orden('vf-pausa')}>{c.pausado ? '▶ Seguir' : '⏸ Pausa'}</button>}
+                    {enRonda && (
+                      <React.Fragment>
+                        {c.fase !== 'revela' && <div style={{ fontSize: 12, opacity: 0.7 }}>Los −1 se activan al revelar.</div>}
+                        <EnPieCel c={c} orden={orden} prefijo="vf" activo={c.fase === 'revela'} />
+                      </React.Fragment>
+                    )}
+                    {c.puedeDeshacer && <button className="vgm-btn borde" onClick={() => orden('vf-deshacer')}>↩ Deshacer</button>}
+                    {c.fase === 'menu' && (
+                      <React.Fragment>
+                        <div className="vgm-fila">
+                          <button className="vgm-btn borde" onClick={() => orden('vf-tiempo', { d: -1 })}>−</button>
+                          <div className="vgm-centro">{c.tiempo} s<small>para correr</small></div>
+                          <button className="vgm-btn borde" onClick={() => orden('vf-tiempo', { d: 1 })}>+</button>
+                        </div>
+                        <JugadoresCel c={c} orden={orden} prefijo="vf" />
+                        <button className="vgm-btn grande" disabled={!c.total} onClick={() => orden('vf-empezar')}>▶ ¡Empezar!</button>
+                      </React.Fragment>
+                    )}
+                    {enRonda && <button className="vgm-btn borde" onClick={() => orden('vf-terminar')}>🏁 Terminar juego</button>}
+                    {c.fase === 'fin' && (
+                      <div className="vgm-fila">
+                        <button className="vgm-btn borde" onClick={() => orden('vf-otra')}>↻ Jugar otra vez</button>
+                        <button className="vgm-btn grande" onClick={() => orden('vf-montana')}>🏔 Ver la montaña</button>
+                      </div>
+                    )}
+                    {c.fase === 'montana' && <button className="vgm-btn grande" onClick={() => orden('vf-continuar')}>Continuar ›</button>}
+                    <button className="vgm-btn borde" onClick={() => orden('vf-silencio')}>{c.silencio ? '🔇 Sin sonido' : '🔊 Con sonido'}</button>
+                  </React.Fragment>
+                );
+              })() : st.capibara && st.capibara.juego === 'semaforo' ? (() => {
+                /* Semáforo: PAUSA va primero (para descontar); −1 / +1 por equipo, deshacer y terminar. */
+                const c = st.capibara;
+                const enJuego = ['cuenta', 'juego', 'anuncio'].includes(c.fase);
+                return (
+                  <React.Fragment>
+                    {enJuego && (
+                      <button className={'vgm-btn grande' + (c.pausado ? '' : ' vgm-rojo')} style={{ minHeight: 110, fontSize: 28 }} onClick={() => orden('sf-pausa')}>
+                        {c.pausado ? (c.fase === 'anuncio' ? '▶ Seguir' : '▶ Seguir (3, 2, 1)') : '⏸ PAUSA'}
+                      </button>
+                    )}
+                    <div style={{ fontSize: 13, opacity: 0.85 }}>🚦 Semáforo{enJuego ? ' · ' + c.colores + ' colores' : ''}</div>
+                    {enJuego && <div style={{ fontSize: 13, opacity: 0.85 }}>{(c.activos || []).join(' · ')}</div>}
+                    {enJuego && <EnPieCel c={c} orden={orden} prefijo="sf" activo />}
+                    {c.puedeDeshacer && (enJuego || c.fase === 'fin') && <button className="vgm-btn borde" onClick={() => orden('sf-deshacer')}>↩ Deshacer</button>}
+                    {c.fase === 'anuncio' && !c.pausado && <button className="vgm-btn borde" onClick={() => orden('sf-saltar')}>⏭ Seguir jugando</button>}
+                    {c.fase === 'menu' && (
+                      <React.Fragment>
+                        <div className="vgm-chips">
+                          {[['lenta', '🐢 Lenta'], ['media', 'Media'], ['rapida', '🐆 Rápida']].map(([v, t]) => (
+                            <button key={v} className={'vgm-chip' + (c.vel === v ? ' on' : '')} style={{ '--c': '#9CD38A' }} onClick={() => orden('sf-velocidad', { v })}>{t}</button>
+                          ))}
+                        </div>
+                        <JugadoresCel c={c} orden={orden} prefijo="sf" />
+                        <button className="vgm-btn grande" onClick={() => orden('sf-empezar')}>▶ ¡Empezar!</button>
+                      </React.Fragment>
+                    )}
+                    {c.fase === 'reglas' && <button className="vgm-btn grande" onClick={() => orden('sf-iniciar')}>▶ ¡A jugar!</button>}
+                    {enJuego && <button className="vgm-btn borde" onClick={() => orden('sf-terminar')}>🏁 Terminar juego</button>}
+                    {c.fase === 'fin' && (
+                      <div className="vgm-fila">
+                        <button className="vgm-btn borde" onClick={() => orden('sf-otra')}>↻ Jugar otra vez</button>
+                        <button className="vgm-btn grande" onClick={() => orden('sf-montana')}>🏔 Ver la montaña</button>
+                      </div>
+                    )}
+                    {c.fase === 'montana' && <button className="vgm-btn grande" onClick={() => orden('sf-continuar')}>Continuar ›</button>}
+                    <button className="vgm-btn borde" onClick={() => orden('sf-silencio')}>{c.silencio ? '🔇 Sin sonido' : '🔊 Con sonido'}</button>
+                  </React.Fragment>
+                );
+              })() : st.capibara && st.capibara.juego === 'dedos' ? (() => {
                 /* Dedos Veloces: iniciar, repetir, pausar y (por turnos) siguiente concursante */
                 const c = st.capibara, eq = st.marcador || [];
                 const enRonda = ['presenta', 'cuenta', 'jugando', 'congela', 'finTurno', 'resultado'].includes(c.fase);

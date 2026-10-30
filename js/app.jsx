@@ -78,8 +78,14 @@ function App() {
   React.useEffect(() => { usarIconoPestana(!!user && modo === 'vigia'); }, [user, modo]);
 
   // Suscripción al estado de autenticación
+  const authPrevio = React.useRef({ respondio: false, user: null });
   React.useEffect(() => {
     const unsub = AIP.onAuth((u) => {
+      // Pantalla de carga Res Cogitans (index.html): se recuerda si hay sesión
+      // para mostrarla al recargar, y se muestra justo después de iniciar sesión.
+      try { if (u) localStorage.setItem('rc_sesion', '1'); else localStorage.removeItem('rc_sesion'); } catch (e) { /* sin almacenamiento */ }
+      if (u && authPrevio.current.respondio && !authPrevio.current.user && window.rcMostrarCarga) window.rcMostrarCarga();
+      authPrevio.current = { respondio: true, user: u || null };
       setUser(u || null);
       setAuthReady(true);
       if (!u) { setPresentations([]); setEditingId(null); setPresentingId(null); }
@@ -186,6 +192,13 @@ React.useEffect(() => {
   };
 
   const logout = () => { AIP.signOut(); };
+
+  // Retira la pantalla de carga Res Cogitans (index.html) cuando ya hay algo
+  // que mostrar: el inicio de sesión o el panel con las presentaciones.
+  const plataformaLista = authReady && (!user || (acceso !== null && (acceso !== 'aprobado' || !loadingData)));
+  React.useEffect(() => {
+    if (plataformaLista && window.RCLoader && RCLoader.current) RCLoader.current.hide();
+  }, [plataformaLista, user ? user.uid : null]);
 
   // ----- Render -----
 
@@ -374,7 +387,12 @@ function Root() {
     }
   }, [remoteCode]);
   if (remoteCode) return <RemoteControl initialCode={remoteCode} />;
-  return <App />;
+  return (
+    <React.Fragment>
+      <App />
+      {window.TerminosGate ? <TerminosGate /> : null}
+    </React.Fragment>
+  );
 }
 
 ReactDOM.createRoot(document.getElementById('root')).render(<Root />);
