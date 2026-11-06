@@ -157,6 +157,18 @@
     { id: 'cp-vf', nombre: 'Verdadero o Falso en Movimiento', icon: 'check', vfMovimiento: true,
       proposito: 'Aparece una afirmación: todos corren a la izquierda (verdadero) o a la derecha (falso) antes de que acabe el tiempo. Quien quede en el lado incorrecto, se sienta.',
       etiqueta: 'Indicaciones (opcional)', placeholder: 'Despejen el centro del salón. ¡Sin empujar!' },
+    // Esquiva la Lluvia (capibara-lluvia.jsx): zonas del piso; caen gotas, cocos y piedras y su sombra avisa dónde.
+    { id: 'cp-lluvia', nombre: 'Esquiva la Lluvia', icon: 'rayo', juegoCp: 'lluvia',
+      proposito: 'Caen gotas, cocos y piedras sobre zonas del piso; su sombra avisa dónde. ¡A una zona segura! Gana el último equipo con jugadores en pie.',
+      etiqueta: 'Indicaciones (opcional)', placeholder: 'Marquen las zonas con cinta. ¡Sin empujar!' },
+    // Ritmo y Memoria (capibara-ritmo.jsx): como Simon, con el cuerpo.
+    { id: 'cp-ritmo', nombre: 'Ritmo y Memoria', icon: 'sol', juegoCp: 'ritmo',
+      proposito: 'Como Simon, con el cuerpo: se muestra una secuencia de movimientos y el concursante la repite. Si acierta, crece. Gana el equipo que complete más.',
+      etiqueta: 'Indicaciones (opcional)', placeholder: 'Pasa un concursante por equipo al frente.' },
+    // Congelados por Números (capibara-congelados.jsx): caminar con música y agruparse según el número.
+    { id: 'cp-congelados', nombre: 'Congelados por Números', icon: 'trofeo', juegoCp: 'congelados',
+      proposito: 'Caminan con música; cuando se corta, aparece un número y hay que formar grupos de ese tamaño. Quien quede suelto, sale. Gana el último equipo en pie.',
+      etiqueta: 'Indicaciones (opcional)', placeholder: 'Despejen el centro del salón.' },
   ];
   DESAFIOS_CAPIBARA.forEach((d) => TIPOS.push(Object.assign({
     grupo: 'capibara', ruleta: false, escena: true, capibara: true, titular: d.nombre,
@@ -270,6 +282,10 @@
     if (ti.vfMovimiento) { a.tiempoVF = 8; a.jugadoresVF = 0; a.pasosVF = 3; a.afirmaciones = []; }
     if (ti.semaforo) { a.velocidadSemaforo = 'lenta'; a.cambiosSemaforo = 6; a.trampasSemaforo = true; a.jugadoresSemaforo = 0; a.pasosSemaforo = 3; }
     if (ti.jungla) { a.modoJungla = 'beam'; a.velocidadJungla = 'lenta'; a.rachaJungla = 8; a.rondasJungla = 2; a.objetosPorPaso = 10; }
+    // Esquiva la Lluvia, Ritmo y Memoria y Congelados por Números: jugadores por equipo (0 = los integrantes) y pasos del ganador.
+    if (ti.juegoCp === 'lluvia') { a.zonasLluvia = 4; a.velocidadLluvia = 'lenta'; a.jugadoresLluvia = 0; a.pasosLluvia = 3; }
+    if (ti.juegoCp === 'ritmo') { a.velocidadRitmo = 'media'; a.desbloqueoRitmo = 2; a.rondasRitmo = 1; a.pasosRitmo = 3; }
+    if (ti.juegoCp === 'congelados') { a.velocidadCongelados = 'lenta'; a.tiempoCongelados = 6; a.maxCongelados = 6; a.jugadoresCongelados = 0; a.pasosCongelados = 3; }
     if (ti.jaguar) { a.equipos = 3; a.enfrentar = ti.duelo ? 2 : 0; a.duelo = !!ti.duelo; if (ti.palabra) a.listaPalabras = (a.fragmento || '').trim().split(/\s+/)[0] || ''; }
     return a;
   }

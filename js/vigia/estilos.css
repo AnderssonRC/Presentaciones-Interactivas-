@@ -2832,8 +2832,18 @@ html.vg-sin-cursor, html.vg-sin-cursor * { cursor: none !important; }
 /* «Ver la montaña» encima de todo */
 .vg-cp-capa { z-index: 9000; animation: vgCpAparece .35s ease both; }
 /* Marcador de pasos */
-.vg-marcador-capibara .vg-cp-chip-ico { font-size: 20px; line-height: 1; }
-.vg-marcador-capibara .vg-marcador-mini { color: #FFFDF6; }
+/* «Volver a la presentación» en todos los juegos del Capibara (bajo el chip del mando) */
+.vg-cp-salir { position: fixed; top: 60px; right: 16px; z-index: 90; display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 14px; border-radius: 999px; cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 700;
+  background: rgba(10,6,4,.78); border: 1px solid rgba(156,211,138,.55); color: #FFF3E6; backdrop-filter: blur(6px);
+  opacity: .55; transition: opacity .2s; }
+.vg-cp-salir:hover, .vg-cp-salir:focus-visible { opacity: 1; }
+[data-vg-tono="luz"] .vg-cp-salir { background: rgba(20,12,4,.9); color: #FFFFFF; opacity: .8; }
+/* La montañita va en su propio círculo, centrada (como el puño del Jaguar). */
+.vg-marcador-capibara .vg-cp-chip-ico { flex: none; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center;
+  font-size: 16px; line-height: 1; background: rgba(156,211,138,.22); overflow: hidden; }
+.vg-marcador-capibara .vg-marcador-mini { display: inline-flex; align-items: center; gap: 3px; line-height: 1.2; color: #FFFDF6;
+  text-shadow: 0 1px 2px rgba(0,0,0,.65); }
 .vg-marcador-capibara .vg-marcador-titulo { color: #9CD38A; }
 .vg-marcador-capibara .vg-marcador-fila button:last-child { color: #FFFDF6; }
 /* Editor */
@@ -2893,6 +2903,17 @@ html.vg-sin-cursor, html.vg-sin-cursor * { cursor: none !important; }
 /* Capas (menú, turno, pausa, final) */
 .vg-mi-capa { position: absolute; inset: 0; z-index: 3; display: grid; place-items: center; padding: calc(var(--u) * 30px); background: rgba(42,26,12,.38); animation: vgCpAparece .35s ease both; overflow: auto; }
 .vg-mi-capa.abajo { place-items: end center; background: transparent; padding-bottom: calc(var(--u) * 120px); }
+/* Si una tarjeta es más alta que la pantalla, no se corta: se puede bajar con la rueda. */
+.vg-mi-capa:not(.abajo) { align-items: safe center; }
+/* Menú de los juegos (Muro, Jungla…): más compacto para que todo quepa en 16:9. */
+.vg-mi-tarjeta.menu { gap: calc(var(--u) * 10px); padding: calc(var(--u) * 24px) calc(var(--u) * 40px); }
+.vg-mi-tarjeta.menu .vg-mi-titulo { font-size: calc(var(--u) * 62px); }
+.vg-mi-tarjeta.menu .vg-mi-intro { font-size: calc(var(--u) * 25px) !important; line-height: 1.25; }
+.vg-mi-tarjeta.menu .vg-mi-sub { font-size: calc(var(--u) * 25px); }
+.vg-mi-tarjeta.menu .vg-mi-personajes button canvas { width: calc(var(--u) * 118px) !important; height: calc(var(--u) * 150px) !important; }
+.vg-mi-tarjeta.menu .vg-mi-personajes button { font-size: calc(var(--u) * 24px); }
+.vg-mi-tarjeta.menu .vg-cp-btn { font-size: calc(var(--u) * 26px); }
+.vg-mi-tarjeta.menu .vg-cp-btn.grande { font-size: calc(var(--u) * 34px); }
 .vg-mi-tarjeta { width: min(100%, calc(var(--u) * 1180px)); display: flex; flex-direction: column; align-items: center; gap: calc(var(--u) * 16px); text-align: center;
   padding: calc(var(--u) * 34px) calc(var(--u) * 44px); border-radius: calc(var(--u) * 36px); background: #FFFDF6; color: #3A2614;
   border: calc(var(--u) * 5px) solid #6B4A2B; box-shadow: 0 calc(var(--u) * 16px) calc(var(--u) * 40px) -10px rgba(42,26,12,.6); }
@@ -3025,7 +3046,11 @@ html.vg-sin-cursor, html.vg-sin-cursor * { cursor: none !important; }
 .vg-dd-prueba-cabeza h2 { margin: 0; font-style: italic; font-weight: 900; font-size: calc(var(--u) * 40px); color: #1F1408; }
 .vg-dd-prueba-cabeza p { margin: 0; font-weight: 700; font-size: calc(var(--u) * 22px); color: #3A2614; }
 .vg-dd .vg-dd-col:has(.vg-dd-prueba) { cursor: pointer; }
-.vg-dd-escenario:has(.vg-dd-prueba-cabeza) .vg-dd-columnas { top: calc(var(--u) * 30px); bottom: calc(var(--u) * 190px); }
+/* Prueba de teclas: el título y los botones van DEBAJO de las columnas, sin montarse. */
+.vg-dd-escenario:has(.vg-dd-prueba-cabeza) .vg-dd-columnas { top: calc(var(--u) * 30px); bottom: calc(var(--u) * 225px); }
+.vg-dd-prueba-cabeza { display: flex; flex-direction: column; align-items: center; gap: calc(var(--u) * 6px); bottom: calc(var(--u) * 16px); }
+.vg-dd-prueba-cabeza .vg-mi-fila { margin-top: calc(var(--u) * 6px); }
+.vg-dd-prueba-cabeza .vg-cp-btn, .vg-dd-prueba-cabeza .vg-cp-btn.grande { font-size: calc(var(--u) * 28px); }
 /* Por turnos: botón gigante y marcador fijo */
 .vg-dd-turno-nombre { position: absolute; top: calc(var(--u) * 150px); left: 50%; transform: translateX(-50%); white-space: nowrap; padding: calc(var(--u) * 6px) calc(var(--u) * 30px);
   border-radius: 999px; background: #FFFDF6; border: calc(var(--u) * 6px) solid var(--c); font-style: italic; font-weight: 900; font-size: calc(var(--u) * 44px); color: #1F1408; }
@@ -3320,3 +3345,125 @@ html.vg-sin-cursor, html.vg-sin-cursor * { cursor: none !important; }
 .vg-vf-texto { width: 100%; box-sizing: border-box; font-family: ui-monospace, Consolas, monospace; font-size: 13px; }
 .vg-vf-traer { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 @media (max-width: 700px) { .vg-vf-fila { flex-wrap: wrap; } }
+
+/* ---- Modo Capibara · Esquiva la Lluvia, Congelados por Números y Ritmo y Memoria (capibara-lluvia / congelados / ritmo.jsx).
+   Escenario 16:9 en unidades del lienzo (--u = px por unidad de 1600 × 900): sirve en 1024×768. Menús, pausas y
+   final con las tarjetas vg-mi-* (acuarela); jugadores en pie con las piezas vg-ep-* de capibara-comun.jsx. ---- */
+/* Comunes: arriba (ronda…), contadores grandes abajo, botones a la derecha, notas */
+.vg-ep-hud { position: absolute; z-index: 3; top: calc(var(--u) * 14px); left: 50%; transform: translateX(-50%); white-space: nowrap;
+  padding: calc(var(--u) * 6px) calc(var(--u) * 24px); border-radius: 999px; background: rgba(255,253,246,.94); color: #3A2614;
+  font-weight: 800; font-style: italic; font-size: calc(var(--u) * 26px); border: calc(var(--u) * 4px) solid var(--c, #6B4A2B);
+  box-shadow: 0 calc(var(--u) * 6px) calc(var(--u) * 16px) -6px rgba(42,26,12,.45); }
+.vg-ep-abajo { position: absolute; z-index: 3; left: calc(var(--u) * 12px); right: calc(var(--u) * 12px); bottom: calc(var(--u) * 12px); gap: calc(var(--u) * 10px); }
+.vg-ep-abajo .vg-ep-eq { font-size: calc(var(--u) * 46px); padding: calc(var(--u) * 2px) calc(var(--u) * 16px); background: rgba(255,253,246,.95); color: #2A1A0C;
+  box-shadow: 0 calc(var(--u) * 6px) calc(var(--u) * 14px) -6px rgba(42,26,12,.5); }
+.vg-ep-abajo .vg-ep-eq button.mas { border: 2px solid #6B4A2B; }
+.vg-ep-abajo .vg-ep-eq:has(button) { font-size: calc(var(--u) * 36px); padding: calc(var(--u) * 2px) calc(var(--u) * 10px); }
+.vg-ep-eq .nom { font-size: .5em; font-weight: 800; font-style: italic; }
+.vg-mi-botones.vg-ep-botones { top: calc(var(--u) * 90px); bottom: auto; }
+.vg-ep-nota, .vg-mi-tarjeta p.vg-ep-nota { margin: 0; max-width: 60em; font-weight: 700; font-size: calc(var(--u) * 22px); color: #6B4A2B; }
+.vg-mi-intro b { color: #A0461C; }
+
+/* Esquiva la Lluvia: cielo de acuarela, franja de zonas (SVG 1600 × 900) y aviso */
+.vg-ll-svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.vg-ll-cielo-a { stop-color: #A9D8EE; }
+.vg-ll-cielo-b { stop-color: #F4EBD3; }
+.vg-ll-nubes ellipse { fill: #FFFDF6; opacity: .78; }
+.vg-ll-num { font-family: 'Fraunces', Georgia, serif; font-weight: 900; font-size: 210px; fill: #2A1A0C; stroke: #FFFDF6; stroke-width: 8px; paint-order: stroke; }
+.vg-ll-res { font-family: 'Fraunces', Georgia, serif; font-style: italic; font-weight: 900; font-size: 54px; paint-order: stroke; stroke-width: 8px; }
+.vg-ll-res.fuera { fill: #FFFFFF; stroke: #7F1D1D; }
+.vg-ll-res.salvo { fill: #1F4D1A; stroke: #FFFDF6; }
+.vg-ll-alerta { position: absolute; z-index: 3; left: 50%; top: calc(var(--u) * 150px); transform: translateX(-50%); white-space: nowrap; pointer-events: none;
+  font-style: italic; font-weight: 900; font-size: calc(var(--u) * 86px); color: #B91C1C;
+  text-shadow: 0 0 calc(var(--u) * 10px) #FFFDF6, 0 calc(var(--u) * 5px) 0 #FFFDF6; animation: vgLlLate .5s ease-in-out infinite alternate; }
+.vg-ll-alerta.arriba { top: calc(var(--u) * 30px); z-index: 5; }
+@keyframes vgLlLate { from { transform: translateX(-50%) scale(1); } to { transform: translateX(-50%) scale(1.06); } }
+.vg-mi-tarjeta.vg-ll-elimina { position: absolute; z-index: 4; left: 50%; top: calc(var(--u) * 70px); transform: translateX(-50%); width: calc(var(--u) * 1180px);
+  box-sizing: border-box; gap: calc(var(--u) * 8px); padding: calc(var(--u) * 16px) calc(var(--u) * 30px); border-color: #D2453F; }
+.vg-ll-elimina h2 { font-size: calc(var(--u) * 48px); }
+.vg-ll-elimina p { font-size: calc(var(--u) * 26px); }
+.vg-ll-elimina p b { color: #B91C1C; }
+.vg-mi .vg-ll-elimina .vg-cp-btn { font-size: calc(var(--u) * 26px); }
+.vg-mi .vg-ll-elimina .vg-cp-btn.grande { font-size: calc(var(--u) * 32px); }
+.vg-ll-mini { display: flex; width: min(100%, calc(var(--u) * 900px)); height: calc(var(--u) * 90px); border: calc(var(--u) * 4px) solid #3A2614; border-radius: calc(var(--u) * 12px); overflow: hidden; }
+.vg-ll-mini span { flex: 1; display: grid; place-items: center; font-weight: 900; font-size: calc(var(--u) * 54px); color: #2A1A0C; border-left: calc(var(--u) * 4px) solid #3A2614; }
+.vg-ll-mini span:first-child { border-left: 0; }
+
+/* Congelados por Números: pradera con música, número gigante y cuenta regresiva */
+.vg-cg-caminar { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: calc(var(--u) * 12px); padding-bottom: calc(var(--u) * 80px);
+  background: radial-gradient(circle at 50% 55%, rgba(255,253,246,.65), transparent 60%),
+    repeating-linear-gradient(-45deg, #CFE8B0 0 calc(var(--u) * 60px), #BEDD98 calc(var(--u) * 60px) calc(var(--u) * 120px)); }
+.vg-cg-camina { font-style: italic; font-weight: 900; font-size: calc(var(--u) * 230px); line-height: 1; color: #2F6B2A;
+  text-shadow: 0 calc(var(--u) * 8px) 0 #FFFDF6, 0 calc(var(--u) * 16px) calc(var(--u) * 20px) rgba(42,26,12,.25); animation: vgCgPaso .5s ease-in-out infinite alternate; }
+.vg-cg-pies { font-size: calc(var(--u) * 90px); letter-spacing: .3em; animation: vgCgPaso .5s ease-in-out infinite alternate-reverse; }
+.vg-cg-sub { font-style: italic; font-weight: 800; font-size: calc(var(--u) * 34px); color: #3A2614; }
+.vg-cg-eq { display: flex; align-items: flex-end; gap: calc(var(--u) * 10px); height: calc(var(--u) * 90px); }
+.vg-cg-eq i { width: calc(var(--u) * 22px); height: 100%; border-radius: calc(var(--u) * 6px); background: linear-gradient(#F2B33D, #7DB46C); transform-origin: bottom;
+  animation: vgCgBarra .52s ease-in-out infinite alternate; }
+.vg-cg-caminar.quieto, .vg-cg-caminar.quieto * { animation-play-state: paused !important; }
+@keyframes vgCgPaso { from { transform: translateY(0) rotate(-2deg); } to { transform: translateY(calc(var(--u) * -18px)) rotate(2deg); } }
+@keyframes vgCgBarra { from { transform: scaleY(.2); } to { transform: scaleY(1); } }
+.vg-cg-numero { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; padding-bottom: calc(var(--u) * 90px); background: #FFF8E7; }
+.vg-cg-grupos { font-style: italic; font-weight: 900; font-size: calc(var(--u) * 70px); color: #3A2614; margin-bottom: calc(var(--u) * -30px); }
+.vg-cg-numero > b { font-weight: 900; font-size: calc(var(--u) * 560px); line-height: .9; color: #A0461C; font-variant-numeric: tabular-nums;
+  text-shadow: 0 calc(var(--u) * 14px) 0 #E9C98F; animation: vgCgNumero .45s cubic-bezier(.2,1.6,.4,1) both; }
+.vg-cg-numero.chico > b { font-size: calc(var(--u) * 300px); opacity: .3; }
+@keyframes vgCgNumero { from { transform: scale(2.2); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.vg-cg-reloj { --p: 1; position: absolute; right: calc(var(--u) * 90px); top: 50%; transform: translateY(-60%); width: calc(var(--u) * 230px); height: calc(var(--u) * 230px); border-radius: 50%;
+  display: grid; place-items: center; background: radial-gradient(closest-side, #FFF8E7 78%, transparent 79% 100%), conic-gradient(#5E9B57 calc(var(--p) * 1turn), rgba(58,38,20,.15) 0); }
+.vg-cg-reloj.poco { background: radial-gradient(closest-side, #FFF8E7 78%, transparent 79% 100%), conic-gradient(#D2453F calc(var(--p) * 1turn), rgba(58,38,20,.15) 0); }
+.vg-cg-reloj span { font-weight: 900; font-size: calc(var(--u) * 120px); color: #3A2614; font-variant-numeric: tabular-nums; }
+.vg-cg-tiempo { position: absolute; z-index: 4; left: 50%; top: 45%; padding: .1em .5em; border-radius: .2em; background: #D2453F; color: #FFFDF6; white-space: nowrap;
+  font-style: italic; font-weight: 900; font-size: calc(var(--u) * 180px); box-shadow: 0 calc(var(--u) * 16px) calc(var(--u) * 40px) -10px rgba(42,26,12,.6);
+  transform: translate(-50%, -50%) rotate(-5deg); animation: vgCgTiempo .4s cubic-bezier(.2,1.5,.4,1) both; }
+@keyframes vgCgTiempo { from { opacity: 0; transform: translate(-50%, -50%) rotate(-5deg) scale(1.8); } to { opacity: 1; transform: translate(-50%, -50%) rotate(-5deg) scale(1); } }
+
+/* Ritmo y Memoria: figura enorme por movimiento, pantalla en blanco con pulso y juez */
+.vg-rt-escenario { background: #FFF8E7; }
+.vg-rt-muestra { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; padding-bottom: calc(var(--u) * 40px); }
+.vg-rt-mira { font-style: italic; font-weight: 900; font-size: calc(var(--u) * 150px); color: #3A2614; animation: vgCgNumero .4s ease-out both; }
+.vg-rt-mov { display: flex; flex-direction: column; align-items: center; color: #2A1A0C; animation: vgRtEntra .22s cubic-bezier(.2,1.4,.4,1) both; }
+.vg-rt-figura { display: block; }
+.vg-rt-mov .vg-rt-figura { width: calc(var(--u) * 400px); height: calc(var(--u) * 560px); box-sizing: border-box; padding: calc(var(--u) * 24px); border-radius: calc(var(--u) * 50px);
+  border: calc(var(--u) * 8px) solid var(--rt); background: color-mix(in srgb, var(--rt) 16%, #FFFDF6); box-shadow: 0 calc(var(--u) * 14px) calc(var(--u) * 30px) -10px rgba(42,26,12,.45); }
+.vg-rt-nombre { margin-top: calc(var(--u) * 6px); font-style: italic; font-weight: 900; font-size: calc(var(--u) * 110px); line-height: 1.05; color: color-mix(in srgb, var(--rt) 70%, #2A1A0C); }
+.vg-rt-mov.chico .vg-rt-figura { width: calc(var(--u) * 270px); height: calc(var(--u) * 380px); }
+.vg-rt-mov.chico .vg-rt-nombre { font-size: calc(var(--u) * 72px); }
+@keyframes vgRtEntra { from { transform: scale(.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.vg-rt-puntos { position: absolute; bottom: calc(var(--u) * 24px); left: 0; right: 0; display: flex; justify-content: center; flex-wrap: wrap; gap: calc(var(--u) * 10px); }
+.vg-rt-puntos i { width: calc(var(--u) * 26px); height: calc(var(--u) * 26px); border-radius: 50%; border: calc(var(--u) * 4px) solid rgba(58,38,20,.45); box-sizing: border-box; }
+.vg-rt-puntos i.on { background: #3A2614; border-color: #3A2614; }
+.vg-rt-puntos i.ya { border-color: #A0461C; }
+.vg-rt-repite { position: absolute; inset: 0; background: #FFFFFF; }
+.vg-rt-pulso { position: absolute; left: 50%; top: 48%; width: calc(var(--u) * 520px); height: calc(var(--u) * 520px); border-radius: 50%; pointer-events: none;
+  border: calc(var(--u) * 14px) solid var(--rt, #7DB46C); box-shadow: 0 0 calc(var(--u) * 40px) color-mix(in srgb, var(--rt, #7DB46C) 50%, transparent);
+  transform: translate(-50%, -50%); animation: vgRtPulso 1s ease-out both; }
+.vg-rt-pulso.fuerte { border-width: calc(var(--u) * 24px); }
+@keyframes vgRtPulso { from { transform: translate(-50%, -50%) scale(1.15); opacity: .95; } to { transform: translate(-50%, -50%) scale(.7); opacity: .2; } }
+.vg-rt-tuturno { position: absolute; top: calc(var(--u) * 170px); left: 0; right: 0; text-align: center; font-style: italic; font-weight: 900; font-size: calc(var(--u) * 56px); color: #3A2614; }
+.vg-rt-tuturno b { color: #A0461C; }
+.vg-rt-juez { position: absolute; bottom: calc(var(--u) * 30px); left: 0; right: 0; display: flex; justify-content: center; align-items: center; gap: calc(var(--u) * 20px); }
+.vg-mi .vg-cp-btn.vg-rt-no { color: #FFFFFF; background: linear-gradient(180deg, #FF4D4D, #C62828); box-shadow: 0 .3em 0 #7F1D1D; }
+.vg-rt-bien { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; font-style: italic; font-weight: 900;
+  font-size: calc(var(--u) * 200px); color: #3E7339; text-shadow: 0 calc(var(--u) * 8px) 0 #E3F1D8; animation: vgCgNumero .4s ease-out both; }
+.vg-rt-bien small { font-size: .3em; color: #3A2614; text-shadow: none; }
+.vg-rt-banco { display: flex; flex-wrap: wrap; justify-content: center; gap: calc(var(--u) * 20px); }
+.vg-rt-tile { display: flex; flex-direction: column; align-items: center; gap: calc(var(--u) * 6px); padding: calc(var(--u) * 10px) calc(var(--u) * 20px); border-radius: calc(var(--u) * 22px);
+  border: calc(var(--u) * 4px) solid var(--rt); background: color-mix(in srgb, var(--rt) 14%, #FFFDF6); color: #2A1A0C; font-style: italic; font-weight: 900; font-size: calc(var(--u) * 26px); }
+.vg-rt-tile .vg-rt-figura { width: calc(var(--u) * 110px); height: calc(var(--u) * 165px); }
+.vg-rt-marcador { display: flex; flex-wrap: wrap; justify-content: center; gap: calc(var(--u) * 12px); font-weight: 800; font-size: calc(var(--u) * 30px); }
+.vg-rt-marcador span { display: inline-flex; align-items: center; gap: .3em; padding: calc(var(--u) * 4px) calc(var(--u) * 16px); border-radius: 999px; border: calc(var(--u) * 3px) solid var(--c); }
+.vg-rt-marcador b { color: #A0461C; }
+
+/* Exceso de luz: fondos aún más claros; el texto ya es oscuro */
+[data-vg-tono="luz"] .vg-ll, [data-vg-tono="luz"] .vg-cg, [data-vg-tono="luz"] .vg-rt { background: #FFFFFF; }
+[data-vg-tono="luz"] .vg-ll-cielo-a { stop-color: #E3F3FB; }
+[data-vg-tono="luz"] .vg-ll-cielo-b { stop-color: #FFFFFF; }
+[data-vg-tono="luz"] .vg-ll-nubes ellipse { opacity: .5; }
+[data-vg-tono="luz"] .vg-cg-caminar { background: repeating-linear-gradient(-45deg, #EEF8E4 0 calc(var(--u) * 60px), #E2F2D0 calc(var(--u) * 60px) calc(var(--u) * 120px)); }
+[data-vg-tono="luz"] .vg-cg-numero, [data-vg-tono="luz"] .vg-rt-escenario, [data-vg-tono="luz"] .vg-rt-repite { background: #FFFFFF; }
+[data-vg-tono="luz"] .vg-cg-reloj { background: radial-gradient(closest-side, #FFFFFF 78%, transparent 79% 100%), conic-gradient(#3E7339 calc(var(--p) * 1turn), rgba(58,38,20,.15) 0); }
+[data-vg-tono="luz"] .vg-cg-reloj.poco { background: radial-gradient(closest-side, #FFFFFF 78%, transparent 79% 100%), conic-gradient(#B91C1C calc(var(--p) * 1turn), rgba(58,38,20,.15) 0); }
+[data-vg-tono="luz"] .vg-ep-hud { background: #FFFFFF; }
+[data-vg-tono="luz"] .vg-rt-mov .vg-rt-figura, [data-vg-tono="luz"] .vg-rt-tile { background: #FFFFFF; box-shadow: none; }
+@media (prefers-reduced-motion: reduce) { .vg-cg-camina, .vg-cg-pies, .vg-cg-eq i, .vg-ll-alerta { animation: none; } }

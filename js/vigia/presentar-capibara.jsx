@@ -66,15 +66,37 @@ function useCapibaraEstado() {
 // «🏔 Ver la montaña» encima de la presentación (abre o cierra).
 function capibaraVerMontana(v) { cambiarJaguar((s) => ({ verMontana: typeof v === 'boolean' ? v : !s.verMontana })); }
 
-/* Elige el juego del Modo Capibara según el tipo. */
+/* Elige el juego del Modo Capibara según el tipo. Todos llevan, arriba a la
+   derecha, «Volver a la presentación» (también en el celular: 'cp-salir'). */
 function CapibaraActivacion(props) {
-  if (props.a && props.a.tipo === 'cp-muro' && window.MuroInfernal) return <MuroInfernal {...props} />;   // capibara-muro.jsx
-  if (props.a && props.a.tipo === 'cp-jungla' && window.JunglaCapibara) return <JunglaCapibara {...props} />;   // capibara-jungla.jsx
-  if (props.a && props.a.tipo === 'cp-dedos' && window.DedosVeloces) return <DedosVeloces {...props} />;   // capibara-dedos.jsx
-  if (props.a && props.a.tipo === 'cp-espejo' && window.EspejoEnVivo) return <EspejoEnVivo {...props} />;   // capibara-espejo.jsx
-  if (props.a && props.a.tipo === 'cp-semaforo' && window.SemaforoCapibara) return <SemaforoCapibara {...props} />;   // capibara-semaforo.jsx
-  if (props.a && props.a.tipo === 'cp-vf' && window.VerdaderoFalsoMovimiento) return <VerdaderoFalsoMovimiento {...props} />;   // capibara-vf.jsx
-  return <HistoriaCapibara {...props} />;
+  const t = props.a && props.a.tipo;
+  let juego;
+  if (t === 'cp-muro' && window.MuroInfernal) juego = <MuroInfernal {...props} />;   // capibara-muro.jsx
+  else if (t === 'cp-jungla' && window.JunglaCapibara) juego = <JunglaCapibara {...props} />;   // capibara-jungla.jsx
+  else if (t === 'cp-dedos' && window.DedosVeloces) juego = <DedosVeloces {...props} />;   // capibara-dedos.jsx
+  else if (t === 'cp-espejo' && window.EspejoEnVivo) juego = <EspejoEnVivo {...props} />;   // capibara-espejo.jsx
+  else if (t === 'cp-semaforo' && window.SemaforoCapibara) juego = <SemaforoCapibara {...props} />;   // capibara-semaforo.jsx
+  else if (t === 'cp-vf' && window.VerdaderoFalsoMovimiento) juego = <VerdaderoFalsoMovimiento {...props} />;   // capibara-vf.jsx
+  else if (t === 'cp-lluvia' && window.EsquivaLluvia) juego = <EsquivaLluvia {...props} />;   // capibara-lluvia.jsx
+  else if (t === 'cp-ritmo' && window.RitmoMemoria) juego = <RitmoMemoria {...props} />;   // capibara-ritmo.jsx
+  else if (t === 'cp-congelados' && window.CongeladosNumeros) juego = <CongeladosNumeros {...props} />;   // capibara-congelados.jsx
+  else juego = <HistoriaCapibara {...props} />;
+  const salir = () => { if (props.onContinuar) props.onContinuar(); };
+  const preguntarSalir = () => {
+    vigiaConfirmar('Los pasos que ya ganaron los equipos se conservan.',
+      { titulo: '¿Salir de la activación y volver a la presentación?', aceptar: 'Sí, volver' })
+      .then((ok) => { if (ok) salir(); });
+  };
+  // Desde el celular ya se confirmó allá: sale directo.
+  useOrdenMando((o) => { if (o.accion === 'cp-salir') salir(); });
+  return (
+    <React.Fragment>
+      {juego}
+      <button type="button" className="vg-cp-salir" onClick={preguntarSalir} title="Salir de la activación y volver a la presentación">
+        ↩ Volver a la presentación
+      </button>
+    </React.Fragment>
+  );
 }
 
 /* Texto que aparece palabra por palabra, suave, como en un cuento. */

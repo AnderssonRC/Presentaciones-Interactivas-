@@ -17,7 +17,8 @@ El usuario es docente y escribe en español: responder en español, simple y sin
   Juegos del Capibara en archivos propios: `capibara-muro.jsx` (Muro Infernal), `capibara-jungla.jsx`
   (Movimiento de la Jungla), `capibara-dedos.jsx` (Dedos Veloces), `capibara-espejo.jsx` (Espejo en Vivo;
   usa el banco de poses y la silueta del Muro), `capibara-semaforo.jsx` (Semáforo; banco de colores `BANCO_SEMAFORO`), `capibara-vf.jsx` (Verdadero o Falso
-  en Movimiento; afirmaciones en el formato de la actividad `vf` de la plataforma). Lo compartido (audio, lienzo, concursantes, turnos, menú, tabla, montaña)
+  en Movimiento; afirmaciones en el formato de la actividad `vf` de la plataforma), `capibara-lluvia.jsx` (Esquiva la Lluvia),
+  `capibara-ritmo.jsx` (Ritmo y Memoria), `capibara-congelados.jsx` (Congelados por Números). Lo compartido (audio, lienzo, concursantes, turnos, menú, tabla, montaña)
   está en `capibara-comun.jsx`: los juegos nuevos lo reutilizan (también «jugadores en pie» para juegos de eliminación).
 - `mando.jsx` (lado televisor) · `mando-celular.jsx` (lado celular, con su propio CSS).
 - `herramientas.jsx`: pincel (lupa, marcador, puntero, texto, QR, sortear).

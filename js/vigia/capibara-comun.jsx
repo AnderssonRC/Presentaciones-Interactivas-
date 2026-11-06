@@ -14,7 +14,10 @@
      `MontanaFinalCp` (la montaña al terminar cada juego).
    · Jugadores en pie (juegos de eliminación: Semáforo, Verdadero o Falso…):
      `nuevoEnPieCp`, `cambiarEnPieCp`, `deshacerEnPieCp`, `registrarGanadoresCp`,
-     `JugadoresEnPieCp`, `TarjetasEnPieCp`, `ContadoresEnPieCp`, `equipoDeTeclaCp`. */
+     `JugadoresEnPieCp`, `TarjetasEnPieCp`, `ContadoresEnPieCp`, `equipoDeTeclaCp`.
+   · Juegos nuevos (Esquiva la Lluvia, Ritmo y Memoria, Congelados por Números):
+     `useEquiposCp` (equipos de la sesión), `usePublicarCp` (estado para el celular),
+     `SONIDO_CP`, `AjusteCp`, `OpcionesCp`, `BotonSonidoCp`, `PausaEnPieCp`, `FinJuegoCp`. */
 
 /* ============================== AUDIO ============================== */
 let audioCtxCp = null;
@@ -257,8 +260,9 @@ function TarjetasEnPieCp({ eqV, E, onCambiar }) {
   );
 }
 /* Contadores por equipo (fila de chips). `onTocar(i)`: al tocar un chip.
-   `onCambiar(i, d)`: muestra − y + en cada chip. `grande`: contador enorme. */
-function ContadoresEnPieCp({ eqV, E, onTocar, onCambiar, grande, clase }) {
+   `onCambiar(i, d)`: muestra − y + en cada chip. `grande`: contador enorme.
+   `conNombre`: el nombre corto del equipo junto al número (Modo Jaguar). */
+function ContadoresEnPieCp({ eqV, E, onTocar, onCambiar, grande, clase, conNombre }) {
   return (
     <div className={'vg-ep-equipos' + (grande ? ' grande' : '') + (clase ? ' ' + clase : '')}>
       {eqV.map((e, i) => (
@@ -266,7 +270,7 @@ function ContadoresEnPieCp({ eqV, E, onTocar, onCambiar, grande, clase }) {
           onClick={onTocar ? () => onTocar(i) : undefined} role={onTocar ? 'button' : undefined}
           title={'Tecla ' + (i === 9 ? 0 : i + 1) + (onCambiar ? ' (Shift + tecla: +1)' : '')}>
           {onCambiar && <button type="button" className="menos" onClick={(ev) => { ev.stopPropagation(); onCambiar(i, -1); }} disabled={!E.enPie[i]} aria-label={'Descontar 1 a ' + e.nombre}>−1</button>}
-          <span className="emo">{e.emoji}</span><b>{E.enPie[i]}</b><small>🧍</small>
+          <span className="emo">{e.emoji}</span>{conNombre && <strong className="nom">{e.corto}</strong>}<b>{E.enPie[i]}</b><small>🧍</small>
           {onCambiar && <button type="button" className="mas" onClick={(ev) => { ev.stopPropagation(); onCambiar(i, 1); }} disabled={E.enPie[i] >= E.inicial[i]} aria-label={'Devolver 1 a ' + e.nombre}>+1</button>}
         </div>
       ))}
@@ -279,9 +283,111 @@ function equipoDeTeclaCp(e) {
   return m ? (m[1] === '0' ? 9 : Number(m[1]) - 1) : -1;
 }
 
+/* =================== PIEZAS DE LOS JUEGOS NUEVOS ===================
+   Esquiva la Lluvia, Ritmo y Memoria, Congelados por Números (y los que vengan). */
+const limitarCp = (v, a, b, d) => Math.max(a, Math.min(b, Number(v) || d));
+// Equipos de la sesión (si es la primera actividad con equipos, se reparten aquí) con sus colores y animales.
+function useEquiposCp(a, estudiantes) {
+  const nombres = (estudiantes || []).map((s) => (s || '').trim()).filter(Boolean);
+  const sesion = useJaguarEstado();
+  const nEq = Math.max(2, Math.min(PALETA_CAPIBARA.length, jaguarSesion().n || (a && a.equipos) || 2));
+  const [provisional] = React.useState(() => jaguarSesion().equipos || jaguarRepartir(nombres, nEq));
+  const equipos = sesion.equipos || provisional;
+  React.useEffect(() => {
+    if (!jaguarSesion().equipos) cambiarJaguar(() => ({ equipos: provisional }));
+    jaguarIniciar();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return { sesion, equipos, eqV: equiposCapibara(equipos) };
+}
+// Estado del juego para el celular (estado espejo `capibara`); solo cuando cambia algo.
+function usePublicarCp(estado) {
+  const clave = JSON.stringify(estado);
+  React.useEffect(() => { fijarEstadoCapibara(estado); }, [clave]);   // eslint-disable-line react-hooks/exhaustive-deps
+  React.useEffect(() => () => fijarEstadoCapibara(null), []);
+}
+const enCampoCp = (e) => !!(e.target && /input|textarea|select/i.test(e.target.tagName));
+function pantallaCompletaCp() {
+  try { if (!document.fullscreenElement && document.documentElement.requestFullscreen) document.documentElement.requestFullscreen(); } catch (e) { /* */ }
+}
+// Sonidos comunes (los propios de cada juego van en su archivo).
+const SONIDO_CP = {
+  cuenta: () => tonoCp(660, 0.12, 'square', 0.12),
+  pausa: () => tonoCp(440, 0.18, 'sine', 0.12, 0, 330),
+  elimina: () => tonoCp(300, 0.35, 'sawtooth', 0.12, 0, 90),
+  corrige: () => tonoCp(700, 0.15, 'sine', 0.12, 0, 1000),
+  ganador: () => [523, 659, 784, 1047, 1319].forEach((f, i) => tonoCp(f, 0.25, 'triangle', 0.17, i * 0.1)),
+};
+// Ajuste − n + y opciones excluyentes (menús).
+function AjusteCp({ etiqueta, valor, sufijo, onCambiar, min, max }) {
+  return (
+    <div className="vg-mi-ajuste">
+      <span>{etiqueta}</span>
+      <button type="button" onClick={() => onCambiar(-1)} disabled={valor <= min} aria-label={'Menos: ' + etiqueta}>−</button>
+      <b>{valor}{sufijo ? ' ' + sufijo : ''}</b>
+      <button type="button" onClick={() => onCambiar(1)} disabled={valor >= max} aria-label={'Más: ' + etiqueta}>+</button>
+    </div>
+  );
+}
+function OpcionesCp({ etiqueta, opciones, valor, onElegir }) {
+  return (
+    <div className="vg-mi-ajuste" role="radiogroup" aria-label={etiqueta}>
+      {etiqueta && <span>{etiqueta}</span>}
+      {opciones.map(([v, txt]) => (
+        <button key={v} type="button" role="radio" aria-checked={valor === v} className={'vg-jn-vel' + (valor === v ? ' on' : '')} onClick={() => onElegir(v)}>{txt}</button>
+      ))}
+    </div>
+  );
+}
+function BotonSonidoCp({ silencio, onCambiar }) {
+  return <button type="button" className="vg-cp-btn suave" onClick={onCambiar} title="Silenciar (M)">{silencio ? '🔇 Sin sonido' : '🔊 Con sonido'}</button>;
+}
+// Pausa de eliminación: tarjetas −1 / +1, Deshacer, Terminar y Seguir.
+function PausaEnPieCp({ titulo, eqV, E, onCambiar, onDeshacer, onTerminar, onSeguir, textoSeguir, children }) {
+  return (
+    <div className="vg-mi-capa">
+      <div className="vg-mi-tarjeta vg-sf-pausa">
+        <h2>{titulo}</h2>
+        {children}
+        <TarjetasEnPieCp eqV={eqV} E={E} onCambiar={onCambiar} />
+        <div className="vg-mi-fila">
+          {E.historial.length > 0 && <button type="button" className="vg-cp-btn suave" onClick={onDeshacer}>↩ Deshacer (D)</button>}
+          <button type="button" className="vg-cp-btn suave" onClick={onTerminar}>🏁 Terminar juego</button>
+          <button type="button" className="vg-cp-btn grande" onClick={onSeguir}>{textoSeguir || '▶ Seguir'}</button>
+        </div>
+        <span className="vg-sf-ayuda">Teclas 1–9 / 0: −1 al equipo · Shift + número: +1 · D o Re Pág: deshacer · Espacio: seguir</span>
+      </div>
+    </div>
+  );
+}
+// Final: ganador, pasos hacia Jomu, tabla, enlace y botones (montaña al final).
+function FinJuegoCp({ a, equipos, eqV, ganadores, pasos, filas, titulo, puedeDeshacer, onDeshacer, onOtra, onMontana }) {
+  const uno = ganadores.length === 1 ? eqV[ganadores[0]] : null;
+  return (
+    <div className="vg-mi-capa">
+      <div className="vg-mi-tarjeta fin">
+        <div className="vg-cp-kicker">{titulo}</div>
+        <h1 className="vg-mi-titulo">
+          {uno ? uno.emoji + ' ¡Ganó el ' + uno.nombre + '!' : ganadores.length > 1 ? '¡Empate! ' + ganadores.map((i) => eqV[i].emoji).join(' ') : '¡Fin del juego!'}
+        </h1>
+        {ganadores.length > 0 && <p className="vg-mi-sub">+{pasos} {pasos === 1 ? 'paso' : 'pasos'} hacia Jomu</p>}
+        <TablaFinalCp filas={filas} />
+        {uno && a.enlace && equipos[ganadores[0]] && <EnlaceJaguar enlace={a.enlace} equipo={equipos[ganadores[0]]} i={ganadores[0]} id={a.id} />}
+        <div className="vg-mi-fila">
+          {puedeDeshacer && <button type="button" className="vg-cp-btn suave" onClick={onDeshacer}>↩ Deshacer el último</button>}
+          <button type="button" className="vg-cp-btn suave" onClick={onOtra}>↻ Jugar otra vez</button>
+          <button type="button" className="vg-cp-btn grande" onClick={onMontana}>🏔 Ver la montaña</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 Object.assign(window, {
   audioCapibara, lineaCp, circuloCp, rrCp, useLienzoCp, siguienteConcursanteCp, siguienteTurnoCp,
   SelectorPersonajeCp, ChipsEquiposCp, TablaFinalCp, MontanaFinalCp,
   jugadoresInicialesCp, nuevoEnPieCp, cambiarEnPieCp, deshacerEnPieCp, equiposEnPieCp, registrarGanadoresCp, anularGanadoresCp,
   tablaEnPieCp, JugadoresEnPieCp, TarjetasEnPieCp, ContadoresEnPieCp, equipoDeTeclaCp,
+  limitarCp, useEquiposCp, usePublicarCp, enCampoCp, pantallaCompletaCp, SONIDO_CP,
+  AjusteCp, OpcionesCp, BotonSonidoCp, PausaEnPieCp, FinJuegoCp,
 });

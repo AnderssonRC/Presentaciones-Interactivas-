@@ -1250,6 +1250,53 @@ function ConfigActivacion({ a, onCambiar, onBorrar, tiempoActual, duracion, hayE
               )}
             </React.Fragment>
           )}
+          {/* Esquiva la Lluvia, Ritmo y Memoria y Congelados por Números: sus ajustes (también se cambian al empezar). */}
+          {ti.juegoCp && (() => {
+            const num = (campo, min, max, def) => (
+              <input type="number" min={min} max={max} value={a[campo] === undefined ? def : a[campo]} style={{ width: 80 }}
+                onChange={(e) => set({ [campo]: Math.max(min, Math.min(max, Number(e.target.value) || (min === 0 ? 0 : def))) })} />
+            );
+            const segmento = (campo, def, opciones, etiqueta) => (
+              <div className="vg-segmento" role="radiogroup" aria-label={etiqueta}>
+                {opciones.map(([v, txt]) => (
+                  <button key={v} role="radio" aria-checked={(a[campo] || def) === v} className={(a[campo] || def) === v ? 'on' : ''}
+                    onClick={() => set({ [campo]: v })}>{txt}</button>
+                ))}
+              </div>
+            );
+            const nota = (t) => <span style={{ fontWeight: 600, color: 'var(--muted)' }}>{t}</span>;
+            const velocidades = [['lenta', '🐢 Lenta'], ['media', 'Media'], ['rapida', '🐆 Rápida']];
+            return (
+              <React.Fragment>
+                {ti.juegoCp === 'lluvia' && (
+                  <React.Fragment>
+                    <div className="vg-jaguar-fila"><span>Zonas en el piso</span>{num('zonasLluvia', 3, 6, 4)}{nota('3 a 6 · márcalas con cinta frente al video beam')}</div>
+                    <div className="vg-jaguar-fila"><span>Velocidad inicial</span>{segmento('velocidadLluvia', 'lenta', velocidades, 'Velocidad inicial')}</div>
+                    <div className="vg-jaguar-fila"><span>🧍 Jugadores por equipo</span>{num('jugadoresLluvia', 0, 40, 0)}{nota('0 = los integrantes de cada equipo')}</div>
+                    <div className="vg-jaguar-fila"><span>🏔 Pasos del ganador</span>{num('pasosLluvia', 1, 10, 3)}{nota('para el último equipo en pie')}</div>
+                  </React.Fragment>
+                )}
+                {ti.juegoCp === 'ritmo' && (
+                  <React.Fragment>
+                    <div className="vg-jaguar-fila"><span>Velocidad de la secuencia</span>{segmento('velocidadRitmo', 'media', velocidades, 'Velocidad de la secuencia')}</div>
+                    <div className="vg-jaguar-fila"><span>Movimiento nuevo cada</span>{num('desbloqueoRitmo', 1, 6, 2)}{nota('rondas (se empieza con aplauso, salto y pisotón)')}</div>
+                    <div className="vg-jaguar-fila"><span>Concursantes por equipo</span>{num('rondasRitmo', 1, 5, 1)}{nota('pasan por turnos, sin repetir')}</div>
+                    <div className="vg-jaguar-fila"><span>🏔 Pasos del ganador</span>{num('pasosRitmo', 1, 10, 3)}{nota('para el equipo con más movimientos')}</div>
+                  </React.Fragment>
+                )}
+                {ti.juegoCp === 'congelados' && (
+                  <React.Fragment>
+                    <div className="vg-jaguar-fila"><span>Tiempo caminando</span>{segmento('velocidadCongelados', 'lenta', [['lenta', 'Largo'], ['media', 'Medio'], ['rapida', 'Corto']], 'Tiempo caminando')}{nota('siempre al azar')}</div>
+                    <div className="vg-jaguar-fila"><span>⏱ Para agruparse</span>{num('tiempoCongelados', 3, 15, 6)}{nota('segundos')}</div>
+                    <div className="vg-jaguar-fila"><span>Número máximo</span>{num('maxCongelados', 3, 10, 6)}{nota('baja solo si quedan menos jugadores')}</div>
+                    <div className="vg-jaguar-fila"><span>🧍 Jugadores por equipo</span>{num('jugadoresCongelados', 0, 40, 0)}{nota('0 = los integrantes de cada equipo')}</div>
+                    <div className="vg-jaguar-fila"><span>🏔 Pasos del ganador</span>{num('pasosCongelados', 1, 10, 3)}{nota('para el último equipo en pie')}</div>
+                  </React.Fragment>
+                )}
+                <span className="vg-jaguar-nota">Juegan todos los equipos a la vez. Desde el celular tienes los mismos botones de la pantalla.</span>
+              </React.Fragment>
+            );
+          })()}
           {/* Semáforo: velocidad, cambios por color nuevo, trampas, jugadores por equipo y pasos del ganador. */}
           {ti.semaforo && (
             <React.Fragment>

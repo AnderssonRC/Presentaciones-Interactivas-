@@ -194,6 +194,163 @@ function JugadoresCel({ c, orden, prefijo }) {
   );
 }
 
+/* ====== Modo Capibara · Esquiva la Lluvia, Congelados por Números y Ritmo y Memoria ======
+   c = estado `capibara` del juego ({ juego, fase, eqs, … }). Usan EnPieCel y JugadoresCel. */
+const VELOCIDADES_CEL = [['lenta', '🐢 Lenta'], ['media', 'Media'], ['rapida', '🐆 Rápida']];
+function ChipsVelCel({ valor, onElegir, opciones }) {
+  return (
+    <div className="vgm-chips">
+      {(opciones || VELOCIDADES_CEL).map(([v, t]) => (
+        <button key={v} className={'vgm-chip' + (valor === v ? ' on' : '')} style={{ '--c': '#9CD38A' }} onClick={() => onElegir(v)}>{t}</button>
+      ))}
+    </div>
+  );
+}
+function AjusteCel({ valor, texto, onCambiar }) {
+  return (
+    <div className="vgm-fila">
+      <button className="vgm-btn borde" onClick={() => onCambiar(-1)}>−</button>
+      <div className="vgm-centro">{valor}<small>{texto}</small></div>
+      <button className="vgm-btn borde" onClick={() => onCambiar(1)}>+</button>
+    </div>
+  );
+}
+// Final de estos juegos: deshacer, otra vez, la montaña y continuar.
+function FinCpCel({ c, orden, prefijo }) {
+  return (
+    <React.Fragment>
+      {c.fase === 'fin' && c.puedeDeshacer && <button className="vgm-btn borde" onClick={() => orden(prefijo + '-deshacer')}>↩ Deshacer el último</button>}
+      {c.fase === 'fin' && (
+        <div className="vgm-fila">
+          <button className="vgm-btn borde" onClick={() => orden(prefijo + '-otra')}>↻ Jugar otra vez</button>
+          <button className="vgm-btn grande" onClick={() => orden(prefijo + '-montana')}>🏔 Ver la montaña</button>
+        </div>
+      )}
+      {c.fase === 'montana' && <button className="vgm-btn grande" onClick={() => orden(prefijo + '-continuar')}>Continuar ›</button>}
+    </React.Fragment>
+  );
+}
+function LluviaCel({ c, orden }) {
+  const corriendo = ['cuenta', 'aviso', 'caida', 'impacto'].includes(c.fase);
+  const enJuego = corriendo || c.fase === 'elimina';
+  return (
+    <React.Fragment>
+      {/* Lo principal primero (grande) */}
+      {c.pausado && enJuego && <button className="vgm-btn grande" style={{ minHeight: 100, fontSize: 26 }} onClick={() => orden('ll-pausa')}>▶ Seguir</button>}
+      {!c.pausado && c.fase === 'elimina' && <button className="vgm-btn grande" style={{ minHeight: 100, fontSize: 26 }} onClick={() => orden('ll-ronda')}>▶ Siguiente ronda</button>}
+      {!c.pausado && corriendo && c.fase !== 'impacto' && <button className="vgm-btn grande vgm-rojo" style={{ minHeight: 100, fontSize: 26 }} onClick={() => orden('ll-pausa')}>⏸ PAUSA</button>}
+      <div style={{ fontSize: 13, opacity: 0.85 }}>🌧 Esquiva la Lluvia{enJuego ? ' · ronda ' + c.ronda + ' · ' + c.zonas + ' zonas' : ''}</div>
+      {enJuego && c.golpeadas && c.golpeadas.length > 0 && c.fase !== 'cuenta' && <div style={{ fontSize: 14, fontWeight: 800 }}>💥 Zonas golpeadas: {c.golpeadas.join(', ')}</div>}
+      {enJuego && <EnPieCel c={c} orden={orden} prefijo="ll" activo />}
+      {enJuego && c.puedeDeshacer && <button className="vgm-btn borde" onClick={() => orden('ll-deshacer')}>↩ Deshacer</button>}
+      {enJuego && <button className="vgm-btn borde" onClick={() => orden('ll-terminar')}>🏁 Terminar juego</button>}
+      {c.fase === 'menu' && (
+        <React.Fragment>
+          <AjusteCel valor={c.zonas} texto="zonas en el piso" onCambiar={(d) => orden('ll-zonas', { d })} />
+          <ChipsVelCel valor={c.vel} onElegir={(v) => orden('ll-velocidad', { v })} />
+          <JugadoresCel c={c} orden={orden} prefijo="ll" />
+          <button className="vgm-btn grande" onClick={() => orden('ll-empezar')}>▶ ¡Empezar!</button>
+        </React.Fragment>
+      )}
+      <FinCpCel c={c} orden={orden} prefijo="ll" />
+      <button className="vgm-btn borde" onClick={() => orden('ll-silencio')}>{c.silencio ? '🔇 Sin sonido' : '🔊 Con sonido'}</button>
+    </React.Fragment>
+  );
+}
+function CongeladosCel({ c, orden }) {
+  const corriendo = ['caminar', 'numero', 'tiempo'].includes(c.fase);
+  const enJuego = corriendo || c.fase === 'elimina';
+  return (
+    <React.Fragment>
+      {c.pausado && enJuego && <button className="vgm-btn grande" style={{ minHeight: 100, fontSize: 26 }} onClick={() => orden('cg-pausa')}>▶ Seguir</button>}
+      {!c.pausado && c.fase === 'caminar' && <button className="vgm-btn grande vgm-rojo" style={{ minHeight: 110, fontSize: 28 }} onClick={() => orden('cg-cortar')}>✂ CORTAR MÚSICA</button>}
+      {!c.pausado && (c.fase === 'elimina' || c.fase === 'tiempo') && <button className="vgm-btn grande" style={{ minHeight: 100, fontSize: 26 }} onClick={() => orden('cg-ronda')}>▶ Siguiente ronda</button>}
+      <div style={{ fontSize: 13, opacity: 0.85 }}>🧊 Congelados por Números{enJuego ? ' · ronda ' + c.ronda + ' · ' + c.total + ' en pie' : ''}</div>
+      {c.numero && enJuego && c.fase !== 'caminar' && <div className="vgm-centro" style={{ fontSize: 40 }}>{c.numero}<small>grupos de {c.numero}</small></div>}
+      {!c.pausado && (c.fase === 'caminar' || c.fase === 'numero') && <button className="vgm-btn borde" onClick={() => orden('cg-pausa')}>⏸ Pausa</button>}
+      {enJuego && <EnPieCel c={c} orden={orden} prefijo="cg" activo />}
+      {enJuego && c.puedeDeshacer && <button className="vgm-btn borde" onClick={() => orden('cg-deshacer')}>↩ Deshacer</button>}
+      {enJuego && <button className="vgm-btn borde" onClick={() => orden('cg-terminar')}>🏁 Terminar juego</button>}
+      {c.fase === 'menu' && (
+        <React.Fragment>
+          <ChipsVelCel valor={c.vel} onElegir={(v) => orden('cg-velocidad', { v })} opciones={[['lenta', 'Caminar largo'], ['media', 'Medio'], ['rapida', 'Corto']]} />
+          <AjusteCel valor={c.tiempo + ' s'} texto="para agruparse" onCambiar={(d) => orden('cg-tiempo', { d })} />
+          <AjusteCel valor={c.maximo} texto="número máximo" onCambiar={(d) => orden('cg-maximo', { d })} />
+          <JugadoresCel c={c} orden={orden} prefijo="cg" />
+          <button className="vgm-btn grande" onClick={() => orden('cg-empezar')}>▶ ¡Empezar!</button>
+        </React.Fragment>
+      )}
+      <FinCpCel c={c} orden={orden} prefijo="cg" />
+      <button className="vgm-btn borde" onClick={() => orden('cg-silencio')}>{c.silencio ? '🔇 Sin sonido' : '🔊 Con sonido'}</button>
+    </React.Fragment>
+  );
+}
+function RitmoCel({ c, orden }) {
+  const eq = c.eqs || [];
+  const e = c.turno >= 0 ? eq[c.turno] : null;
+  const enTurno = ['turno', 'nuevo', 'muestra', 'repite', 'bien', 'falla'].includes(c.fase);
+  const corriendo = ['nuevo', 'muestra', 'repite', 'bien'].includes(c.fase);
+  return (
+    <React.Fragment>
+      {c.fase === 'repite' && !c.pausado && (
+        <div className="vgm-fila">
+          <button className="vgm-btn grande vgm-rojo" style={{ minHeight: 110, fontSize: 26 }} onClick={() => orden('rt-incorrecto')}>✗ Incorrecto</button>
+          <button className="vgm-btn grande" style={{ minHeight: 110, fontSize: 26 }} onClick={() => orden('rt-correcto')}>✓ Correcto</button>
+        </div>
+      )}
+      <div style={{ fontSize: 13, opacity: 0.85 }}>🥁 Ritmo y Memoria{enTurno ? ' · vuelta ' + c.ronda + '/' + c.rondas + ' · ' + c.largo + ' movimientos' : ''}</div>
+      {enTurno && e && <div className="vgm-centro" style={{ color: e.color }}>{e.emoji} {e.corto}<small>{c.nombre ? 'Pasa ' + c.nombre : ''}{c.mejor ? ' · récord ' + c.mejor : ''}</small></div>}
+      {/* La secuencia (solo la ve el docente) para juzgar */}
+      {c.secuencia && c.secuencia.length > 0 && (
+        <div style={{ fontSize: 15, fontWeight: 800, lineHeight: 1.5 }}>{c.secuencia.map((m, i) => (i + 1) + '. ' + m).join('  ·  ')}</div>
+      )}
+      {c.fase === 'repite' && !c.pausado && !c.repetido && <button className="vgm-btn borde" onClick={() => orden('rt-repetir')}>↻ Repetir secuencia (1 vez)</button>}
+      {c.fase === 'nuevo' && <button className="vgm-btn grande" onClick={() => orden('rt-iniciar')}>✨ {c.nuevo}: ¡Entendido!</button>}
+      {c.fase === 'turno' && !c.pausado && <button className="vgm-btn grande" style={{ minHeight: 90, fontSize: 24 }} onClick={() => orden('rt-iniciar')}>▶ ¡Empezar turno!</button>}
+      {c.fase === 'falla' && (
+        <React.Fragment>
+          <div className="vgm-centro">{c.mejor}<small>{c.ultimo === 'completa' ? '¡secuencia completa!' : 'movimientos completados'}</small></div>
+          <button className="vgm-btn grande" style={{ minHeight: 90, fontSize: 24 }} onClick={() => orden('rt-siguiente')}>{c.ultimoTurno ? '🏁 Ver resultados' : '▶ Siguiente concursante'}</button>
+        </React.Fragment>
+      )}
+      {corriendo && <button className="vgm-btn borde" onClick={() => orden('rt-pausa')}>{c.pausado ? '▶ Seguir' : '⏸ Pausa'}</button>}
+      {(corriendo || c.fase === 'turno') && <button className="vgm-btn borde" onClick={() => orden('rt-siguiente')}>⏭ {c.fase === 'turno' ? 'Saltar turno' : 'Siguiente concursante'}</button>}
+      {(c.fase === 'menu' || enTurno) && <ChipsVelCel valor={c.vel} onElegir={(v) => orden('rt-velocidad', { v })} />}
+      {enTurno && (
+        <div style={{ fontSize: 14, fontWeight: 800 }}>
+          {(c.puntajes || []).map((p, i) => (eq[i] ? eq[i].emoji + ' ' + eq[i].corto + ': ' + p : '')).join(' · ')}
+        </div>
+      )}
+      {enTurno && <button className="vgm-btn borde" onClick={() => orden('rt-terminar')}>🏁 Terminar juego</button>}
+      {c.fase === 'menu' && (
+        <React.Fragment>
+          <AjusteCel valor={c.rondas} texto="concursantes por equipo" onCambiar={(d) => orden('rt-rondas', { d })} />
+          <button className="vgm-btn grande" onClick={() => orden('rt-empezar')}>▶ ¡Empezar!</button>
+        </React.Fragment>
+      )}
+      <FinCpCel c={{ ...c, puedeDeshacer: false }} orden={orden} prefijo="rt" />
+      <button className="vgm-btn borde" onClick={() => orden('rt-silencio')}>{c.silencio ? '🔇 Sin sonido' : '🔊 Con sonido'}</button>
+    </React.Fragment>
+  );
+}
+
+/* Modo Capibara: «Volver a la presentación» en todos los juegos. Pide un
+   segundo toque para confirmar (así no se sale por accidente). */
+function SalirCapibaraCel({ orden }) {
+  const [seguro, setSeguro] = React.useState(false);
+  React.useEffect(() => {
+    if (!seguro) return undefined;
+    const t = setTimeout(() => setSeguro(false), 4000);
+    return () => clearTimeout(t);
+  }, [seguro]);
+  return (
+    <button className={'vgm-btn ' + (seguro ? 'vgm-rojo' : 'borde')}
+      onClick={() => { if (seguro) { setSeguro(false); orden('cp-salir'); } else setSeguro(true); }}>
+      {seguro ? '¿Seguro? Toca otra vez para salir' : '↩ Volver a la presentación'}
+    </button>
+  );
+}
+
 function VigiaMandoCelular({ code, state, send }) {
   const st = state || {};
   React.useEffect(() => {
@@ -307,7 +464,10 @@ function VigiaMandoCelular({ code, state, send }) {
                     <button className="vgm-btn borde" onClick={() => orden('ej-silencio')}>{c.silencio ? '🔇 Sin sonido' : '🔊 Con sonido'}</button>
                   </React.Fragment>
                 );
-              })() : st.capibara && st.capibara.juego === 'vf' ? (() => {
+              })() : st.capibara && st.capibara.juego === 'lluvia' ? <LluviaCel c={st.capibara} orden={orden} />
+                : st.capibara && st.capibara.juego === 'congelados' ? <CongeladosCel c={st.capibara} orden={orden} />
+                : st.capibara && st.capibara.juego === 'ritmo' ? <RitmoCel c={st.capibara} orden={orden} />
+                : st.capibara && st.capibara.juego === 'vf' ? (() => {
                 /* Verdadero o Falso en Movimiento: REVELAR / SIGUIENTE van primero (grandes);
                    el celular muestra la respuesta antes (solo lo ve el docente). */
                 const c = st.capibara, af = c.afirmacion;
@@ -626,6 +786,7 @@ function VigiaMandoCelular({ code, state, send }) {
                   </React.Fragment>
                 );
               })()}
+              <SalirCapibaraCel orden={orden} />
             </React.Fragment>
           ) : activa.tipo === 'reto' || /^jg-/.test(activa.tipo) ? (
             <div className="vgm-fila">
