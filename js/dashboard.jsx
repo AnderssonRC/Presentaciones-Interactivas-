@@ -356,6 +356,19 @@ function AdminPanel({ onBack }) {
       : Promise.resolve(true);
     preguntar.then((ok) => { if (ok) resolver(s.uid, 'aprobado'); });
   };
+  // La cuenta vuelve a ver, al entrar, la bienvenida a la BETA y luego los Términos.
+  const reiniciar = (s) => {
+    const preguntar = window.aipConfirmar
+      ? aipConfirmar('La próxima vez que ' + (s.nombre || s.email) + ' entre, verá otra vez la animación de bienvenida a la BETA y luego los Términos y Condiciones.',
+          { titulo: '¿Reiniciar la bienvenida?', aceptar: 'Reiniciar' })
+      : Promise.resolve(true);
+    preguntar.then((ok) => {
+      if (!ok) return;
+      AIP.reiniciarBienvenida(s.uid)
+        .then(() => window.aipAviso && aipAviso('Ciérrale la sesión o recarga la página en esa cuenta para verla.', { titulo: 'Bienvenida reiniciada' }))
+        .catch((e) => { console.error(e); window.aipAviso && aipAviso('Revisa tu conexión e inténtalo de nuevo.', { titulo: 'No se pudo reiniciar' }); });
+    });
+  };
   const pend = (lista || []).filter((s) => s.estado === 'pendiente');
   const resueltas = (lista || []).filter((s) => s.estado !== 'pendiente');
 
@@ -393,6 +406,9 @@ function AdminPanel({ onBack }) {
             color: s.estado === 'aprobado' ? 'var(--verde-ink)' : 'var(--naranja-ink)' }}>{s.estado}</span>
           {s.estado === 'rechazado' && (
             <button className="btn btn-sm btn-primary" onClick={() => reaprobar(s)}>Volver a aprobar</button>
+          )}
+          {s.estado === 'aprobado' && (
+            <button className="btn btn-sm" onClick={() => reiniciar(s)}>↺ Reiniciar bienvenida</button>
           )}
         </div>
       )}

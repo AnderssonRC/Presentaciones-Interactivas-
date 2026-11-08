@@ -23,30 +23,37 @@ function terminosBorrarLocal(k) { try { localStorage.removeItem(k); } catch (e) 
 const bienvenidaClave = (uid) => 'rc_bienvenida_' + BIENVENIDA_VER + '_' + uid;
 const BIENVENIDA_VER = (window.BIENVENIDA_VERSION || 'beta-1.1');
 
+// Fecha guardada en este equipo ('1' de versiones anteriores cuenta como muy antigua).
+const terminosFechaLocal = (k) => { const v = terminosLeerLocal(k); return v ? (Number(v) || 1) : 0; };
+
 // Estado del usuario: ¿ya aceptó los términos? ¿ya vio la bienvenida?
-// Se mira primero en este equipo y, si falta algo, en Firestore (terminos/{uid}).
+// Se mira en este equipo y en Firestore (terminos/{uid}). Si el administrador
+// pidió «Reiniciar bienvenida» después de verlas, cuentan como no vistas.
 async function terminosEstado(uid) {
-  const est = {
-    terminos: !!terminosLeerLocal(terminosClave(uid)),
-    bienvenida: !!terminosLeerLocal(bienvenidaClave(uid)),
-  };
-  if (est.terminos && est.bienvenida) return est;
+  let terminosEn = terminosFechaLocal(terminosClave(uid));
+  let bienvenidaEn = terminosFechaLocal(bienvenidaClave(uid));
+  let reinicio = 0;
+  try { reinicio = await AIP.miReinicioBienvenida(); } catch (e) { /* sin solicitud o sin conexión */ }
   try {
     const snap = await window.fbDB.collection('terminos').doc(uid).get();
     const d = snap.exists ? snap.data() : {};
-    if (d.version === TERMINOS_VERSION) { est.terminos = true; terminosGuardarLocal(terminosClave(uid), '1'); }
-    if (d.bienvenida === BIENVENIDA_VER) { est.bienvenida = true; terminosGuardarLocal(bienvenidaClave(uid), '1'); }
+    if (d.version === TERMINOS_VERSION) terminosEn = Math.max(terminosEn, d.aceptado || 1);
+    if (d.bienvenida === BIENVENIDA_VER) bienvenidaEn = Math.max(bienvenidaEn, d.bienvenidaEn || 1);
   } catch (e) {
     // Sin permiso en Firestore: se decide solo con lo guardado en este equipo.
     console.warn('Términos: no se pudo consultar Firestore', e);
   }
+  const est = { terminos: terminosEn > reinicio, bienvenida: bienvenidaEn > reinicio };
+  if (est.terminos) terminosGuardarLocal(terminosClave(uid), String(terminosEn)); else terminosBorrarLocal(terminosClave(uid));
+  if (est.bienvenida) terminosGuardarLocal(bienvenidaClave(uid), String(bienvenidaEn)); else terminosBorrarLocal(bienvenidaClave(uid));
   return est;
 }
 
 function bienvenidaMarcarVista(uid) {
-  terminosGuardarLocal(bienvenidaClave(uid), '1');
+  const ahora = Date.now();
+  terminosGuardarLocal(bienvenidaClave(uid), String(ahora));
   try {
-    window.fbDB.collection('terminos').doc(uid).set({ bienvenida: BIENVENIDA_VER }, { merge: true })
+    window.fbDB.collection('terminos').doc(uid).set({ bienvenida: BIENVENIDA_VER, bienvenidaEn: ahora }, { merge: true })
       .catch((e) => console.warn('Bienvenida: no se pudo guardar en Firestore', e));
   } catch (e) { /* sin Firestore */ }
 }
@@ -156,10 +163,11 @@ function TerminosVentana({ user, onAceptado }) {
     setGuardando(true);
     const actual = window.fbAuth && window.fbAuth.currentUser;
     const nombre = ((actual && actual.displayName) || user.displayName || '').trim() || '(sin nombre registrado)';
-    terminosGuardarLocal(terminosClave(user.uid), '1');
+    const ahora = Date.now();
+    terminosGuardarLocal(terminosClave(user.uid), String(ahora));
     try {
       await window.fbDB.collection('terminos').doc(user.uid)
-        .set({ nombre, version: TERMINOS_VERSION, aceptado: Date.now() });
+        .set({ nombre, version: TERMINOS_VERSION, aceptado: ahora }, { merge: true });
     } catch (e) {
       console.warn('Términos: no se pudo guardar en Firestore (queda en este equipo)', e);
     }

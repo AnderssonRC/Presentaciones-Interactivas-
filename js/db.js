@@ -164,6 +164,16 @@
   async function resolverSolicitud(uidStr, estado) {
     await reqDoc(uidStr).update({ estado, resuelto: Date.now() });
   }
+  // La cuenta volverá a ver la bienvenida a la BETA y los Términos (js/terminos.jsx).
+  async function reiniciarBienvenida(uidStr) {
+    await reqDoc(uidStr).update({ reiniciarBienvenida: Date.now() });
+  }
+  // Fecha del último reinicio pedido por el administrador (0 si nunca).
+  async function miReinicioBienvenida() {
+    const u = currentUid(); if (!u) return 0;
+    const snap = await reqDoc(u).get();
+    return (snap.exists && snap.data().reiniciarBienvenida) || 0;
+  }
   // ---------- Presentaciones (asíncronas) ----------
   // Carga todas las presentaciones del docente actual. Si no tiene ninguna,
   // siembra las de ejemplo una sola vez.
@@ -376,6 +386,7 @@
     // auth
     signUp, signIn, signOut, onAuth, currentUid,
     esAdmin, crearSolicitud, miEstadoAcceso, listarSolicitudes, resolverSolicitud,
+    reiniciarBienvenida, miReinicioBienvenida,
     // datos
     loadPresentations, savePresentation, deletePresentation,
     // control remoto
