@@ -110,15 +110,19 @@
   }
 
   // ---------- Autenticación ----------
+  // Mientras se crea una cuenta, miEstadoAcceso espera a que exista la
+  // solicitud (si no, la cuenta nueva parecería «aprobada» por un instante).
+  let registroEnCurso = null;
   async function signUp(email, password, nombre) {
-    const cred = await window.fbAuth.createUserWithEmailAndPassword(email.trim(), password);
-    if (nombre && nombre.trim()) {
-      await cred.user.updateProfile({ displayName: nombre.trim() });
+    registroEnCurso = (async () => {
+      const cred = await window.fbAuth.createUserWithEmailAndPassword(email.trim(), password);
+      if (nombre && nombre.trim()) await cred.user.updateProfile({ displayName: nombre.trim() });
       // Registra la solicitud de acceso: el admin debe aprobarla.
-    try { await crearSolicitud(cred.user); }
-    catch (e) { console.error('No se pudo registrar la solicitud:', e); }
-    }
-    return cred.user;
+      try { await crearSolicitud(cred.user); }
+      catch (e) { console.error('No se pudo registrar la solicitud:', e); }
+      return cred.user;
+    })();
+    try { return await registroEnCurso; } finally { registroEnCurso = null; }
   }
   async function signIn(email, password) {
     const cred = await window.fbAuth.signInWithEmailAndPassword(email.trim(), password);
@@ -146,6 +150,7 @@
   }
   // Estado del usuario actual. Cuentas antiguas (sin solicitud) = aprobadas.
   async function miEstadoAcceso() {
+    if (registroEnCurso) { try { await registroEnCurso; } catch (e) { /* el error lo muestra el formulario */ } }
     const u = currentUid(); if (!u) return 'sin-sesion';
     if (ADMIN_UIDS.includes(u)) return 'aprobado';
     const snap = await reqDoc(u).get();

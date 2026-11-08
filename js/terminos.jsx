@@ -225,9 +225,14 @@ function TerminosGate() {
     pendTerminos.current = false;
     if (!user) return undefined;
     const admin = AIP.esAdmin();
-    if (!admin) terminosReintentarAviso(user.uid);
-    terminosEstado(user.uid).then((est) => {
-      if (!vivo) return;
+    // Solo con el acceso a la BETA aprobado: antes no hay bienvenida ni términos.
+    // (Al aprobarse, la pantalla de espera recarga la página y esto vuelve a correr.)
+    AIP.miEstadoAcceso().catch(() => 'aprobado').then((acceso) => {
+      if (!vivo || acceso !== 'aprobado') return null;
+      if (!admin) terminosReintentarAviso(user.uid);
+      return terminosEstado(user.uid);
+    }).then((est) => {
+      if (!vivo || !est) return;
       pendTerminos.current = !admin && !est.terminos;
       const primera = !est.bienvenida ? 'bienvenida' : (pendTerminos.current ? 'terminos' : null);
       if (primera) cancelar = esperarSinCarga(() => { if (vivo) setVista(primera); });

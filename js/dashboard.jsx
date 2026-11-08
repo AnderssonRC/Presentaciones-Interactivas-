@@ -263,6 +263,41 @@ Object.assign(window, { Dashboard, inkFor, PantallaAccesoPendiente, AdminPanel, 
 /* ---------- Pantalla de espera: solicitud pendiente o rechazada ---------- */
 function PantallaAccesoPendiente({ estado, onLogout }) {
   const rechazado = estado === 'rechazado';
+  // Cuando el administrador aprueba: «Accediendo en 3, 2, 1…» y se recarga la
+  // página; al volver se ven la bienvenida a la BETA y luego los Términos.
+  const [cuenta, setCuenta] = React.useState(null);   // null = sigue esperando
+  React.useEffect(() => {
+    const uid = AIP.currentUid();
+    if (!uid || !window.fbDB) return undefined;
+    return window.fbDB.collection('accessRequests').doc(uid).onSnapshot((snap) => {
+      const e = snap.exists ? (snap.data().estado || 'pendiente') : 'aprobado';
+      if (e === 'aprobado') setCuenta((c) => (c === null ? 3 : c));
+    }, () => { /* sin permiso o sin conexión: queda el botón Recargar */ });
+  }, []);
+  React.useEffect(() => {
+    if (cuenta === null) return undefined;
+    const t = setTimeout(() => { if (cuenta <= 1) location.reload(); else setCuenta(cuenta - 1); }, 1000);
+    return () => clearTimeout(t);
+  }, [cuenta]);
+
+  if (cuenta !== null) {
+    return (
+      <div style={{ minHeight: '100dvh', background: '#070907', color: '#F2F5EF', display: 'flex',
+        flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center',
+        padding: '40px 26px 70px', gap: 16 }}>
+        <Logo dark size={26} />
+        <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 26, lineHeight: 1.25, margin: '8px 0 0' }}>
+          ¡Tu acceso fue aprobado!
+        </h1>
+        <p style={{ color: '#9AA396', fontSize: 17, margin: 0 }}>Accediendo en…</p>
+        <div key={cuenta} aria-live="polite" style={{ fontFamily: 'var(--font-display)', fontWeight: 800,
+          fontSize: 96, lineHeight: 1, color: '#11F555', animation: 'rc-terminos-in .4s ease both' }}>
+          {cuenta}
+        </div>
+        <style>{'@keyframes rc-terminos-in{from{opacity:0;transform:scale(.7)}to{opacity:1;transform:none}}'}</style>
+      </div>
+    );
+  }
   return (
     <div style={{ minHeight: '100dvh', background: '#070907', color: '#F2F5EF', display: 'flex',
       flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center',
@@ -282,10 +317,20 @@ function PantallaAccesoPendiente({ estado, onLogout }) {
           ? 'El administrador no aprobó el acceso con esta cuenta. Si crees que es un error, contáctalo directamente.'
           : 'Tu cuenta fue creada y espera la aprobación del administrador. Cuando te aprueben, al entrar verás tu biblioteca.'}
       </p>
-      <button className="btn btn-lg" onClick={onLogout}
-        style={{ background: '#11F555', color: '#06140A', borderColor: 'transparent', fontWeight: 700, marginTop: 8 }}>
-        Cerrar sesión
-      </button>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, justifyContent: 'center', marginTop: 8 }}>
+        {!rechazado && (
+          <button className="btn btn-lg" onClick={() => location.reload()}
+            style={{ background: '#11F555', color: '#06140A', borderColor: 'transparent', fontWeight: 700 }}>
+            Recargar página
+          </button>
+        )}
+        <button className="btn btn-lg" onClick={onLogout}
+          style={rechazado
+            ? { background: '#11F555', color: '#06140A', borderColor: 'transparent', fontWeight: 700 }
+            : { background: 'transparent', color: '#F2F5EF', borderColor: 'rgba(242,245,239,.3)', fontWeight: 600 }}>
+          Cerrar sesión
+        </button>
+      </div>
     </div>
   );
 }
@@ -302,6 +347,14 @@ function AdminPanel({ onBack }) {
   const resolver = (uid, estado) => {
     AIP.resolverSolicitud(uid, estado).then(cargar)
       .catch((e) => { console.error(e); aipAviso('Revisa tu conexión e inténtalo de nuevo.', { titulo: 'No se pudo actualizar la solicitud' }); });
+  };
+  // Rechazado por error: se aprueba la misma cuenta (mismo correo y usuario, sin crear otra).
+  const reaprobar = (s) => {
+    const preguntar = window.aipConfirmar
+      ? aipConfirmar((s.nombre || s.email) + ' podrá entrar con su misma cuenta (' + s.email + ').',
+          { titulo: '¿Volver a aprobar esta cuenta?', aceptar: 'Aprobar' })
+      : Promise.resolve(true);
+    preguntar.then((ok) => { if (ok) resolver(s.uid, 'aprobado'); });
   };
   const pend = (lista || []).filter((s) => s.estado === 'pendiente');
   const resueltas = (lista || []).filter((s) => s.estado !== 'pendiente');
@@ -334,9 +387,14 @@ function AdminPanel({ onBack }) {
           <button className="btn btn-sm btn-primary" onClick={() => resolver(s.uid, 'aprobado')}>Aprobar</button>
         </div>
       ) : (
-        <span style={{ fontSize: 12.5, fontWeight: 700, padding: '5px 12px', borderRadius: 999,
-          background: s.estado === 'aprobado' ? 'rgba(17,245,85,.14)' : 'rgba(245,55,17,.14)',
-          color: s.estado === 'aprobado' ? 'var(--verde-ink)' : 'var(--naranja-ink)' }}>{s.estado}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          <span style={{ fontSize: 12.5, fontWeight: 700, padding: '5px 12px', borderRadius: 999,
+            background: s.estado === 'aprobado' ? 'rgba(17,245,85,.14)' : 'rgba(245,55,17,.14)',
+            color: s.estado === 'aprobado' ? 'var(--verde-ink)' : 'var(--naranja-ink)' }}>{s.estado}</span>
+          {s.estado === 'rechazado' && (
+            <button className="btn btn-sm btn-primary" onClick={() => reaprobar(s)}>Volver a aprobar</button>
+          )}
+        </div>
       )}
     </div>
   );
