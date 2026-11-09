@@ -420,6 +420,15 @@ const POSES_BASE_MURO = [
   ['Rayo', 135, 0, 45, 0, 0, 0, 0, 0, 0],
   ['Abrazo gigante', 135, 0, 135, 0, 0, 0, 0, 0, 0],
   ['Equilibrio', 0, 0, 90, 0, 45, 0, 0, 0, 0],
+  // Más fáciles (1 o 2 partes): alcanzan para muchos equipos en la primera ronda.
+  // Cada una tiene al menos una parte a 90° o más: con tolerancia de 45° no se pasa sin moverse.
+  ['Medio avión', 90, 0, 45, 0, 0, 0, 0, 0, 0],
+  ['Jarra', 45, -90, 0, 0, 0, 0, 0, 0, 0],
+  ['Pare', 0, 0, 90, 90, 0, 0, 0, 0, 0],
+  ['Capitán', 0, 0, 135, 90, 0, 0, 0, 0, 0],
+  ['Pensador', 0, 0, 45, 135, 0, 0, 0, 0, 0],
+  ['Cigüeña', 0, 0, 0, 0, 90, -90, 0, 0, 0],
+  ['Paso de baile', 0, 0, 0, 0, 0, 0, 45, -90, 0],
   ['Forzudo', 90, 90, 90, 90, 0, 0, 0, 0, 0],
   ['Estrella', 135, 0, 135, 0, 45, 0, 45, 0, 0],
   ['Tetera', 45, -90, 135, 0, 0, 0, 0, 0, 0],
@@ -443,6 +452,15 @@ const POSES_BASE_MURO = [
   ['Rana', 90, 90, 90, 90, 90, -90, 90, -90, 0],
   ['Pulpo', 90, -45, 90, 45, 45, 45, 45, -45, 0],
   ['Payaso', 45, 90, 45, 90, 45, 45, 45, 45, 0],
+  // Muy difíciles (7 a 9 partes): para que la última ronda tenga de dónde elegir.
+  ['Dragón', 180, -45, 90, 90, 0, 0, 90, -90, 45],
+  ['Malabarista', 135, 90, 135, -90, 45, 0, 45, 0, 45],
+  ['Mago', 180, 45, 45, -90, 45, -45, 0, 0, -45],
+  ['Cangrejo', 45, 135, 45, 135, 90, -90, 90, -90, 0],
+  ['Gimnasta', 180, -45, 180, 45, 90, -45, 45, 45, 0],
+  ['Ninja', 135, 90, 45, -90, 45, -45, 45, 45, 45],
+  ['Surfista', 90, 45, 90, -45, 45, -45, 45, 45, -45],
+  ['Pingüino', 45, -45, 45, -45, 45, 45, 45, -45, 45],
 ];
 const POSES_MURO = POSES_BASE_MURO.map(([nombre, ...v]) => {
   const p = {};
@@ -451,13 +469,16 @@ const POSES_MURO = POSES_BASE_MURO.map(([nombre, ...v]) => {
   return { id: nombre, nombre, p, dif: cambios <= 2 ? 1 : cambios <= 4 ? 2 : cambios <= 6 ? 3 : 4 };
 }).filter((x) => SEGMENTOS_MURO.every((s) => s.pasos.includes(x.p[s.id])));   // solo poses alcanzables
 const difPorNivelMI = (n) => [1, 1, 2, 2, 3, 3, 4][n - 1] || 4;
+// Por equipos: la dificultad se reparte entre las rondas elegidas, así la
+// última llega a «muy difícil» (con 4+ rondas). 3 rondas: 1·2·3; 6: 1·1·2·3·3·4.
+const difPorRondaMI = (ronda, rondas) => Math.min(4, 1 + Math.floor(((ronda - 1) * 4) / Math.max(1, rondas)));
 
-// Una pose del nivel que NO se haya usado en la presentación.
-function elegirPoseMI(nivel) {
+// Una pose de esa dificultad (1–4) que NO se haya usado en la presentación;
+// si ya no quedan, la más cercana.
+function elegirPoseMI(dif) {
   let usadas = jaguarSesion().muroUsadas || [];
   let libres = POSES_MURO.filter((x) => !usadas.includes(x.id));
   if (!libres.length) { usadas = []; libres = POSES_MURO.slice(); }
-  const dif = difPorNivelMI(nivel);
   const de = (d) => libres.filter((x) => x.dif === d);
   let lista = de(dif);
   for (let k = 1; !lista.length && k < 4; k++) lista = de(dif - k).concat(de(dif + k));
@@ -750,7 +771,11 @@ function MuroInfernal({ a, estudiantes, onContinuar }) {
   };
   const prepararMuro = (nuevo) => {
     const X = g.current;
-    if (nuevo || !X.objetivo) { X.objetivo = elegirPoseMI(nivelActual()); X.muro = construirMuroMI(X.objetivo.p); }
+    if (nuevo || !X.objetivo) {
+      const C = cfg.current;
+      const dif = C.modo === 'individual' ? difPorNivelMI(nivelActual()) : difPorRondaMI(X.ronda, C.rondas);
+      X.objetivo = elegirPoseMI(dif); X.muro = construirMuroMI(X.objetivo.p);
+    }
     X.pose = { ...NEUTRA_MURO }; X.T = tiempoMuro(); X.listoBono = null; X.salpico = false; X.hover = null;
   };
   // Quién pasa al frente: lo decide la plataforma (capibara-comun.jsx, sin repetir en la presentación).

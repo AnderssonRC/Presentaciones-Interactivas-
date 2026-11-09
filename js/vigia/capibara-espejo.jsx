@@ -10,8 +10,8 @@
    tiempo aguantado. «Deshacer» (Re Pág, D) reanuda desde el mismo punto tras
    un 3, 2, 1. Puntaje = tiempo. La velocidad sube poco a poco y, por
    niveles, se mueven más partes del cuerpo a la vez (1 → 5).
-   Todos los concursantes siguen la MISMA coreografía (se genera al empezar
-   la partida con una semilla). Al terminar los turnos: ranking por equipo y
+   Cada concursante sigue una coreografía NUEVA (otra semilla), con el mismo
+   tempo y los mismos niveles: igual de difícil y nadie la vio antes. Al terminar los turnos: ranking por equipo y
    pasos hacia Jomu (1 paso cada `a.segPorPasoEspejo` s, con `jaguarPunto`).
 
    Reutiliza (no reimplementa): sesión de equipos del Jaguar, capibara-comun.jsx
@@ -87,8 +87,9 @@ function bancoEspejoEJ() {
 /* ============================ COREOGRAFÍA ============================
    Lista de poses clave con su instante (ms). Cada pose dura TIEMPOS pulsos;
    el tempo sube un poco en cada pose (hasta BPM_TOPE más que al inicio) y el
-   nivel dice cuántas partes cambian a la vez. Con la misma semilla sale la
-   misma coreografía: así es justa para todos los concursantes. */
+   nivel dice cuántas partes cambian a la vez. Cada concursante recibe una
+   coreografía nueva (otra semilla) con el MISMO tempo y los MISMOS niveles:
+   igual de difícil, pero nadie la vio antes. */
 function azarEJ(semilla) {   // generador con semilla (mulberry32)
   let s = semilla >>> 0;
   return () => {
@@ -144,6 +145,7 @@ function crearCoreografiaEJ(velocidad, semilla) {
   }
   return { claves, pulsos, total: t };
 }
+const nuevaCoreoEJ = (velocidad) => crearCoreografiaEJ(velocidad, Math.floor(Math.random() * 2147483647));
 
 // Pose en el instante tc: va de la pose anterior a la siguiente con un vaivén
 // suave (coseno) y se queda quieta el último tramo. fase: 0–1 dentro del pulso.
@@ -307,7 +309,7 @@ function EspejoEnVivo({ a, estudiantes, onContinuar }) {
     const X = nuevoJuegoEJ(C.nEq);
     X.reloj = g.current.reloj;
     g.current = X;
-    X.coreo = crearCoreografiaEJ(C.velocidad, Math.floor(Math.random() * 2147483647));   // la MISMA para todos
+    X.coreo = nuevaCoreoEJ(C.velocidad);   // cada concursante, su propio baile (misma dificultad)
     X.pasa = siguienteConcursanteCp(0);
     irA('espejo'); refrescar();
   };
@@ -345,6 +347,7 @@ function EspejoEnVivo({ a, estudiantes, onContinuar }) {
     const t = siguienteTurnoCp(X.turno, X.ronda, X.eq.length, C.rondas);
     if (!t) { fin(); return; }
     X.turno = t.turno; X.ronda = t.ronda; X.pasa = siguienteConcursanteCp(t.turno); X.tc = 0;
+    X.coreo = nuevaCoreoEJ(C.velocidad);   // baile nuevo: el siguiente no lo vio antes
     quitarPausa(); irA('turno'); refrescar();
   };
   // Siguiente concursante: registra el tiempo del turno congelado.
@@ -603,7 +606,7 @@ function EspejoEnVivo({ a, estudiantes, onContinuar }) {
             <h2>🪞 ¡Eres su espejo!</h2>
             <p>La silueta te mira de frente: si mueve el brazo de <b>este lado ◀</b>, tú mueves tu brazo <b>izquierdo</b>.</p>
             <p>Su derecha es tu izquierda, como en un espejo. Muévete con ella, suave y sin parar.</p>
-            <p className="nota">Todos siguen la misma coreografía. Irá más rápido y moverá más partes a la vez.</p>
+            <p className="nota">Cada concursante tiene su propio baile, igual de difícil. Irá más rápido y moverá más partes a la vez.</p>
             <button type="button" className="vg-cp-btn grande" onClick={entendido}>✓ ¡Entendido!</button>
           </div>
         )}

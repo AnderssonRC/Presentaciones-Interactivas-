@@ -233,7 +233,7 @@ function VigiaEditorImagenes({ act, onChange, onBack, onPresent }) {
             </p>
           </div>
           </VistaPrevia>
-          <TiposAgrupados lista={TIPOS} render={(t) => {
+          <TiposAgrupados lista={TIPOS} act={act} update={update} render={(t) => {
             const habilitado = rec.tipos.includes(t.id) && !!diapo;
             return (
               <button key={t.id} className={'tool-card vg-tipo' + (habilitado ? '' : ' tool-soon')} disabled={!habilitado}

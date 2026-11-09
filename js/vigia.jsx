@@ -16,7 +16,7 @@ const VIGIA_LOGO = 'condor-vigia-icono.webp';   // 10 KB (el PNG pesa 96 KB)
 // Módulos del Modo Vigía, en orden. Al editar uno, sube su versión aquí
 // (y la de este archivo en index.html) para que el navegador no use la vieja.
 const VIGIA_MODULOS = [
-  ['js/vigia/tipos.js', '20261106a'],
+  ['js/vigia/tipos.js', '20261108d'],
   ['js/vigia/youtube.jsx', '20261020p'],
   ['js/vigia/audio.jsx', '20261024d'],
   ['js/vigia/drive.jsx', '20261020a'],
@@ -24,35 +24,37 @@ const VIGIA_MODULOS = [
   ['js/vigia/epub.jsx', '20261020f'],
   ['js/vigia/respaldo.jsx', '20261024h'],
   ['js/vigia/ruleta.jsx', '20261020l'],
-  ['js/vigia/editor.jsx', '20261106a'],
-  ['js/vigia/editor-pdf.jsx', '20261026d'],
-  ['js/vigia/editor-epub.jsx', '20261026d'],
-  ['js/vigia/editor-podcast.jsx', '20261026d'],
-  ['js/vigia/editor-imagenes.jsx', '20261026d'],
+  ['js/vigia/editor.jsx', '20261108d'],
+  ['js/vigia/editor-pdf.jsx', '20261108a'],
+  ['js/vigia/editor-epub.jsx', '20261108a'],
+  ['js/vigia/editor-podcast.jsx', '20261108a'],
+  ['js/vigia/editor-imagenes.jsx', '20261108a'],
+  ['js/vigia/editor-historia.jsx', '20261108a'],
   ['js/vigia/herramientas.jsx', '20261024n'],
   ['js/vigia/mando.jsx', '20261027f'],
-  ['js/vigia/presentar.jsx', '20261027f'],
+  ['js/vigia/presentar.jsx', '20261108b'],
   ['js/vigia/presentar-reto.jsx', '20261026b'],
-  ['js/vigia/presentar-jaguar.jsx', '20261106a'],
-  ['js/vigia/presentar-capibara.jsx', '20261106a'],
+  ['js/vigia/presentar-jaguar.jsx', '20261108a'],
+  ['js/vigia/presentar-capibara.jsx', '20261108a'],
   ['js/vigia/capibara-comun.jsx', '20261106a'],
-  ['js/vigia/capibara-muro.jsx', '20261029b'],
-  ['js/vigia/capibara-jungla.jsx', '20261029a'],
+  ['js/vigia/capibara-muro.jsx', '20261108c'],
+  ['js/vigia/capibara-jungla.jsx', '20261108c'],
   ['js/vigia/capibara-dedos.jsx', '20261028c'],
-  ['js/vigia/capibara-espejo.jsx', '20261029b'],
-  ['js/vigia/capibara-semaforo.jsx', '20261029c'],
+  ['js/vigia/capibara-espejo.jsx', '20261108b'],
+  ['js/vigia/capibara-semaforo.jsx', '20261108c'],
   ['js/vigia/capibara-vf.jsx', '20261029a'],
-  ['js/vigia/capibara-lluvia.jsx', '20261106a'],
-  ['js/vigia/capibara-ritmo.jsx', '20261106a'],
-  ['js/vigia/capibara-congelados.jsx', '20261106a'],
+  ['js/vigia/capibara-lluvia.jsx', '20261107b'],
+  ['js/vigia/capibara-ritmo.jsx', '20261108b'],
+  ['js/vigia/capibara-congelados.jsx', '20261108b'],
   ['js/vigia/presentar-pdf.jsx', '20261024l'],
   ['js/vigia/presentar-epub.jsx', '20261024l'],
   ['js/vigia/presentar-podcast.jsx', '20261024l'],
-  ['js/vigia/presentar-imagenes.jsx', '20261024l'],
+  ['js/vigia/presentar-imagenes.jsx', '20261108a'],
+  ['js/vigia/presentar-historia.jsx', '20261108a'],
 ];
-const VIGIA_ESTILOS = ['js/vigia/estilos.css', '20261106a'];
+const VIGIA_ESTILOS = ['js/vigia/estilos.css', '20261108c'];
 // Pantalla del mando en el celular (la carga remote.jsx solo en el celular).
-const VIGIA_MANDO_VERSION = '20261106a';
+const VIGIA_MANDO_VERSION = '20261108c';
 let promesaVigia = null;
 // Tipografía de los títulos de las tarjetas (Fraunces, cursiva "suave"): elegante y juguetona.
 const VIGIA_FUENTE = 'https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT,WONK@1,9..144,600..900,100,1&display=swap';
@@ -273,7 +275,7 @@ function ElegirRecurso({ onElegir, onCerrar }) {
               <span className="vg-recurso-ico"><Icon name={r.icon} size={26} /></span>
               <strong>{r.nombre}</strong>
               <span>{r.desc}</span>
-              {r.pronto && <span className="soon-tag">Próximamente</span>}
+              {r.pronto && <span className="soon-tag">{r.etiquetaPronto || 'Próximamente'}</span>}
             </button>
           ))}
         </div>
@@ -383,7 +385,8 @@ function VigiaDashboard({ profile, esAdmin, onAdmin, onLogout, onSalir, activaci
             // Fondo de la tarjeta: miniatura del video o imagen del podcast.
             const fondo = vid ? 'https://img.youtube.com/vi/' + vid + '/mqdefault.jpg'
               : d.recurso === 'podcast' ? imagenPodcast(d.podcast)
-              : d.recurso === 'imagenes' && d.galeria ? urlImagen(((d.galeria.diapos || []).find((x) => x.url) || {}).url || '') : '';
+              : d.recurso === 'imagenes' && d.galeria ? urlImagen(((d.galeria.diapos || []).find((x) => x.url) || {}).url || '')
+              : d.recurso === 'historia' && d.historia ? urlImagen(((d.historia.diapos || []).find((x) => (x.imagen || '').trim()) || {}).imagen || '') : '';
             const listo = VigiaTipos.recursoListo(d);
             return (
               <div key={d.id} className="pres-card2 vg-card">
@@ -394,7 +397,7 @@ function VigiaDashboard({ profile, esAdmin, onAdmin, onLogout, onSalir, activaci
                 </div>
                 <div style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
                   <h3 style={{ fontSize: 18, fontWeight: 800 }}>{d.titulo || 'Sin nombre'}</h3>
-                  <p style={{ margin: 0, color: 'var(--muted)', fontSize: 13.5, flex: 1 }}>{d.objetivo || (listo ? (d.recurso === 'documento' && d.pdf ? d.pdf.nombre : '') : (d.recurso === 'documento' ? 'Falta añadir el PDF.' : d.recurso === 'podcast' ? 'Falta añadir el audio.' : d.recurso === 'imagenes' ? 'Falta añadir las imágenes.' : 'Falta añadir el video.'))}</p>
+                  <p style={{ margin: 0, color: 'var(--muted)', fontSize: 13.5, flex: 1 }}>{d.objetivo || (listo ? (d.recurso === 'documento' && d.pdf ? d.pdf.nombre : '') : (d.recurso === 'documento' ? 'Falta añadir el PDF.' : d.recurso === 'podcast' ? 'Falta añadir el audio.' : d.recurso === 'imagenes' ? 'Falta añadir las imágenes.' : d.recurso === 'historia' ? 'Falta escribir la primera diapositiva.' : 'Falta añadir el video.'))}</p>
                   <div className="vg-card-tipos">
                     {VigiaTipos.TIPOS.map((t) => {
                       const c = (d.activaciones || []).filter((x) => x.tipo === t.id).length;

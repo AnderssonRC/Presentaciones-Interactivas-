@@ -77,7 +77,7 @@ function useJaguarEstado() {
 function jaguarReiniciar(actId, n, extra) {
   // Todo vuelve a cero: equipos, duelos, grupos de la silueta y siluetas usadas.
   cambiarJaguar(() => ({ actId, n: n || null, iniciado: false, equipos: null, verGrupos: false, duelos: [], siluetaUsados: [], siluetasUsadas: {}, palabrasUsadas: {}, mimicaUsadas: {}, mimicaTurno: {}, desafio: null,
-    modo: 'jaguar', meta: null, verMontana: false, montanaVista: null, muroUsadas: [], colasConcursantes: {}, ...(extra || {}) }));
+    modo: 'jaguar', meta: null, competencia: null, verMontana: false, montanaVista: null, muroUsadas: [], colasConcursantes: {}, ...(extra || {}) }));
 }
 // La sesión tal como está ahora (para otros módulos: el Modo Capibara).
 function jaguarSesion() { return sesionJaguar; }

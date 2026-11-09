@@ -290,7 +290,7 @@ function VigiaEditorPdf({ act, onChange, onBack, onPresent }) {
               </p>
             </div>
             </VistaPrevia>
-            <TiposAgrupados lista={TIPOS.filter((t) => rec.tipos.includes(t.id))} render={(t) => (
+            <TiposAgrupados lista={TIPOS.filter((t) => rec.tipos.includes(t.id))} act={act} update={update} render={(t) => (
               <button key={t.id} className={'tool-card vg-tipo' + (tipoMarcar === t.id ? ' on' : '')}
                 onClick={() => setTipoMarcar((m) => (m === t.id ? null : t.id))}
                 title={'Marcar en el PDF: ' + t.nombre}>

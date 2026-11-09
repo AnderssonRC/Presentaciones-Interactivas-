@@ -281,6 +281,9 @@ function caminoMontana(i, n) {
 const suave = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 
 function MontanaCapibara({ equipos, meta }) {
+  // Historia competitiva: la meta del docente en la cima (nombre + imagen) en vez de Jomu.
+  const cima = jaguarSesion().cima || null;
+  const nombreCima = cima ? String(cima.nombre || 'la meta').slice(0, 30) : 'Jomu';
   const eq = equiposCapibara(equipos);
   const n = eq.length;
   const metaN = Math.max(1, meta || VigiaTipos.META_CAPIBARA);
@@ -332,11 +335,11 @@ function MontanaCapibara({ equipos, meta }) {
   return (
     <div className="vg-cp-montana">
       <div className="vg-cp-montana-cabeza">
-        <h2 className="vg-cp-titulo">El camino hacia Jomu</h2>
+        <h2 className="vg-cp-titulo">El camino hacia {nombreCima}</h2>
         <p>Cada reto superado acerca a tu equipo un paso más.</p>
       </div>
       <svg className="vg-cp-montana-svg" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid meet" role="img"
-        aria-label={'Montaña con ' + n + ' caminos hacia Jomu'}>
+        aria-label={'Montaña con ' + n + ' caminos hacia ' + nombreCima}>
         <defs>
           <linearGradient id="cpMonte" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0" stopColor="#A9CF8C" /><stop offset=".55" stopColor="#77AC63" /><stop offset="1" stopColor="#4C8546" />
@@ -374,13 +377,18 @@ function MontanaCapibara({ equipos, meta }) {
           <circle key={i + '-' + k} cx={q.x} cy={q.y} r="6.5" fill={k + 1 <= (eq[i].puntos || 0) ? eq[i].color : '#FFF8E7'} stroke={eq[i].color} strokeWidth="3" />
         )))}
         {marcas && marcas.map((ps, i) => ps[0] && <circle key={'s' + i} cx={ps[0].x} cy={ps[0].y} r="15" fill={eq[i].color} stroke="#FFF8E7" strokeWidth="4" />)}
-        {/* Jomu en la cima, tras los barrotes */}
+        {/* Jomu en la cima, tras los barrotes (o la meta de la historia competitiva) */}
         <circle cx="800" cy="170" r="84" fill="#FBF3E1" stroke="#6B4A2B" strokeWidth="6" />
-        <image href={JOMU_IMG} x="660" y="96" width="280" height="153" clipPath="url(#cpJomu)" preserveAspectRatio="xMidYMid slice" />
-        <g clipPath="url(#cpJomu)" stroke="#2E2116" strokeWidth="6" opacity=".7">
-          {[750, 784, 816, 850].map((x) => <line key={x} x1={x} y1="90" x2={x} y2="250" />)}
-        </g>
-        <text x="800" y="76" textAnchor="middle" className="vg-cp-jomu">Jomu</text>
+        {!cima && <image href={JOMU_IMG} x="660" y="96" width="280" height="153" clipPath="url(#cpJomu)" preserveAspectRatio="xMidYMid slice" />}
+        {!cima && (
+          <g clipPath="url(#cpJomu)" stroke="#2E2116" strokeWidth="6" opacity=".7">
+            {[750, 784, 816, 850].map((x) => <line key={x} x1={x} y1="90" x2={x} y2="250" />)}
+          </g>
+        )}
+        {cima && (cima.imagen
+          ? <image href={cima.imagen} x="726" y="96" width="148" height="148" clipPath="url(#cpJomu)" preserveAspectRatio="xMidYMid slice" />
+          : <text x="800" y="174" textAnchor="middle" dominantBaseline="middle" fontSize="84">🏁</text>)}
+        <text x="800" y="76" textAnchor="middle" className="vg-cp-jomu">{nombreCima}</text>
         {/* Los equipos (emoji en su color) */}
         {eq.map((e, i) => {
           const q = posicion(i);
@@ -401,7 +409,7 @@ function MontanaCapibara({ equipos, meta }) {
           <span key={i} className={'vg-cp-chip' + ((e.puntos || 0) >= metaN ? ' llego' : '')} style={{ '--c': e.color }}>
             <span className="emo" aria-hidden="true">{e.emoji}</span>
             <strong>{e.corto}</strong>
-            <small>{(e.puntos || 0) >= metaN ? '¡Llegó hasta Jomu!' : Math.min(e.puntos || 0, metaN) + ' / ' + metaN + ' pasos'}</small>
+            <small>{(e.puntos || 0) >= metaN ? (cima ? '¡Llegó a la meta!' : '¡Llegó hasta Jomu!') : Math.min(e.puntos || 0, metaN) + ' / ' + metaN + ' pasos'}</small>
           </span>
         ))}
       </div>
@@ -447,7 +455,7 @@ function MarcadorCapibara() {
       </button>
       {abierto && (
         <div className="vg-marcador-panel">
-          <div className="vg-marcador-titulo">Pasos hacia Jomu · meta {meta}</div>
+          <div className="vg-marcador-titulo">Pasos hacia {s.cima ? String(s.cima.nombre || 'la meta').slice(0, 30) : 'Jomu'} · meta {meta}</div>
           {eq.map((e, i) => (
             <div key={i} className="vg-marcador-fila" style={{ '--c': e.color }}>
               <span className="vg-marcador-nombre">{e.emoji} {e.corto}</span>
@@ -466,6 +474,6 @@ function MarcadorCapibara() {
 
 Object.assign(window, {
   CapibaraActivacion, useCapibaraEstado, IMAGENES_CAPIBARA, HISTORIA_JOMU, PALETA_CAPIBARA, equiposCapibara,
-  MontanaCapibara, PantallaMontanaCapibara, MarcadorCapibara, capibaraVerMontana,
+  MontanaCapibara, PantallaMontanaCapibara, MarcadorCapibara, capibaraVerMontana, LucesCapibara, PalabrasCuento,
   fijarEstadoCapibara: fijarHistoriaCapibara,   // los juegos publican aquí su estado para el celular
 });

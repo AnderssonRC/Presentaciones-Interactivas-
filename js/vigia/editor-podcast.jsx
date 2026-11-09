@@ -220,7 +220,7 @@ function VigiaEditorPodcast({ act, onChange, onBack, onPresent }) {
                 Se agrega en el segundo actual del audio (lo pausa). Recurso: <strong style={{ color: 'var(--ink)' }}>{rec.nombre}</strong>.
               </p>
             </div>
-            <TiposAgrupados lista={TIPOS} render={(t) => {
+            <TiposAgrupados lista={TIPOS} act={act} update={update} render={(t) => {
               const habilitado = rec.tipos.includes(t.id);
               return (
                 <button key={t.id} className={'tool-card vg-tipo' + (habilitado ? '' : ' tool-soon')} disabled={!habilitado}

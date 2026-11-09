@@ -29,8 +29,11 @@
 /* ========================= BANCO DE COLORES =========================
    Colores puros y saturados (se ven en proyectores con poco brillo), cada
    uno con su ícono (daltonismo) y su sonido. `base`: los del inicio. Los
-   demás se desbloquean EN ESTE ORDEN; para ampliar el banco, sumar al final
-   (acciones seguras para un salón). tinta = color del texto encima. */
+   demás se desbloquean en un orden AL AZAR en cada partida (`ordenExtrasSF`;
+   los propios del docente, primero y en su orden); para ampliar el banco, sumar al final
+   (acciones seguras para un salón y que se puedan SOSTENER, sin repetir las
+   de otros juegos del Capibara: Jungla salta y se agacha, Ritmo aplaude y
+   golpea). tinta = color del texto encima. */
 const BANCO_SEMAFORO = [
   { id: 'verde', nombre: 'Verde', color: '#00D04A', tinta: '#00210B', icono: '🏃', accion: '¡Muévete!', detalle: 'Camina o trota en tu sitio', base: true,
     sonido: () => [523, 659, 784].forEach((f, i) => audioCapibara.tono(f, 0.16, 'triangle', 0.16, i * 0.07)) },
@@ -38,16 +41,22 @@ const BANCO_SEMAFORO = [
     sonido: () => { audioCapibara.tono(170, 0.5, 'square', 0.12); audioCapibara.tono(127, 0.5, 'sawtooth', 0.08); } },
   { id: 'amarillo', nombre: 'Amarillo', color: '#FFE500', tinta: '#2A2000', icono: '🦩', accion: '¡En un pie!', detalle: 'Como un flamenco',
     sonido: () => [1047, 1568].forEach((f, i) => audioCapibara.tono(f, 0.3, 'sine', 0.16, i * 0.12)) },
-  { id: 'azul', nombre: 'Azul', color: '#0050FF', tinta: '#FFFFFF', icono: '🐸', accion: '¡Agáchate!', detalle: 'Agachado como una rana',
+  { id: 'azul', nombre: 'Azul', color: '#0050FF', tinta: '#FFFFFF', icono: '🧎', accion: '¡Rodilla al piso!', detalle: 'Una rodilla en el suelo, como un caballero',
     sonido: () => audioCapibara.tono(560, 0.5, 'sine', 0.2, 0, 140) },
   { id: 'morado', nombre: 'Morado', color: '#9D00FF', tinta: '#FFFFFF', icono: '🙌', accion: '¡Brazos arriba!', detalle: 'Bien estirados hacia el cielo',
     sonido: () => audioCapibara.tono(300, 0.45, 'triangle', 0.18, 0, 1200) },
   { id: 'naranja', nombre: 'Naranja', color: '#FF7400', tinta: '#200C00', icono: '🌀', accion: '¡Gira!', detalle: 'Da vueltas en tu sitio, despacio',
     sonido: () => [660, 880, 660, 880, 660].forEach((f, i) => audioCapibara.tono(f, 0.07, 'square', 0.08, i * 0.07)) },
-  { id: 'rosado', nombre: 'Rosado', color: '#FF1FA0', tinta: '#FFFFFF', icono: '👏', accion: '¡Aplaude!', detalle: 'Aplaude sin parar',
+  { id: 'rosado', nombre: 'Rosado', color: '#FF1FA0', tinta: '#FFFFFF', icono: '✈️', accion: '¡Avión!', detalle: 'Brazos abiertos y el cuerpo inclinado, sin moverte',
     sonido: () => [0, 0.15].forEach((t) => audioCapibara.ruido(0.08, 0.35, 2600, t)) },
   { id: 'celeste', nombre: 'Celeste', color: '#00E1FF', tinta: '#001E24', icono: '🙆', accion: '¡Manos a la cabeza!', detalle: 'Las dos manos sobre la cabeza',
     sonido: () => [1319, 1760, 2093].forEach((f, i) => audioCapibara.tono(f, 0.12, 'sine', 0.13, i * 0.06)) },
+  { id: 'blanco', nombre: 'Blanco', color: '#FFFFFF', tinta: '#1A1A1A', icono: '🩰', accion: '¡Puntas de pie!', detalle: 'Quieto en la punta de los pies',
+    sonido: () => [1568, 2093].forEach((f, i) => audioCapibara.tono(f, 0.1, 'triangle', 0.12, i * 0.09)) },
+  { id: 'gris', nombre: 'Gris', color: '#9A9A9A', tinta: '#111111', icono: '🦸', accion: '¡Manos en la cintura!', detalle: 'Como un superhéroe',
+    sonido: () => [196, 262, 330].forEach((f, i) => audioCapibara.tono(f, 0.16, 'square', 0.08, i * 0.08)) },
+  { id: 'cafe', nombre: 'Café', color: '#7A4A1E', tinta: '#FFFFFF', icono: '🤗', accion: '¡Abrázate!', detalle: 'Un abrazo fuerte a ti mismo',
+    sonido: () => audioCapibara.tono(440, 0.45, 'sine', 0.18, 0, 330) },
 ];
 const BASE_SF = BANCO_SEMAFORO.filter((c) => c.base);
 const EXTRAS_SF = BANCO_SEMAFORO.filter((c) => !c.base);
@@ -76,6 +85,12 @@ function bancoSemaforo(a) {
     icono: (c.icono || '').trim() || '⭐', accion: (c.accion || '').trim(), detalle: (c.detalle || '').trim(), sonido: sonidoPropioSF(k), propio: true,
   }));
   return { base: BASE_SF, extras: propios.concat(a && a.soloPropiosSemaforo ? [] : EXTRAS_SF) };
+}
+// Orden de desbloqueo de una partida: los propios en su orden; los del juego, mezclados.
+function ordenExtrasSF(banco) {
+  const propios = banco.extras.filter((c) => c.propio), juego = banco.extras.filter((c) => !c.propio);
+  for (let i = juego.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [juego[i], juego[j]] = [juego[j], juego[i]]; }
+  return propios.concat(juego);
 }
 
 /* =========================== CONFIGURACIÓN =========================== */
@@ -162,11 +177,13 @@ function SemaforoCapibara({ a, estudiantes, onContinuar }) {
 
   // ---- Reglas del juego ----
   const irA = (f) => { const X = g.current; X.fase = f; X.inicio = X.reloj; X.seg = null; setFase(f); };
-  const activos = () => banco.base.concat(banco.extras.slice(0, g.current.desbloq));
+  const extras = () => g.current.extras || banco.extras;   // orden de esta partida
+  const activos = () => banco.base.concat(extras().slice(0, g.current.desbloq));
   const enJuego = (f) => f === 'cuenta' || f === 'juego' || f === 'anuncio';
   const empezar = () => {
     audioCapibara.despertar();
     const X = nuevoJuegoSF(cfg.current.jugadores);
+    X.extras = ordenExtrasSF(banco);   // cada partida, los colores nuevos en otro orden
     X.reloj = g.current.reloj; g.current = X;
     irA('reglas'); refrescar();
   };
@@ -187,8 +204,8 @@ function SemaforoCapibara({ a, estudiantes, onContinuar }) {
   const cambiar = () => {
     const X = g.current, C = cfg.current;
     X.cambios += 1;
-    if (X.cambios % C.cadaN === 0 && X.desbloq < banco.extras.length) {
-      X.desbloq += 1; X.nuevo = banco.extras[X.desbloq - 1].id; X.trampa = null;
+    if (X.cambios % C.cadaN === 0 && X.desbloq < extras().length) {
+      X.desbloq += 1; X.nuevo = extras()[X.desbloq - 1].id; X.trampa = null;
       SONIDO_SF.anuncio(); irA('anuncio'); refrescar(); return;
     }
     ponerColor(siguienteColorSF(activos(), X.color));

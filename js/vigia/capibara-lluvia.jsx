@@ -6,8 +6,9 @@
    juegan a la vez, parados en las zonas. Desde arriba caen gotas gigantes, cocos
    y piedras: primero su SOMBRA marca la zona (aviso), luego caen e impactan.
    Siempre queda al menos una zona segura. Quien quede en una zona golpeada,
-   queda eliminado. Cada ronda es más difícil: menos aviso, caída más rápida y
-   más zonas golpeadas a la vez.
+   queda eliminado. Cada ronda es un poco más difícil: menos aviso, caída más
+   rápida, más zonas golpeadas por nivel (cada 3 rondas) y fintas (la sombra
+   aparece en otra zona y se desliza a la real justo antes de caer).
 
    Eliminaciones: al empezar se elige cuántos jugadores tiene cada equipo en pie
    (`a.jugadoresLluvia`; 0 = los integrantes del equipo). Tras cada impacto el
@@ -31,11 +32,19 @@ const LL = {
   W: 1600, H: 900,
   ZY: 470, ZH: 300,                 // franja de zonas en el lienzo lógico (1600 × 900)
   CUENTA_MS: 3000, IMPACTO_MS: 1300,
-  // milisegundos de aviso (sombra) y de caída en la ronda 1, según la velocidad
-  VEL: { lenta: { aviso: 3200, caida: 1500 }, media: { aviso: 2500, caida: 1200 }, rapida: { aviso: 1900, caida: 950 } },
-  MIN_AVISO: 900, MIN_CAIDA: 450,
-  CADA_ZONA_EXTRA: 3,               // cada 3 rondas puede caer en una zona más
+  // milisegundos de aviso (sombra) y de caída en la ronda 1, según la velocidad;
+  // `finta` = ronda desde la que la sombra puede cambiar de zona antes de caer.
+  VEL: {
+    lenta: { aviso: 2200, caida: 850, finta: 3 },
+    media: { aviso: 1700, caida: 680, finta: 2 },
+    rapida: { aviso: 1300, caida: 520, finta: 1 },
+  },
+  MIN_AVISO: 650, MIN_CAIDA: 300,
+  BAJA_POR_RONDA: 0.06,             // cada ronda, 6 % menos de tiempo (hasta la mitad)
+  CADA_ZONA_EXTRA: 3,               // cada 3 rondas (un nivel) puede caer en una zona más
+  DESLIZ_MS: 220,                   // lo que tarda la sombra en deslizarse a otra zona
 };
+const nivelLL = (r) => 1 + Math.floor((Math.max(1, r) - 1) / LL.CADA_ZONA_EXTRA);
 // Zonas: colores claros y muy distintos entre sí (el número oscuro se lee en todos).
 const ZONAS_LL = ['#FFD400', '#00C8FF', '#FF5FD2', '#7CFF4F', '#FF9A1F', '#C7A6FF'];
 
@@ -83,27 +92,57 @@ const SONIDO_LL = {
   aviso: () => [0, 0.22].forEach((t) => audioCapibara.tono(880, 0.16, 'square', 0.1, t)),
   tic: () => audioCapibara.tono(1200, 0.05, 'square', 0.06),
   caida: (ms) => audioCapibara.tono(1500, ms / 1000, 'sine', 0.1, 0, 260),
+  cambio: () => audioCapibara.tono(380, 0.16, 'triangle', 0.14, 0, 950),   // la sombra se mueve
 };
 
 /* =============================== REGLAS =============================== */
-/* La ronda r: tiempos (cada vez más cortos) y zonas golpeadas (más con las
-   rondas, nunca todas; distinto conjunto que la ronda anterior si se puede). */
+/* La ronda r: tiempos (cada vez más cortos, poco a poco), zonas golpeadas (más
+   con cada nivel, nunca todas; distinto conjunto que la ronda anterior si se
+   puede) y fintas: la sombra aparece en zonas falsas y se desliza a las reales.
+   `tramos` = [{ zonas, desde }]; el último tramo son las zonas reales. */
 function rondaLL(r, n, vel, anterior) {
   const base = LL.VEL[vel] || LL.VEL.lenta;
-  const f = Math.max(0.45, 1 - 0.07 * (r - 1));
-  const aviso = Math.max(LL.MIN_AVISO, base.aviso * f);
+  const f = Math.max(0.5, 1 - LL.BAJA_POR_RONDA * (r - 1));
+  const avisoBase = Math.max(LL.MIN_AVISO, base.aviso * f);
   const caida = Math.max(LL.MIN_CAIDA, base.caida * Math.pow(f, 0.8));
-  let k = Math.min(n - 1, 1 + Math.floor((r - 1) / LL.CADA_ZONA_EXTRA));
-  if (k > 1 && Math.random() < 0.35) k -= 1;
+  let k = Math.min(n - 1, nivelLL(r));
+  if (k > 1 && Math.random() < 0.3) k -= 1;
   const todas = Array.from({ length: n }, (_, i) => i);
-  let zonas = [];
-  for (let intento = 0; intento < 8; intento++) {
-    zonas = barajarJaguar(todas).slice(0, k).sort((x, y) => x - y);
-    if (!anterior || zonas.join() !== anterior.join()) break;
+  // Barajado propio: cada módulo corre aislado y no ve las funciones del Jaguar.
+  const barajar = (l) => { const c = l.slice(); for (let i = c.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [c[i], c[j]] = [c[j], c[i]]; } return c; };
+  const elegir = (evitar) => {
+    let z = [];
+    for (let intento = 0; intento < 10; intento++) {
+      z = barajar(todas).slice(0, k).sort((x, y) => x - y);
+      if (!evitar || z.join() !== evitar.join()) break;
+    }
+    return z;
+  };
+  const zonas = elegir(anterior);
+  // Fintas: desde la ronda `base.finta`, cada vez más probables; 2 seguidas desde el nivel 3.
+  let fintas = 0;
+  if (r >= base.finta) {
+    const prob = Math.min(0.8, 0.3 + 0.08 * (r - base.finta));
+    if (Math.random() < prob) fintas = 1;
+    if (fintas && nivelLL(r) >= 3 && Math.random() < 0.45) fintas = 2;
   }
+  const tramos = [];
+  let t = 0, previa = null;
+  for (let q = 0; q < fintas; q++) {
+    let falsa = elegir(previa);
+    if (falsa.join() === zonas.join()) falsa = elegir(zonas);
+    tramos.push({ zonas: falsa, desde: t });
+    t += Math.max(420, avisoBase * 0.4);
+    previa = falsa;
+  }
+  // Tras la última finta queda tiempo justo para cambiarse de zona.
+  tramos.push({ zonas, desde: t });
+  const aviso = t + (fintas ? Math.max(LL.MIN_AVISO, avisoBase * 0.75) : avisoBase);
   const objetos = zonas.map(() => IDS_OBJETOS_LL[Math.floor(Math.random() * IDS_OBJETOS_LL.length)]);
-  return { zonas, objetos, aviso, caida };
+  return { zonas, objetos, aviso, caida, tramos, nivel: nivelLL(r) };
 }
+// Tramo de la sombra en el instante e del aviso.
+const tramoLL = (golpe, e) => { let i = 0; golpe.tramos.forEach((s, q) => { if (e >= s.desde) i = q; }); return i; };
 function nuevoJuegoLL(jugadores) {
   return { fase: 'menu', reloj: 0, inicio: 0, seg: null, ronda: 0, golpe: null, ...nuevoEnPieCp(jugadores) };
 }
@@ -133,7 +172,7 @@ function EsquivaLluvia({ a, estudiantes, onContinuar }) {
   const { raiz, tam } = useLienzoCp(LL.W, LL.H);
 
   // ---- Reglas del juego ----
-  const irA = (f) => { const X = g.current; X.fase = f; X.inicio = X.reloj; X.seg = null; setFase(f); };
+  const irA = (f) => { const X = g.current; X.fase = f; X.inicio = X.reloj; X.seg = null; X.tramo = 0; setFase(f); };
   const empezar = () => {
     if (g.current.fase !== 'menu') return;
     audioCapibara.despertar();
@@ -223,6 +262,8 @@ function EsquivaLluvia({ a, estudiantes, onContinuar }) {
         } else if (X.fase === 'aviso') {
           const s = Math.floor(e / 1000);
           if (s !== X.seg) { if (X.seg !== null) SONIDO_LL.tic(); X.seg = s; }
+          const tr = tramoLL(X.golpe, e);
+          if (tr !== (X.tramo || 0)) { X.tramo = tr; SONIDO_LL.cambio(); }
           if (e >= X.golpe.aviso) { SONIDO_LL.caida(X.golpe.caida); irA('caida'); }
           refrescar();
         } else if (X.fase === 'caida') {
@@ -301,7 +342,16 @@ function EsquivaLluvia({ a, estudiantes, onContinuar }) {
   const wz = LL.W / n;
   const golpe = G.golpe;
   const e = G.reloj - G.inicio;
-  const golpeada = (k) => !!(golpe && golpe.zonas.includes(k) && fase !== 'menu' && fase !== 'cuenta');
+  // Durante el aviso, la sombra puede estar en zonas falsas (finta) y deslizarse a las reales.
+  const iTramo = golpe && fase === 'aviso' ? tramoLL(golpe, e) : -1;
+  const zonasVis = !golpe ? [] : iTramo >= 0 ? golpe.tramos[iTramo].zonas : golpe.zonas;
+  const centro = (z) => z * wz + wz / 2;
+  const xZona = (j) => {
+    if (iTramo <= 0) return centro(zonasVis[j]);
+    const p = Math.min(1, (e - golpe.tramos[iTramo].desde) / LL.DESLIZ_MS), s = p * p * (3 - 2 * p);
+    return centro(golpe.tramos[iTramo - 1].zonas[j]) * (1 - s) + centro(zonasVis[j]) * s;
+  };
+  const golpeada = (k) => !!(golpe && zonasVis.includes(k) && fase !== 'menu' && fase !== 'cuenta');
   const verSombra = fase === 'aviso' || fase === 'caida' || fase === 'impacto';
   const resultado = fase === 'impacto' || fase === 'elimina';
   // Sombra: crece durante el aviso (0,25 → 0,75) y la caída (→ 1).
@@ -356,12 +406,12 @@ function EsquivaLluvia({ a, estudiantes, onContinuar }) {
             ))}
             <line x1="0" y1={LL.ZY} x2={LL.W} y2={LL.ZY} stroke={BORDE_LL} strokeWidth="8" />
             {/* Sombras de lo que va a caer */}
-            {verSombra && golpe && golpe.zonas.map((z) => (
-              <ellipse key={'s' + z} cx={z * wz + wz / 2} cy={LL.ZY + 52} rx={wz * 0.38 * sombra} ry={36 * sombra} fill="#000000" opacity={0.3 + 0.5 * sombra} />
+            {verSombra && golpe && zonasVis.map((z, j) => (
+              <ellipse key={'s' + j} cx={xZona(j)} cy={LL.ZY + 52} rx={wz * 0.38 * sombra} ry={36 * sombra} fill="#000000" opacity={0.3 + 0.5 * sombra} />
             ))}
             {/* Objetos (aviso y caída) */}
-            {(fase === 'aviso' || fase === 'caida') && golpe && golpe.zonas.map((z, j) => (
-              <g key={'o' + z} transform={'translate(' + (z * wz + wz / 2) + ' ' + yObjeto().toFixed(1) + ') scale(' + escalaObj.toFixed(3) + ') rotate(' + ((e / 12 + j * 40) % 360 * (golpe.objetos[j] === 'gota' ? 0 : 1)).toFixed(1) + ')'}>
+            {(fase === 'aviso' || fase === 'caida') && golpe && zonasVis.map((z, j) => (
+              <g key={'o' + j} transform={'translate(' + xZona(j).toFixed(1) + ' ' + yObjeto().toFixed(1) + ') scale(' + escalaObj.toFixed(3) + ') rotate(' + ((e / 12 + j * 40) % 360 * (golpe.objetos[j] === 'gota' ? 0 : 1)).toFixed(1) + ')'}>
                 {OBJETOS_LL[golpe.objetos[j]].dibujo}
               </g>
             ))}
@@ -383,7 +433,7 @@ function EsquivaLluvia({ a, estudiantes, onContinuar }) {
 
         {/* Arriba: ronda y aviso */}
         {enJuegoLL(fase) && fase !== 'cuenta' && (
-          <div className="vg-ep-hud">🌧 Ronda {G.ronda} · {golpe ? golpe.zonas.length : 1} {golpe && golpe.zonas.length > 1 ? 'zonas' : 'zona'} · 🧍 {totalEnPie} en pie</div>
+          <div className="vg-ep-hud">🌧 Ronda {G.ronda} · Nivel {nivelLL(G.ronda)} · {golpe ? golpe.zonas.length : 1} {golpe && golpe.zonas.length > 1 ? 'zonas' : 'zona'} · 🧍 {totalEnPie} en pie</div>
         )}
         {(fase === 'aviso' || fase === 'caida') && !pausado && <div className="vg-ll-alerta">⚠ ¡A una zona segura!</div>}
 
@@ -434,7 +484,7 @@ function EsquivaLluvia({ a, estudiantes, onContinuar }) {
             <div className="vg-mi-tarjeta menu">
               <div className="vg-cp-kicker">🌿 Modo Capibara · {eqV.length} equipos · gana el último equipo en pie (+{pasos} pasos)</div>
               <h1 className="vg-mi-titulo">🌧 Esquiva la Lluvia</h1>
-              <p className="vg-mi-intro">Caen gotas gigantes, cocos y piedras. Su <b>sombra</b> marca las zonas donde van a caer: ¡corre a una zona segura! Quien quede en una zona golpeada, se sienta.</p>
+              <p className="vg-mi-intro">Caen gotas gigantes, cocos y piedras. Su <b>sombra</b> marca las zonas donde van a caer: ¡corre a una zona segura! Quien quede en una zona golpeada, se sienta. ¡Ojo! A veces la sombra <b>cambia de zona</b> justo antes de caer, y cada ronda es un poco más rápida.</p>
               {a.texto && a.texto.trim() && <p className="vg-mi-intro extra">{a.texto}</p>}
               <div className="vg-ll-mini" aria-hidden="true">
                 {Array.from({ length: zonas }, (_, k) => <span key={k} style={{ background: ZONAS_LL[k] }}>{k + 1}</span>)}

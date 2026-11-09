@@ -9,6 +9,9 @@
    incorrecto, queda eliminado. El número sale al azar entre 2 y un máximo
    (`a.maxCongelados`, 6) que baja solo al total de jugadores en pie, así
    siempre se puede formar al menos un grupo.
+   Dificultad: el tiempo para agruparse baja un 6 % por ronda (hasta el 55 %,
+   mínimo 3 s) y, desde la ronda 3, cada 2 rondas entra una consigna nueva
+   (`CONSIGNAS_CG`: tomados de las manos, espalda con espalda, tren…; +1 s).
 
    Eliminaciones: jugadores en pie por equipo (`a.jugadoresCongelados`;
    0 = los integrantes), contador grande por equipo y total en pie. Tras cada
@@ -31,7 +34,39 @@ const CG = {
   // segundos [mín, máx] caminando, según la velocidad
   CAMINAR: { lenta: [9, 17], media: [6, 13], rapida: [4, 9] },
   TIEMPO_MS: 1500,   // «¡Tiempo!» antes de descontar
+  BAJA_POR_RONDA: 0.06, MIN_FACTOR: 0.55, MIN_MS: 3000,   // el tiempo para agruparse baja 6 % por ronda (hasta 55 %, nunca menos de 3 s)
+  CONSIGNA_DESDE: 3, CONSIGNA_CADA: 2,                     // desde la ronda 3, una consigna nueva cada 2 rondas
+  CONSIGNA_MS: 1000,                                       // un segundo más cuando hay consigna
 };
+
+/* ============================= CONSIGNAS =============================
+   Cómo debe formarse el grupo. Se desbloquean EN ESTE ORDEN (la ronda en que
+   entra una, sale esa); después se mezclan sin repetir la anterior. Son
+   formaciones de grupo: no repiten acciones de otros juegos del Capibara. */
+const CONSIGNAS_CG = [
+  { id: 'manos', icono: '🤝', texto: 'tomados de las manos' },
+  { id: 'espaldas', icono: '🔙', texto: 'espalda con espalda' },
+  { id: 'tren', icono: '🚂', texto: 'en fila, como un tren' },
+  { id: 'ronda', icono: '⭕', texto: 'en ronda, mirando hacia afuera' },
+  { id: 'codos', icono: '💪', texto: 'codo con codo' },
+  { id: 'dedos', icono: '☝️', texto: 'con un dedo de cada uno en el centro' },
+];
+// Consignas activas en la ronda r (0 = ninguna: solo «grupos de N»).
+const consignasCG = (r) => (r < CG.CONSIGNA_DESDE ? 0
+  : Math.min(CONSIGNAS_CG.length, 1 + Math.floor((r - CG.CONSIGNA_DESDE) / CG.CONSIGNA_CADA)));
+function consignaCG(r, anterior) {
+  const n = consignasCG(r);
+  if (!n) return null;
+  if (n > consignasCG(r - 1)) return CONSIGNAS_CG[n - 1];   // la nueva
+  // Las rondas sin consigna nueva también pueden ser «solo grupos» (1 de cada n + 1).
+  const op = [null].concat(CONSIGNAS_CG.slice(0, n)).filter((c) => (c && c.id) !== (anterior && anterior.id));
+  return op[Math.floor(Math.random() * op.length)];
+}
+// Milisegundos para agruparse en la ronda r (con o sin consigna).
+function limiteCG(segundos, r, conConsigna) {
+  const f = Math.max(CG.MIN_FACTOR, 1 - CG.BAJA_POR_RONDA * (r - 1));
+  return Math.max(CG.MIN_MS, Math.round(segundos * 1000 * f)) + (conConsigna ? CG.CONSIGNA_MS : 0);
+}
 
 /* ========================= MÚSICA Y SONIDOS =========================
    Música generada en vivo: bombo, aplauso, platillo, bajo y una melodía
@@ -90,7 +125,7 @@ function caminarCG(vel) {
   return (a + Math.random() * (b - a)) * 1000;
 }
 function nuevoJuegoCG(jugadores) {
-  return { fase: 'menu', reloj: 0, inicio: 0, seg: null, ronda: 0, numero: null, caminar: 0, ...nuevoEnPieCp(jugadores) };
+  return { fase: 'menu', reloj: 0, inicio: 0, seg: null, ronda: 0, numero: null, consigna: null, limite: 0, caminar: 0, ...nuevoEnPieCp(jugadores) };
 }
 const corriendoCG = (f) => f === 'caminar' || f === 'numero' || f === 'tiempo';
 const enJuegoCG = (f) => corriendoCG(f) || f === 'elimina';
@@ -144,6 +179,8 @@ function CongeladosNumeros({ a, estudiantes, onContinuar }) {
     if (X.fase !== 'caminar' || cfg.current.pausado) return;
     musica.current.parar(); SONIDO_CG.corte();
     X.numero = numeroCG(cfg.current.maximo, totalDe(X), X.numero);
+    X.consigna = consignaCG(X.ronda, X.consigna);
+    X.limite = limiteCG(cfg.current.tiempo, X.ronda, !!X.consigna);
     setTimeout(SONIDO_CG.numero, 250);
     irA('numero'); refrescar();
   };
@@ -219,7 +256,7 @@ function CongeladosNumeros({ a, estudiantes, onContinuar }) {
         if (X.fase === 'caminar') {
           if (e >= X.caminar) cortar();
         } else if (X.fase === 'numero') {
-          const total = cfg.current.tiempo * 1000;
+          const total = X.limite || cfg.current.tiempo * 1000;
           const seg = Math.ceil((total - e) / 1000);
           if (seg !== X.seg && seg > 0) { X.seg = seg; SONIDO_CG.tic(seg <= 3); }
           if (e >= total) { SONIDO_CG.fin(); irA('tiempo'); }
@@ -264,6 +301,8 @@ function CongeladosNumeros({ a, estudiantes, onContinuar }) {
   // ---- Mando: estado y órdenes ----
   usePublicarCp({
     juego: 'congelados', fase, pausado, silencio, vel, tiempo, maximo, jugadores, ronda: G.ronda, numero: fase === 'menu' ? null : G.numero,
+    consigna: fase === 'menu' || !G.consigna ? null : G.consigna.icono + ' ' + G.consigna.texto,
+    limite: fase === 'menu' ? null : Math.round((G.limite || tiempo * 1000) / 100) / 10,
     total: totalDe(G), enPie: G.enPie, inicial: G.inicial, puedeDeshacer: G.historial.length > 0, ganadores: G.ganadores,
     eqs: eqV.map((e) => ({ corto: e.corto, emoji: e.emoji, color: e.color })),
   });
@@ -292,8 +331,9 @@ function CongeladosNumeros({ a, estudiantes, onContinuar }) {
   if (fase === 'montana') return <MontanaFinalCp equipos={sesion.equipos || equipos} meta={sesion.meta} onContinuar={onContinuar} titulo="Congelados por Números" />;
   const total = totalDe(G);
   const e = G.reloj - G.inicio;
-  const restante = fase === 'numero' ? Math.max(0, tiempo * 1000 - e) : 0;
-  const p = fase === 'numero' ? restante / (tiempo * 1000) : 0;
+  const limite = G.limite || tiempo * 1000;
+  const restante = fase === 'numero' ? Math.max(0, limite - e) : 0;
+  const p = fase === 'numero' ? restante / limite : 0;
   const tabla = tablaEnPieCp(eqV, G);
   const maxAhora = Math.max(2, Math.min(maximo, total));
 
@@ -313,9 +353,10 @@ function CongeladosNumeros({ a, estudiantes, onContinuar }) {
 
         {/* El número enorme y la cuenta regresiva */}
         {(fase === 'numero' || fase === 'tiempo' || fase === 'elimina') && G.numero && (
-          <div className={'vg-cg-numero' + (fase === 'elimina' ? ' chico' : '')}>
+          <div className={'vg-cg-numero' + (fase === 'elimina' ? ' chico' : '') + (G.consigna ? ' con-consigna' : '')}>
             <div className="vg-cg-grupos">¡Grupos de</div>
             <b key={'n' + G.ronda}>{G.numero}</b>
+            {G.consigna && <div className="vg-cg-consigna" key={'c' + G.ronda}>{G.consigna.icono} {G.consigna.texto}</div>}
             {fase === 'numero' && (
               <div className={'vg-cg-reloj' + (restante <= 3000 ? ' poco' : '')} style={{ '--p': p.toFixed(3) }}>
                 <span>{Math.ceil(restante / 1000)}</span>
@@ -326,7 +367,7 @@ function CongeladosNumeros({ a, estudiantes, onContinuar }) {
         {fase === 'tiempo' && <div className="vg-cg-tiempo">¡TIEMPO!</div>}
 
         {/* Arriba: ronda y total en pie */}
-        {enJuegoCG(fase) && <div className="vg-ep-hud">🧊 Ronda {G.ronda} · 🧍 {total} en pie · números del 2 al {maxAhora}</div>}
+        {enJuegoCG(fase) && <div className="vg-ep-hud">🧊 Ronda {G.ronda} · 🧍 {total} en pie · números del 2 al {maxAhora} · ⏱ {(Math.round(limiteCG(tiempo, Math.max(1, G.ronda), false) / 100) / 10).toString().replace('.', ',')} s</div>}
 
         {/* Contadores grandes por equipo (abajo) */}
         {enJuegoCG(fase) && fase !== 'elimina' && <ContadoresEnPieCp eqV={eqV} E={G} conNombre clase="vg-ep-abajo" onTocar={pausar} />}
@@ -344,7 +385,7 @@ function CongeladosNumeros({ a, estudiantes, onContinuar }) {
         {fase === 'elimina' && !pausado && (
           <PausaEnPieCp titulo="❄ ¿Quién quedó suelto o en un grupo incorrecto?" eqV={eqV} E={G} onCambiar={descontar} onDeshacer={deshacer}
             onTerminar={terminar} onSeguir={iniciarRonda} textoSeguir="▶ Siguiente ronda">
-            <p className="vg-mi-intro">Grupos de <b>{G.numero}</b> · 🧍 {total} en pie</p>
+            <p className="vg-mi-intro">Grupos de <b>{G.numero}</b>{G.consigna ? ' ' + G.consigna.texto : ''} · 🧍 {total} en pie</p>
           </PausaEnPieCp>
         )}
 
@@ -361,6 +402,7 @@ function CongeladosNumeros({ a, estudiantes, onContinuar }) {
               <div className="vg-cp-kicker">🌿 Modo Capibara · {eqV.length} equipos · gana el último equipo en pie (+{pasos} pasos)</div>
               <h1 className="vg-mi-titulo">🧊 Congelados por Números</h1>
               <p className="vg-mi-intro">Caminen por el salón mientras suena la música. Cuando se corte, aparece un <b>número</b>: ¡formen grupos de exactamente ese tamaño antes de que acabe el tiempo! Quien quede suelto o en un grupo incorrecto, se sienta.</p>
+              <p className="vg-ep-nota">Cada ronda hay un poco menos de tiempo y, desde la ronda {CG.CONSIGNA_DESDE}, se suman consignas: {CONSIGNAS_CG.map((c) => c.texto).join(', ')}.</p>
               {a.texto && a.texto.trim() && <p className="vg-mi-intro extra">{a.texto}</p>}
               <div className="vg-mi-fila">
                 <OpcionesCp etiqueta="Caminar" valor={vel} onElegir={setVel} opciones={[['lenta', '🐢 Largo'], ['media', 'Medio'], ['rapida', '🐆 Corto']]} />

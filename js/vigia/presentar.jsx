@@ -11,16 +11,30 @@
 /* Elige el modo Presentar según el recurso y el formato (video, PDF o EPUB). */
 function VigiaPresentar(props) {
   const { act } = props;
+  // Modo Competencia (editor): la presentación entera es una competencia Jaguar o Capibara
+  // y CUALQUIER activación suma (PuntosCompetencia).
+  const lista = act.activaciones || [];
+  const comp = act.competencia && (act.competencia.modo === 'jaguar' || act.competencia.modo === 'capibara') ? act.competencia : null;
   // --- Modo Jaguar: una sesión por presentación; al salir se muestra el ganador ---
-  const conJaguar = (act.activaciones || []).some((a) => /^jg-/.test(a.tipo));
+  const conJaguar = comp ? comp.modo === 'jaguar' : lista.some((a) => /^jg-/.test(a.tipo));
   // Modo Capibara: misma sesión de equipos; en vez de puntos, pasos en la montaña hacia Jomu.
-  const conCapibara = !conJaguar && (act.activaciones || []).some((a) => /^cp-/.test(a.tipo));
+  const conCapibara = comp ? comp.modo === 'capibara' : (!conJaguar && lista.some((a) => /^cp-/.test(a.tipo)));
   const jaguar = useJaguarEstado();
   const [ganador, setGanador] = React.useState(null);   // null | 'salir' | 'ver'
-  // El número de equipos lo fija el PRIMER desafío con equipos y vale para toda la presentación.
+  // El número de equipos lo fija el PRIMER desafío con equipos y vale para toda la presentación
+  // (en el Modo Competencia sin juegos de equipos, el número elegido en el editor).
   React.useEffect(() => {
-    jaguarReiniciar(act.id, VigiaTipos.equiposJaguar(act.activaciones),
-      conCapibara ? { modo: 'capibara', meta: VigiaTipos.metaCapibara(act.activaciones) } : null);
+    const n = comp && !VigiaTipos.primerJaguar(lista)
+      ? Math.max(2, Math.min(VigiaTipos.MAX_EQUIPOS_JAGUAR, comp.equipos || 3))
+      : VigiaTipos.equiposJaguar(lista);
+    const meta = lista.some((x) => typeof x.metaCapibara === 'number') || !comp
+      ? VigiaTipos.metaCapibara(lista) : Math.max(3, Math.min(30, comp.meta || VigiaTipos.META_CAPIBARA));
+    // Historia competitiva: la meta del docente reemplaza a Jomu en la cima de la montaña.
+    const h = act.recurso === 'historia' && act.historia && act.historia.competitiva && comp ? act.historia : null;
+    const cima = h ? { nombre: ((h.meta && h.meta.nombre) || '').trim() || 'la meta', imagen: h.meta && h.meta.imagen ? urlImagen(h.meta.imagen) : '' } : null;
+    jaguarReiniciar(act.id, n, { ...(conCapibara ? { modo: 'capibara', meta } : {}), competencia: comp ? comp.modo : null, cima });
+    // Al salir, la competencia se apaga (las vistas previas del editor no suman).
+    return () => cambiarJaguar(() => ({ competencia: null }));
   }, [act.id]);   // eslint-disable-line
   // Precarga TODAS las imágenes del material al entrar: así cada una aparece
   // completa al llegar su momento (no a pedazos).
@@ -32,13 +46,19 @@ function VigiaPresentar(props) {
       (a.siluetas || []).forEach((u) => { if (u) urls.push(urlImagen(u)); });   // Silueta del grupo
     });
     ((act.galeria && act.galeria.diapos) || []).forEach((d) => { if (d.url) urls.push(urlImagen(d.url)); });
+    // Modo Historia: imágenes de las diapositivas, de la meta y del final.
+    if (act.historia) {
+      const hs = act.historia;
+      (hs.diapos || []).forEach((d) => { if (d.imagen) urls.push(urlImagen(d.imagen)); });
+      [hs.meta && hs.meta.imagen, hs.final && hs.final.imagen].forEach((u) => { if (u) urls.push(urlImagen(u)); });
+    }
     if (act.podcast) {
       const p = act.podcast;
       if (p.imagen || p.portada) urls.push(imagenPodcast(p));
       (p.imagenes || []).forEach((x) => { if (x.url) urls.push(urlImagen(x.url)); });
     }
     if ((act.activaciones || []).some((a) => a.tipo === 'reto')) urls.push('condor-retador.webp');
-    if ((act.activaciones || []).some((a) => /^jg-/.test(a.tipo))) urls.push('jaguar-equipos.webp', 'jaguar-rojo.webp', 'Jaguar-voz.mp3', 'voz del ganador.mp3', 'A desempatar.mp3');
+    if (conJaguar) urls.push('jaguar-equipos.webp', 'jaguar-rojo.webp', 'Jaguar-voz.mp3', 'voz del ganador.mp3', 'A desempatar.mp3');
     if ((act.activaciones || []).some((a) => a.tipo === 'cp-historia') && window.IMAGENES_CAPIBARA) urls.push(...IMAGENES_CAPIBARA);
     precargarVigia(urls);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -54,6 +74,7 @@ function VigiaPresentar(props) {
   let modo;
   if (act.recurso === 'podcast') modo = <VigiaPresentarPodcast {...p} />;
   else if (act.recurso === 'imagenes') modo = <VigiaPresentarImagenes {...p} />;
+  else if (act.recurso === 'historia') modo = <VigiaPresentarHistoria {...p} />;
   else if (act.recurso !== 'documento') modo = <VigiaPresentarVideo {...p} />;
   else modo = act.pdf && act.pdf.formato === 'epub' ? <VigiaPresentarEpub {...p} /> : <VigiaPresentarPdf {...p} />;
   return (
@@ -320,14 +341,93 @@ function VigiaPresentarVideo({ act, onExit }) {
 /* Tarjeta central con borde de luz giratoria. "Continuar el video" va fuera
    de la tarjeta, en la esquina inferior derecha, para dejarle todo el espacio. */
 function TarjetaActivacion(props) {
-  // El "Reto de activación" (físico-grupal) tiene su propia escena: el cóndor
-  // retador con rayos y luego el reto a pantalla completa (presentar-reto.jsx).
-  if (props.a.tipo === 'reto') return <RetoActivacion {...props} />;
   // Modo Jaguar (equipos): el jaguar, su voz y los equipos (presentar-jaguar.jsx).
   if (/^jg-/.test(props.a.tipo)) return <JaguarActivacion {...props} />;
   // Modo Capibara (infantil): la historia de Jomu y sus juegos (presentar-capibara.jsx).
   if (/^cp-/.test(props.a.tipo)) return <CapibaraActivacion {...props} />;
-  return <TarjetaActivacionBase {...props} />;
+  // Las demás (cognitivas y el Reto) suman a la competencia si el Modo Competencia está activo.
+  return (
+    <React.Fragment>
+      {/* El "Reto de activación" (físico-grupal) tiene su propia escena: el cóndor
+          retador con rayos y luego el reto a pantalla completa (presentar-reto.jsx). */}
+      {props.a.tipo === 'reto' ? <RetoActivacion {...props} /> : <TarjetaActivacionBase {...props} />}
+      <PuntosCompetencia a={props.a} estudiantes={props.estudiantes} />
+    </React.Fragment>
+  );
+}
+
+/* Modo Competencia: con CUALQUIER activación (pregunta, reto, glosario…) aparece
+   abajo «¿Qué equipo ganó?». El elegido suma 1 punto (Jaguar) o 1 paso
+   (Capibara); tocar otro equipo mueve el punto y tocar el mismo lo quita.
+   En la primera activación de la competencia se forman los equipos y se
+   muestran («Ver equipos»). En el celular: los mismos botones (desafío
+   'competencia', orden 'jg-ganador'). Sin Modo Competencia no aparece. */
+function PuntosCompetencia({ a, estudiantes }) {
+  const s = useJaguarEstado();
+  const activo = !!(s.competencia && window.jaguarPunto);
+  const [ganador, setGanador] = React.useState(null);
+  const [plegado, setPlegado] = React.useState(false);
+  // Primera activación: se reparten los estudiantes y se muestran los equipos.
+  React.useEffect(() => {
+    const x = window.jaguarSesion ? jaguarSesion() : null;
+    if (!x || !x.competencia || x.iniciado) return;
+    const nombres = (estudiantes || []).map((n) => (n || '').trim()).filter(Boolean);
+    if (!x.equipos) cambiarJaguar(() => ({ equipos: jaguarRepartir(nombres, x.n || 2) }));
+    jaguarIniciar();
+    jaguarVerGrupos(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const equipos = s.equipos || [];
+  const capibara = s.modo === 'capibara';
+  const vistos = capibara && window.equiposCapibara ? equiposCapibara(equipos) : equipos;
+  const elegir = (i) => {
+    if (!equipos[i]) return;
+    if (ganador === i) { jaguarPunto(i, -1); setGanador(null); return; }   // mismo equipo: se quita
+    if (ganador !== null) jaguarPunto(ganador, -1);
+    jaguarPunto(i, 1);
+    setGanador(i);
+  };
+  // El celular muestra los mismos botones.
+  const listo = activo && s.iniciado && equipos.length > 0;
+  React.useEffect(() => {
+    if (!listo) return undefined;
+    cambiarJaguar(() => ({ desafio: { tipo: 'competencia', competencia: true, pideGanador: true, elegibles: equipos.map((_, i) => i), ganador } }));
+    return undefined;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [listo, ganador, equipos.length]);
+  React.useEffect(() => () => {
+    const x = window.jaguarSesion ? jaguarSesion() : null;
+    if (x && x.desafio && x.desafio.tipo === 'competencia') cambiarJaguar(() => ({ desafio: null }));
+  }, []);
+  useOrdenMando((o) => {
+    if (!listo) return;
+    if (o.accion === 'jg-ganador' && typeof o.i === 'number') elegir(o.i);
+    else if (o.accion === 'cm-plegar') setPlegado((v) => !v);
+  });
+  if (!listo) return null;
+  const unidad = capibara ? 'paso' : 'punto';
+  return (
+    <div className={'vg-comp-panel' + (capibara ? ' capibara' : '') + (plegado ? ' plegado' : '')} role="group" aria-label="¿Qué equipo ganó esta activación?">
+      <button type="button" className="vg-comp-titulo" onClick={() => setPlegado((v) => !v)}
+        title={plegado ? 'Mostrar los equipos' : 'Ocultar (sigue la competencia)'}>
+        <span aria-hidden="true">🏆</span>
+        {ganador !== null && vistos[ganador]
+          ? <span>+1 {unidad} · <b style={{ color: vistos[ganador].color }}>{capibara ? vistos[ganador].corto : vistos[ganador].nombre}</b></span>
+          : <span>¿Qué equipo ganó? <small>+1 {unidad}</small></span>}
+        <span className="vg-comp-flecha" aria-hidden="true">{plegado ? '▴' : '▾'}</span>
+      </button>
+      {!plegado && (
+        <div className="vg-comp-equipos">
+          {vistos.map((e, i) => (
+            <button key={i} type="button" className={'vg-comp-chip' + (ganador === i ? ' on' : '')} style={{ '--c': e.color }}
+              onClick={() => elegir(i)} title={ganador === i ? 'Quitar el ' + unidad : 'Sumar 1 ' + unidad + ' a ' + e.nombre}>
+              {capibara ? (e.emoji + ' ' + e.corto) : e.nombre}{ganador === i ? ' ✓' : ''}<b>{e.puntos}</b>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 function TarjetaActivacionBase({ a, frase, estudiantes, orden, usados, onUsado, onContinuar, textoContinuar, onCambiarActivacion }) {
   const ti = VigiaTipos.tipo(a.tipo);
@@ -706,6 +806,6 @@ function TonoLateral({ tono, setTono }) {
 }
 
 Object.assign(window, {
-  VigiaPresentar, VigiaPresentarVideo, usePantallaCompleta, useUsadosRuleta, TarjetaActivacion, ContenidoActivacion, ImagenActivacion,
+  VigiaPresentar, VigiaPresentarVideo, usePantallaCompleta, useUsadosRuleta, TarjetaActivacion, ContenidoActivacion, ImagenActivacion, PuntosCompetencia,
   TONOS_PANTALLA, useTonoPresentar, SelectorTono, TonoLateral, ESCALAS_TARJETA,
 });

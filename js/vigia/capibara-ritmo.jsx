@@ -10,8 +10,9 @@
 
    · Al empezar solo hay 3 movimientos; cada `a.desbloqueoRitmo` rondas
      (2) se suma el siguiente del banco (se anuncia en grande).
-   · JUSTICIA: la secuencia se genera UNA vez al empezar la partida y es la
-     misma para todos los concursantes.
+   · JUSTICIA: cada concursante recibe una secuencia NUEVA (así nadie la vio
+     antes), con el mismo largo por ronda y los movimientos nuevos en las
+     mismas rondas: igual de difícil para todos.
    · Turnos: un concursante por equipo en cada vuelta (`a.rondasRitmo`, 1),
      elegido sin repetir con `siguienteConcursanteCp` (capibara-comun.jsx).
    · «Repetir secuencia»: una vez por turno.
@@ -31,26 +32,29 @@
    COMPONENTE (estado, reloj, teclado, mando, interfaz). */
 
 /* ======================== BANCO DE MOVIMIENTOS ========================
-   Movimientos seguros para un salón. Los 3 primeros son los del inicio; los
-   demás se desbloquean EN ESTE ORDEN. Para ampliar el banco, sumar al final
-   (con su figura en FIGURAS_RT y un sonido distinto). */
+   Percusión corporal: cada movimiento es un golpe que suena (seguro para un
+   salón). NO repetir acciones de otros juegos del Capibara (Jungla: saltar,
+   agacharse…; Semáforo: girar, brazos arriba, manos a la cabeza…).
+   Los 3 primeros son los del inicio; los demás se desbloquean EN ESTE ORDEN.
+   Para ampliar el banco, sumar al final (con su figura en FIGURAS_RT y un
+   sonido distinto). */
 const BANCO_RITMO = [
   { id: 'aplauso', nombre: 'Aplauso', color: '#D99A00',
     sonido: () => [0, 0.11].forEach((t) => audioCapibara.ruido(0.06, 0.45, 3200, t)) },
-  { id: 'salto', nombre: 'Salto', color: '#3E9B4F',
-    sonido: () => audioCapibara.tono(300, 0.3, 'triangle', 0.2, 0, 900) },
   { id: 'pisoton', nombre: 'Pisotón', color: '#D9692A',
     sonido: () => { audioCapibara.tono(110, 0.35, 'sine', 0.38, 0, 45); audioCapibara.ruido(0.15, 0.3, 300); } },
-  { id: 'giro', nombre: 'Giro', color: '#139485',
-    sonido: () => [600, 800, 1000, 1200].forEach((f, i) => audioCapibara.tono(f, 0.08, 'square', 0.07, i * 0.06)) },
-  { id: 'manos', nombre: 'Manos arriba', color: '#C94F92',
-    sonido: () => audioCapibara.tono(400, 0.4, 'sine', 0.2, 0, 1200) },
+  { id: 'piernas', nombre: 'Palmas en piernas', color: '#3E9B4F',
+    sonido: () => [0, 0.12].forEach((t) => audioCapibara.ruido(0.07, 0.4, 900, t)) },
   { id: 'rodillas', nombre: 'Tocar rodillas', color: '#2F78C4',
     sonido: () => [220, 196].forEach((f, i) => audioCapibara.tono(f, 0.12, 'triangle', 0.22, i * 0.14)) },
   { id: 'hombros', nombre: 'Tocar hombros', color: '#7D5CC4',
     sonido: () => [660, 587].forEach((f, i) => audioCapibara.tono(f, 0.1, 'square', 0.08, i * 0.14)) },
-  { id: 'cruz', nombre: 'Brazos en cruz', color: '#C9403A',
-    sonido: () => [392, 494, 587].forEach((f) => audioCapibara.tono(f, 0.45, 'sawtooth', 0.05)) },
+  { id: 'pecho', nombre: 'Golpes en el pecho', color: '#C9403A',
+    sonido: () => [0, 0.16].forEach((t) => audioCapibara.tono(95, 0.16, 'sine', 0.4, t, 60)) },
+  { id: 'barriga', nombre: 'Palmas en la barriga', color: '#C94F92',
+    sonido: () => audioCapibara.tono(330, 0.32, 'triangle', 0.2, 0, 160) },
+  { id: 'atras', nombre: 'Aplauso atrás', color: '#139485',
+    sonido: () => { audioCapibara.ruido(0.05, 0.4, 5200); audioCapibara.tono(880, 0.12, 'sine', 0.1, 0.06, 1320); } },
 ];
 
 /* ============================== FIGURAS ==============================
@@ -64,17 +68,19 @@ const PIERNAS_RT = [[[88, 200], [84, 252]], [[112, 200], [116, 252]]];
 const FIGURAS_RT = {
   aplauso: { brazos: [[[66, 110], [96, 94]], [[134, 110], [104, 94]]], piernas: PIERNAS_RT,
     marcas: 'M76,66 L66,52 M100,62 L100,46 M124,66 L134,52' },
-  salto: { dy: -22, brazos: [[[70, 52], [56, 22]], [[130, 52], [144, 22]]], piernas: [[[78, 186], [90, 224]], [[122, 186], [110, 224]]],
-    marcas: 'M40,268 L160,268 M28,210 L28,160 M18,174 L28,160 L38,174 M172,210 L172,160 M162,174 L172,160 L182,174' },
   pisoton: { brazos: [[[72, 116], [60, 150]], [[128, 116], [140, 150]]], piernas: [[[88, 200], [84, 252]], [[120, 196], [128, 252]]],
     marcas: 'M104,268 L92,280 M128,266 L128,282 M152,268 L164,280' },
-  giro: { brazos: [[[74, 112], [66, 148]], [[126, 112], [134, 148]]], piernas: PIERNAS_RT,
-    marcas: 'M30,150 A70,26 0 1 0 170,150 M170,150 L160,132 M170,150 L150,154' },
-  manos: { brazos: [[[74, 48], [68, 4]], [[126, 48], [132, 4]]], piernas: PIERNAS_RT },
+  piernas: { brazos: [[[62, 116], [80, 172]], [[138, 116], [120, 172]]], piernas: PIERNAS_RT,
+    marcas: 'M60,166 L46,160 M60,180 L46,186 M140,166 L154,160 M140,180 L154,186' },
   rodillas: { brazos: [[[64, 136], [86, 196]], [[136, 136], [114, 196]]], piernas: [[[86, 200], [84, 252]], [[114, 200], [116, 252]]],
     marcas: 'M70,206 A10,10 0 1 0 70,205.9 M130,206 A10,10 0 1 0 130,205.9' },
   hombros: { brazos: [[[56, 104], [84, 78]], [[144, 104], [116, 78]]], piernas: PIERNAS_RT },
-  cruz: { brazos: [[[54, 78], [8, 78]], [[146, 78], [192, 78]]], piernas: PIERNAS_RT },
+  pecho: { brazos: [[[58, 120], [90, 98]], [[142, 120], [110, 98]]], piernas: PIERNAS_RT,
+    marcas: 'M100,84 L100,70 M84,88 L76,76 M116,88 L124,76' },
+  barriga: { brazos: [[[60, 140], [92, 130]], [[140, 140], [108, 130]]], piernas: PIERNAS_RT,
+    marcas: 'M100,118 A14,14 0 1 0 100,117.9' },
+  atras: { brazos: [[[62, 122], [88, 150]], [[138, 122], [112, 150]]], piernas: PIERNAS_RT,
+    marcas: 'M150,140 A60,40 0 0 1 50,140 M50,140 L58,124 M50,140 L66,146' },
 };
 function FiguraRT({ id, className }) {
   const f = FIGURAS_RT[id] || FIGURAS_RT.aplauso;
@@ -97,7 +103,7 @@ function FiguraRT({ id, className }) {
 const RT = {
   INICIO: 2,          // movimientos de la primera secuencia
   BASE: 3,            // movimientos disponibles al empezar
-  LARGO: 40,          // largo máximo de la secuencia (se genera completa al empezar)
+  LARGO: 40,          // largo máximo de la secuencia (se genera completa al empezar cada turno)
   MIRA_MS: 900,       // «¡Mira!» antes de la secuencia
   NUEVO_MS: 3200,     // anuncio de un movimiento nuevo
   BIEN_MS: 1000,      // «¡Bien!» entre secuencias
@@ -168,12 +174,13 @@ function RitmoMemoria({ a, estudiantes, onContinuar }) {
     X.turno = t.turno; X.ronda = t.ronda;
     X.nombre = siguienteConcursanteCp(t.turno);
     X.k = 1; X.mejor = 0; X.repetido = false; X.ultimo = null;
+    X.secuencia = crearSecuenciaRT(cfg.current.cada);   // secuencia nueva: igual de difícil, nadie la vio antes
     irA('turno'); refrescar();
   };
   const empezar = () => {
     if (g.current.fase !== 'menu') return;
     audioCapibara.despertar();
-    const X = nuevoJuegoRT(cfg.current.cada, cfg.current.nEq);   // la MISMA secuencia para toda la partida
+    const X = nuevoJuegoRT(cfg.current.cada, cfg.current.nEq);
     X.reloj = g.current.reloj; g.current = X;
     siguienteTurno();
   };
@@ -492,7 +499,7 @@ function RitmoMemoria({ a, estudiantes, onContinuar }) {
             <div className="vg-mi-tarjeta menu">
               <div className="vg-cp-kicker">🌿 Modo Capibara · {eqV.length} equipos · gana el equipo con más movimientos (+{pasos} pasos)</div>
               <h1 className="vg-mi-titulo">🥁 Ritmo y Memoria</h1>
-              <p className="vg-mi-intro">Mira la secuencia de movimientos y repítela con tu cuerpo. Si aciertas, se suma uno más… ¿hasta dónde llegas? Todos juegan con la <b>misma</b> secuencia.</p>
+              <p className="vg-mi-intro">Mira la secuencia de movimientos y repítela con tu cuerpo. Si aciertas, se suma uno más… ¿hasta dónde llegas? Cada concursante tiene su <b>propia</b> secuencia, igual de difícil.</p>
               {a.texto && a.texto.trim() && <p className="vg-mi-intro extra">{a.texto}</p>}
               <div className="vg-rt-banco">
                 {activos.map((m) => (

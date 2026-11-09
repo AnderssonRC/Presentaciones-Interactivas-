@@ -156,6 +156,8 @@ function VigiaPresentarImagenes({ act, onExit, onChange }) {
         <MiniTarjeta key={mini.a.id} a={mini.a} x={mini.x} y={mini.y} nombres={nombres} orden={act.ordenNombres || 'apellidos'}
           usados={usados} onUsado={marcarUsado} onCerrar={cerrar} onCambiar={cambiarActivacion} />
       )}
+      {/* Modo Competencia: también la tarjeta pequeña suma puntos. */}
+      {mini && <PuntosCompetencia key={'comp-' + mini.a.id} a={mini.a} estudiantes={act.estudiantes || []} />}
 
       {/* Tarjeta grande */}
       {activa && (

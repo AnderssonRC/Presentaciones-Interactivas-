@@ -266,7 +266,7 @@ function CongeladosCel({ c, orden }) {
       {!c.pausado && c.fase === 'caminar' && <button className="vgm-btn grande vgm-rojo" style={{ minHeight: 110, fontSize: 28 }} onClick={() => orden('cg-cortar')}>✂ CORTAR MÚSICA</button>}
       {!c.pausado && (c.fase === 'elimina' || c.fase === 'tiempo') && <button className="vgm-btn grande" style={{ minHeight: 100, fontSize: 26 }} onClick={() => orden('cg-ronda')}>▶ Siguiente ronda</button>}
       <div style={{ fontSize: 13, opacity: 0.85 }}>🧊 Congelados por Números{enJuego ? ' · ronda ' + c.ronda + ' · ' + c.total + ' en pie' : ''}</div>
-      {c.numero && enJuego && c.fase !== 'caminar' && <div className="vgm-centro" style={{ fontSize: 40 }}>{c.numero}<small>grupos de {c.numero}</small></div>}
+      {c.numero && enJuego && c.fase !== 'caminar' && <div className="vgm-centro" style={{ fontSize: 40 }}>{c.numero}<small>grupos de {c.numero}{c.consigna ? ' · ' + c.consigna : ''}{c.limite ? ' · ⏱ ' + String(c.limite).replace('.', ',') + ' s' : ''}</small></div>}
       {!c.pausado && (c.fase === 'caminar' || c.fase === 'numero') && <button className="vgm-btn borde" onClick={() => orden('cg-pausa')}>⏸ Pausa</button>}
       {enJuego && <EnPieCel c={c} orden={orden} prefijo="cg" activo />}
       {enJuego && c.puedeDeshacer && <button className="vgm-btn borde" onClick={() => orden('cg-deshacer')}>↩ Deshacer</button>}
@@ -380,8 +380,9 @@ function VigiaMandoCelular({ code, state, send }) {
   const esMedio = st.recurso === 'video' || st.recurso === 'podcast';
   const esDoc = st.recurso === 'documento';
   const esImg = st.recurso === 'imagenes';
-  const sinEmpezar = (esMedio || esImg) && !st.empezado;
-  const nombreRecurso = esDoc ? (st.formato === 'epub' ? 'EPUB' : 'PDF') : esImg ? 'Imágenes' : st.recurso === 'podcast' ? 'Podcast' : 'Video';
+  const esHistoria = st.recurso === 'historia';
+  const sinEmpezar = (esMedio || esImg || esHistoria) && !st.empezado;
+  const nombreRecurso = esDoc ? (st.formato === 'epub' ? 'EPUB' : 'PDF') : esImg ? 'Imágenes' : esHistoria ? 'Historia' : st.recurso === 'podcast' ? 'Podcast' : 'Video';
 
   return (
     <div className="vgm">
@@ -869,6 +870,61 @@ function VigiaMandoCelular({ code, state, send }) {
         </div>
       )}
 
+      {/* Modo Historia: los mismos botones de la pantalla (diapositivas, misión, equipos, montaña, desenlace) */}
+      {esHistoria && !sinEmpezar && !activa && (() => {
+        const hs = st.historia || {};
+        const f = hs.fase || 'diapo';
+        return (
+          <div className="vgm-panel">
+            {f === 'diapo' && (
+              <React.Fragment>
+                <div className="vgm-centro">{st.diapo || 1} / {st.total || 1}{st.diapoTitulo ? <small>{st.diapoTitulo}</small> : null}</div>
+                {hs.mision ? (
+                  <button className="vgm-btn grande" onClick={() => orden('hs-listos')}>🏆 {hs.boton || '¿Listos para la misión?'}</button>
+                ) : (
+                  <button className="vgm-btn grande" onClick={() => orden('siguiente')}>
+                    {hs.pendientes ? '⏸ Ir a la pausa (' + hs.pendientes + ')' : hs.ultima ? (hs.competitiva ? '🏁 Ir al final' : '🏁 Terminar') : 'Siguiente ›'}
+                  </button>
+                )}
+                <button className="vgm-btn borde" onClick={() => orden('anterior')} disabled={(st.diapo || 1) <= 1}>‹ Anterior</button>
+              </React.Fragment>
+            )}
+            {f === 'grupos' && (
+              <React.Fragment>
+                <div className="vgm-kicker">¡Busca tu equipo!</div>
+                <button className="vgm-btn grande" onClick={() => orden('siguiente')}>Ver el camino hacia {hs.meta || 'la meta'} ›</button>
+                <button className="vgm-btn borde" onClick={() => orden('hs-resortear')}>🔀 Volver a sortear</button>
+                <button className="vgm-btn borde" onClick={() => orden('anterior')}>‹ Volver</button>
+              </React.Fragment>
+            )}
+            {f === 'montana' && (
+              <React.Fragment>
+                <div className="vgm-kicker">🏔 El camino hacia {hs.meta || 'la meta'}</div>
+                <button className="vgm-btn grande" onClick={() => orden('siguiente')}>🏆 ¡A la aventura!</button>
+                <button className="vgm-btn borde" onClick={() => orden('anterior')}>‹ Volver</button>
+              </React.Fragment>
+            )}
+            {f === 'meta' && (
+              <React.Fragment>
+                <div className="vgm-kicker">🏔 La montaña final</div>
+                <button className="vgm-btn grande" onClick={() => orden('siguiente')}>🏁 ¿Quién resolvió el problema?</button>
+                <button className="vgm-btn borde" onClick={() => orden('anterior')}>‹ Volver a la historia</button>
+              </React.Fragment>
+            )}
+            {(f === 'desenlace' || f === 'fin') && (
+              <React.Fragment>
+                <div className="vgm-kicker">{f === 'desenlace' ? '🏆 ¡Problema resuelto!' : 'Fin de la historia'}</div>
+                <div className="vgm-fila">
+                  <button className="vgm-btn borde" onClick={() => orden('anterior')}>‹ Volver</button>
+                  <button className="vgm-btn borde" onClick={() => orden('hs-inicio')}>↺ Desde el inicio</button>
+                </div>
+                <button className="vgm-btn grande" onClick={() => orden('salir')}>Salir</button>
+              </React.Fragment>
+            )}
+          </div>
+        );
+      })()}
+
       {/* Modo Jaguar: los MISMOS botones del desafío que está en el televisor */}
       {st.jaguarDesafio && st.marcador && (() => {
         const d = st.jaguarDesafio;
@@ -876,7 +932,9 @@ function VigiaMandoCelular({ code, state, send }) {
         const enfr = d.enfrentan || [];
         return (
           <div className="vgm-panel vgm-jaguar">
-            <div className="vgm-kicker" style={{ color: '#39FF14' }}>✊ Desafío en pantalla</div>
+            <div className="vgm-kicker" style={{ color: st.modoEquipos === 'capibara' ? '#9CD38A' : '#39FF14' }}>
+              {d.competencia ? '🏆 Modo Competencia · activación en pantalla' : '✊ Desafío en pantalla'}
+            </div>
             {/* Inicio del Modo Jaguar: "¡Busca tu equipo!" con los estudiantes de cada equipo */}
             {d.grupos && (
               <React.Fragment>
@@ -1058,13 +1116,18 @@ function VigiaMandoCelular({ code, state, send }) {
             })()}
             {d.pideGanador && (
               <React.Fragment>
-                <div className="vgm-kicker">¿Quién ganó? (+1 punto)</div>
+                <div className="vgm-kicker">
+                  {d.competencia
+                    ? '¿Qué equipo ganó? (+1 ' + (st.modoEquipos === 'capibara' ? 'paso' : 'punto') + ' · tocarlo otra vez lo quita)'
+                    : '¿Quién ganó? (+1 punto)'}
+                </div>
                 <div className="vgm-chips">
                   {(d.elegibles || []).filter((i) => eq[i]).map((i) => (
                     <button key={i} className={'vgm-chip' + (d.ganador === i ? ' on' : '')} style={{ '--c': eq[i].color }}
-                      onClick={() => orden('jg-ganador', { i })}>{eq[i].nombre}{d.ganador === i ? ' ✓' : ''}</button>
+                      onClick={() => orden('jg-ganador', { i })}>{eq[i].nombre}{d.ganador === i ? ' ✓' : ''}{d.competencia ? ' · ' + eq[i].puntos : ''}</button>
                   ))}
                 </div>
+                {d.competencia && <button className="vgm-btn borde" onClick={() => orden('cm-plegar')}>▾ Mostrar / ocultar los equipos en pantalla</button>}
               </React.Fragment>
             )}
             {(d.ppt === 'resultado' || d.duelo) && (

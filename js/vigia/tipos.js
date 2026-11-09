@@ -21,6 +21,10 @@
     { id: 'podcast',   nombre: 'Podcast',   desc: 'Audios y entrevistas, con su imagen',    icon: 'debate',   tipos: ['pregunta', 'instruccion', 'creacion', 'escritura', 'contexto', 'glosario', 'reto'] },
     // Imágenes: activadores como íconos SOBRE la imagen (editor-imagenes.jsx).
     { id: 'imagenes',  nombre: 'Imágenes',  desc: 'Mapas, infografías y fotos con activadores encima', icon: 'eye', tipos: ['pregunta', 'instruccion', 'creacion', 'escritura', 'contexto', 'glosario', 'reto'] },
+    // Historia: el docente crea sus diapositivas, la cuenta y la detiene con pausas (editor-historia.jsx).
+    // También competitiva: equipos que suben la montaña hacia la meta del docente.
+    // EN DESARROLLO: cerrada por ahora (quitar `pronto` y `etiquetaPronto` para abrirla).
+    { id: 'historia',  pronto: true, etiquetaPronto: 'En desarrollo', nombre: 'Historia',  desc: 'Crea tus diapositivas, cuenta tu historia y agrega pausas (también competitiva)', icon: 'bulb', tipos: ['pregunta', 'instruccion', 'creacion', 'escritura', 'contexto', 'glosario', 'reto'] },
   ];
 
   const TIPOS = [
@@ -139,7 +143,7 @@
       etiqueta: 'Indicaciones (opcional)', placeholder: 'Pasa un estudiante por equipo. ¡Sin empujar!' },
     // Movimiento de la Jungla (capibara-jungla.jsx): tres carriles, obstáculos y animales-instrucción.
     { id: 'cp-jungla', nombre: 'Movimiento de la Jungla', icon: 'rayo', jungla: true,
-      proposito: 'Por tres carriles llegan obstáculos y animales: hay que esquivar moviéndose y hacer la acción de cada animal (saltar, agacharse, aplaudir…).',
+      proposito: 'Por tres carriles llegan obstáculos y animales: hay que esquivar moviéndose y hacer la acción de cada animal (saltar, agacharse, rascarse como mono…).',
       etiqueta: 'Indicaciones (opcional)', placeholder: 'Deja espacio libre frente al tablero para moverse.' },
     // Dedos Veloces (capibara-dedos.jsx): gana quien presione más veces en el tiempo límite.
     { id: 'cp-dedos', nombre: 'Dedos Veloces', icon: 'trofeo', dedos: true,
@@ -351,6 +355,7 @@
     if (d.recurso === 'documento') return !!(d.pdf && (d.pdf.driveId || d.pdf.url || d.pdf.local));
     if (d.recurso === 'podcast') return !!(d.podcast && (d.podcast.id || d.podcast.src));
     if (d.recurso === 'imagenes') return !!(d.galeria && (d.galeria.diapos || []).some((x) => x.url));
+    if (d.recurso === 'historia') return !!(d.historia && (d.historia.diapos || []).some((x) => (x.texto || '').trim() || (x.imagen || '').trim() || (x.antes || '').trim()));
     return !!(d.video && d.video.id);
   }
 

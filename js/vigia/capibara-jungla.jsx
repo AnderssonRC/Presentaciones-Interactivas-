@@ -42,16 +42,18 @@ const BJ = '#1F1408';   // contorno (alto contraste)
 
 /* ======================== BANCO DE INSTRUCCIONES ========================
    Se desbloquean en este orden. Todas son acciones seguras para un salón.
-   tecla: la del modo teclado (no usa P, R, N, M, F ni L, que son atajos). */
+   NO repetir acciones de otros juegos del Capibara (Ritmo: aplausos y
+   golpes; Semáforo: congelarse, girar, brazos arriba, manos a la cabeza…).
+   tecla: la del modo teclado (no usa P, R, N, M, F, D ni L, que son atajos). */
 const BANCO_JN = [
   { id: 'ave', animal: 'AVE', art: 'un', accion: 'saltar', verbo: 'SALTA', tecla: '↑', key: 'ArrowUp' },
   { id: 'cerdo', animal: 'CERDO', art: 'un', accion: 'agachar', verbo: 'AGÁCHATE', tecla: '↓', key: 'ArrowDown' },
-  { id: 'mono', animal: 'MONO', art: 'un', accion: 'aplaudir', verbo: 'APLAUDE', tecla: 'A', key: 'a' },
-  { id: 'serpiente', animal: 'SERPIENTE', art: 'una', accion: 'quieto', verbo: 'QUÉDATE QUIETO', tecla: 'Q', key: 'q' },
-  { id: 'loro', animal: 'LORO', art: 'un', accion: 'girar', verbo: 'GIRA', tecla: 'G', key: 'g' },
-  { id: 'rana', animal: 'RANA', art: 'una', accion: 'cabeza', verbo: 'MANOS A LA CABEZA', tecla: 'C', key: 'c' },
-  { id: 'tucan', animal: 'TUCÁN', art: 'un', accion: 'brazos', verbo: 'BRAZOS ARRIBA', tecla: 'B', key: 'b' },
-  { id: 'perezoso', animal: 'PEREZOSO', art: 'un', accion: 'estirar', verbo: 'ESTÍRATE', tecla: 'E', key: 'e' },
+  { id: 'mono', animal: 'MONO', art: 'un', accion: 'rascar', verbo: 'RÁSCATE LOS COSTADOS', tecla: 'A', key: 'a' },
+  { id: 'serpiente', animal: 'SERPIENTE', art: 'una', accion: 'ondular', verbo: 'ONDULA LOS BRAZOS', tecla: 'Z', key: 'z' },
+  { id: 'loro', animal: 'LORO', art: 'un', accion: 'hola', verbo: 'DI «¡HOLA!»', tecla: 'H', key: 'h' },
+  { id: 'rana', animal: 'RANA', art: 'una', accion: 'cachetes', verbo: 'INFLA LOS CACHETES', tecla: 'C', key: 'c' },
+  { id: 'tucan', animal: 'TUCÁN', art: 'un', accion: 'pico', verbo: 'PICO CON LAS MANOS', tecla: 'B', key: 'b' },
+  { id: 'perezoso', animal: 'PEREZOSO', art: 'un', accion: 'bostezar', verbo: 'BOSTEZA', tecla: 'O', key: 'o' },
   { id: 'tortuga', animal: 'TORTUGA', art: 'una', accion: 'pies', verbo: 'TÓCATE LOS PIES', tecla: 'T', key: 't' },
   { id: 'mariposa', animal: 'MARIPOSA', art: 'una', accion: 'aletear', verbo: 'ALETEA', tecla: 'V', key: 'v' },
 ];
@@ -324,11 +326,12 @@ function poseAccionJN(accion, u, reloj) {
   switch (accion) {
     case 'saltar': return { pose: { ...N, pi1: 30, pi2: -60, pd1: 30, pd2: -60, bi1: 150, bd1: 150 }, dy: -200 * ola, sx: 1, sy: 1 };
     case 'agachar': return { pose: { ...N, pi1: 60, pi2: -120, pd1: 60, pd2: -120, bi1: 30, bd1: 30 }, dy: 0, sx: 1, sy: 0.72 };
-    case 'aplaudir': { const c = 50 + 40 * Math.abs(Math.sin(u * 3 * Math.PI)); return { pose: { ...N, bi1: 60, bi2: c, bd1: 60, bd2: c }, dy: 0, sx: 1, sy: 1 }; }
-    case 'girar': return { pose: N, dy: 0, sx: Math.cos(u * 2 * Math.PI), sy: 1 };
-    case 'cabeza': return { pose: { ...N, bi1: 150, bi2: 120, bd1: 150, bd2: 120 }, dy: 0, sx: 1, sy: 1 };
-    case 'brazos': return { pose: { ...N, bi1: 180, bd1: 180 }, dy: 0, sx: 1, sy: 1 };
-    case 'estirar': return { pose: { ...N, bi1: 170, bd1: 170 }, dy: -24 * ola, sx: 1, sy: 1.04 };
+    case 'rascar': { const c = 110 + 25 * Math.sin(u * 8 * Math.PI); return { pose: { ...N, bi1: 55, bi2: c, bd1: 55, bd2: c }, dy: 0, sx: 1, sy: 1 }; }
+    case 'ondular': { const w = 30 * Math.sin(u * 4 * Math.PI); return { pose: { ...N, bi1: 90 + w, bi2: -w, bd1: 90 - w, bd2: w }, dy: 0, sx: 1, sy: 1 }; }
+    case 'hola': return { pose: { ...N, bd1: 150, bd2: 35 * Math.sin(u * 6 * Math.PI), bi1: 130, bi2: 140 }, dy: 0, sx: 1, sy: 1 };
+    case 'cachetes': return { pose: { ...N, bi1: 140, bi2: 150, bd1: 140, bd2: 150 }, dy: 0, sx: 1 + 0.06 * ola, sy: 1 };
+    case 'pico': return { pose: { ...N, bi1: 100, bi2: 45, bd1: 100, bd2: 45 }, dy: 0, sx: 1, sy: 1 };
+    case 'bostezar': return { pose: { ...N, bi1: 150, bi2: 120, bd1: 170 }, dy: -12 * ola, sx: 1, sy: 1.03 };
     case 'pies': return { pose: { ...N, pi1: 45, pi2: -90, pd1: 45, pd2: -90, bi1: 15, bd1: 15 }, dy: 0, sx: 1, sy: 0.8 };
     case 'aletear': { const a = 90 + 45 * Math.sin(u * 4 * Math.PI); return { pose: { ...N, bi1: a, bd1: a }, dy: -10 * ola, sx: 1, sy: 1 }; }
     default: return { pose: N, dy: 0, sx: 1, sy: 1 };   // quieto
@@ -357,11 +360,20 @@ const SONIDO_JN = {
 
 /* ============================ ESCALADA ============================
    Cada `racha` objetos superados seguidos se desbloquea el siguiente animal
-   del banco: pausa breve con el anuncio y el primer objeto que llega después
-   es ese animal (para practicarlo). Las demás se siguen mezclando. */
+   del orden de la partida: pausa breve con el anuncio y el primer objeto que
+   llega después es ese animal (para practicarlo). Las demás se siguen mezclando.
+   Orden (`ordenJN`): ave y cerdo (los más fáciles) siempre primero; el resto,
+   mezclado en cada partida (el mismo para todos los turnos de esa partida). */
+const FIJOS_JN = 2;
+function ordenJN() {
+  const resto = BANCO_JN.slice(FIJOS_JN);
+  for (let i = resto.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [resto[i], resto[j]] = [resto[j], resto[i]]; }
+  return BANCO_JN.slice(0, FIJOS_JN).concat(resto);
+}
 function escalarJN(G, racha) {
-  if (G.racha < racha || G.instr.length >= BANCO_JN.length) return null;
-  const nuevo = BANCO_JN[G.instr.length];
+  const orden = G.orden || BANCO_JN;
+  if (G.racha < racha || G.instr.length >= orden.length) return null;
+  const nuevo = orden[G.instr.length];
   G.instr = [...G.instr, nuevo.id]; G.racha = 0; G.forzar = nuevo.id;
   return nuevo;
 }
@@ -376,6 +388,7 @@ function nuevoJuegoJN(n) {
     ultimoAnimal: -1e9, ultimoId: null, ultimoLibre: -1, carril: 1, xPj: 800, eventos: [], accionAnim: null,
     chocado: null, nuevo: null, turno: 0, ronda: 1, pasa: null, ultimo: null, mejor: 0, totalPasos: 0, carreras: 0,
     eq: Array.from({ length: n }, () => ({ puntos: 0, pasos: 0, turnos: 0 })),
+    orden: ordenJN(),   // orden de los animales en esta partida
   };
 }
 

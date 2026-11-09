@@ -17,6 +17,7 @@ function VigiaEditor(props) {
   let editor;
   if (act.recurso === 'podcast') editor = <VigiaEditorPodcast {...props} />;
   else if (act.recurso === 'imagenes') editor = <VigiaEditorImagenes {...props} />;
+  else if (act.recurso === 'historia') editor = <VigiaEditorHistoria {...props} />;   // editor-historia.jsx
   else if (act.recurso !== 'documento') editor = <VigiaEditorVideo {...props} />;
   else editor = act.pdf && act.pdf.formato === 'epub' && (act.pdf.driveId || act.pdf.local)
     ? <VigiaEditorEpub {...props} /> : <VigiaEditorPdf {...props} />;
@@ -309,7 +310,7 @@ function VigiaEditorVideo({ act, onChange, onBack, onPresent }) {
               </p>
             </div>
             </VistaPrevia>
-            <TiposAgrupados lista={TIPOS} render={(t) => {
+            <TiposAgrupados lista={TIPOS} act={act} update={update} render={(t) => {
               const habilitado = rec.tipos.includes(t.id);
               return (
                 <button key={t.id} className={'tool-card vg-tipo' + (habilitado ? '' : ' tool-soon')} disabled={!habilitado}
@@ -627,15 +628,133 @@ function PreviaGrande({ a, act, onCerrar }) {
 
 /* Columna de tipos reunida por grupos: "Cognitivos" y "Físico-grupales"
    (título antes del primero de cada grupo). `render(t)`: la tarjeta del tipo. */
-function TiposAgrupados({ lista, render }) {
+function TiposAgrupados({ lista, render, act, update }) {
+  // Modo Competencia: el modo que NO se eligió desaparece (no se repiten competencias).
+  const comp = act && act.competencia;
+  const otro = comp ? (comp.modo === 'capibara' ? 'jaguar' : 'capibara') : null;
+  const visibles = otro ? lista.filter((t) => t.grupo !== otro) : lista;
   // Un bloque por grupo, en el orden en que aparecen.
   const grupos = [];
-  lista.forEach((t) => {
+  visibles.forEach((t) => {
     const ultimo = grupos[grupos.length - 1];
     if (ultimo && ultimo.id === t.grupo) ultimo.tipos.push(t);
     else grupos.push({ id: t.grupo, tipos: [t] });
   });
-  return grupos.map((g) => <GrupoTipos key={g.id} grupo={g.id} tipos={g.tipos} render={render} />);
+  return (
+    <React.Fragment>
+      {act && update && <ModoCompetencia act={act} update={update} />}
+      {grupos.map((g) => <GrupoTipos key={g.id} grupo={g.id} tipos={g.tipos} render={render} />)}
+    </React.Fragment>
+  );
+}
+
+/* ---------- Modo Competencia ----------
+   Toda la presentación es una competencia por equipos (Modo Jaguar o Modo
+   Capibara) y CUALQUIER activación suma: al presentarla aparece «¿Qué equipo
+   ganó?» (+1 punto o +1 paso). Al elegir un modo, el grupo del otro desaparece
+   de los tipos. act.competencia = { modo: 'jaguar'|'capibara', equipos, meta } */
+function ModoCompetencia({ act, update }) {
+  const c = act.competencia || null;
+  const [eligiendo, setEligiendo] = React.useState(false);
+  const lista = act.activaciones || [];
+  const primero = VigiaTipos.primerJaguar(lista);   // si ya hay un juego con equipos, manda su número
+  const equipos = Math.max(2, Math.min(VigiaTipos.MAX_EQUIPOS_JAGUAR, (primero && primero.equipos) || (c && c.equipos) || 3));
+  const conHistoria = lista.some((x) => typeof x.metaCapibara === 'number');
+  const meta = conHistoria ? VigiaTipos.metaCapibara(lista) : ((c && c.meta) || VigiaTipos.META_CAPIBARA);
+  const nombreModo = (m) => (m === 'capibara' ? 'Modo Capibara' : 'Modo Jaguar');
+
+  const elegir = async (modo) => {
+    const re = modo === 'jaguar' ? /^cp-/ : /^jg-/;
+    const ajenos = lista.filter((x) => re.test(x.tipo || '')).length;
+    if (ajenos && !await vigiaConfirmar(
+      'Esta presentación ya tiene ' + ajenos + (ajenos === 1 ? ' juego' : ' juegos') + ' del ' + nombreModo(modo === 'jaguar' ? 'capibara' : 'jaguar') +
+      '. Se conservan y siguen sumando a la competencia, pero ese modo ya no aparecerá para agregar más.',
+      { titulo: 'Competencia en ' + nombreModo(modo), aceptar: 'Sí, usar ' + nombreModo(modo) })) return;
+    update({ competencia: modo === 'capibara' ? { modo, equipos, meta } : { modo, equipos } });
+    setEligiendo(false);
+  };
+  const apagar = async () => {
+    if (!await vigiaConfirmar('Las activaciones ya no sumarán puntos (los juegos de equipos los siguen sumando) y vuelven a aparecer los dos modos.',
+      { titulo: '¿Apagar el Modo Competencia?', aceptar: 'Sí, apagar' })) return;
+    update({ competencia: null });
+  };
+  // Número de equipos: también lo cambia en el primer juego con equipos (son la misma condición).
+  const fijarEquipos = (n) => {
+    const v = Math.max(2, Math.min(VigiaTipos.MAX_EQUIPOS_JAGUAR, n));
+    update({
+      competencia: { ...c, equipos: v },
+      activaciones: primero ? lista.map((x) => (x.id === primero.id ? { ...x, equipos: v } : x)) : lista,
+    });
+  };
+  // Pasos hasta Jomu: si hay historia, se cambian allí también.
+  const fijarMeta = (m) => {
+    const v = Math.max(3, Math.min(30, m));
+    update({
+      competencia: { ...c, meta: v },
+      activaciones: lista.map((x) => (typeof x.metaCapibara === 'number' ? { ...x, metaCapibara: v } : x)),
+    });
+  };
+
+  if (!c) {
+    return (
+      <div className={'vg-competencia' + (eligiendo ? ' eligiendo' : '')}>
+        <div className="vg-competencia-cabeza">
+          <span className="vg-competencia-ico" aria-hidden="true">🏆</span>
+          <span style={{ minWidth: 0, flex: 1 }}>
+            <span className="vg-competencia-nombre">Modo Competencia</span>
+            <small>Cualquier activación suma puntos a los equipos</small>
+          </span>
+          {!eligiendo && <button type="button" className="vg-mini-accion vg-competencia-activar" onClick={() => setEligiendo(true)}>Activar</button>}
+        </div>
+        {eligiendo && (
+          <div className="vg-competencia-cuerpo">
+            <div className="vg-competencia-pregunta">¿En qué modo será la competencia?</div>
+            <div className="vg-competencia-modos">
+              <button type="button" className="vg-competencia-modo jaguar" onClick={() => elegir('jaguar')}>
+                <b>✊ Modo Jaguar</b><small>Puntos · termina con el equipo ganador</small>
+              </button>
+              <button type="button" className="vg-competencia-modo capibara" onClick={() => elegir('capibara')}>
+                <b>🌿 Modo Capibara</b><small>Para niños · pasos en la montaña hacia Jomu</small>
+              </button>
+            </div>
+            <button type="button" className="vg-btn-texto" onClick={() => setEligiendo(false)}>Cancelar</button>
+          </div>
+        )}
+      </div>
+    );
+  }
+  return (
+    <div className={'vg-competencia on ' + c.modo}>
+      <div className="vg-competencia-cabeza">
+        <span className="vg-competencia-ico" aria-hidden="true">🏆</span>
+        <span style={{ minWidth: 0, flex: 1 }}>
+          <span className="vg-competencia-nombre">Competencia · {nombreModo(c.modo)}</span>
+          <small>Activa en toda la presentación</small>
+        </span>
+        <button type="button" className="vg-mini-accion" onClick={apagar}>Apagar</button>
+      </div>
+      <div className="vg-competencia-cuerpo">
+        <div className="vg-competencia-fila">
+          <span>Equipos</span>
+          <button type="button" className="vg-mini-accion" onClick={() => fijarEquipos(equipos - 1)} disabled={equipos <= 2} aria-label="Menos equipos">−</button>
+          <b>{equipos}</b>
+          <button type="button" className="vg-mini-accion" onClick={() => fijarEquipos(equipos + 1)} disabled={equipos >= VigiaTipos.MAX_EQUIPOS_JAGUAR} aria-label="Más equipos">+</button>
+        </div>
+        {c.modo === 'capibara' && (
+          <div className="vg-competencia-fila">
+            <span>Pasos hasta Jomu</span>
+            <button type="button" className="vg-mini-accion" onClick={() => fijarMeta(meta - 1)} disabled={meta <= 3} aria-label="Menos pasos">−</button>
+            <b>{meta}</b>
+            <button type="button" className="vg-mini-accion" onClick={() => fijarMeta(meta + 1)} disabled={meta >= 30} aria-label="Más pasos">+</button>
+          </div>
+        )}
+        <p className="vg-competencia-nota">
+          Agrega cualquier activador (pregunta, reto, glosario…): al presentarlo aparece «¿Qué equipo ganó?» y el elegido suma
+          {c.modo === 'capibara' ? ' 1 paso hacia Jomu' : ' 1 punto'}. Los equipos se forman en la primera activación.
+        </p>
+      </div>
+    </div>
+  );
 }
 
 /* Tarjeta desplegable de un grupo ("Activadores Cognitivos"…). Abierta o
@@ -1279,7 +1398,7 @@ function ConfigActivacion({ a, onCambiar, onBorrar, tiempoActual, duracion, hayE
                 {ti.juegoCp === 'ritmo' && (
                   <React.Fragment>
                     <div className="vg-jaguar-fila"><span>Velocidad de la secuencia</span>{segmento('velocidadRitmo', 'media', velocidades, 'Velocidad de la secuencia')}</div>
-                    <div className="vg-jaguar-fila"><span>Movimiento nuevo cada</span>{num('desbloqueoRitmo', 1, 6, 2)}{nota('rondas (se empieza con aplauso, salto y pisotón)')}</div>
+                    <div className="vg-jaguar-fila"><span>Movimiento nuevo cada</span>{num('desbloqueoRitmo', 1, 6, 2)}{nota('rondas (se empieza con aplauso, pisotón y palmas en piernas)')}</div>
                     <div className="vg-jaguar-fila"><span>Concursantes por equipo</span>{num('rondasRitmo', 1, 5, 1)}{nota('pasan por turnos, sin repetir')}</div>
                     <div className="vg-jaguar-fila"><span>🏔 Pasos del ganador</span>{num('pasosRitmo', 1, 10, 3)}{nota('para el equipo con más movimientos')}</div>
                   </React.Fragment>
@@ -1287,7 +1406,7 @@ function ConfigActivacion({ a, onCambiar, onBorrar, tiempoActual, duracion, hayE
                 {ti.juegoCp === 'congelados' && (
                   <React.Fragment>
                     <div className="vg-jaguar-fila"><span>Tiempo caminando</span>{segmento('velocidadCongelados', 'lenta', [['lenta', 'Largo'], ['media', 'Medio'], ['rapida', 'Corto']], 'Tiempo caminando')}{nota('siempre al azar')}</div>
-                    <div className="vg-jaguar-fila"><span>⏱ Para agruparse</span>{num('tiempoCongelados', 3, 15, 6)}{nota('segundos')}</div>
+                    <div className="vg-jaguar-fila"><span>⏱ Para agruparse</span>{num('tiempoCongelados', 3, 15, 6)}{nota('segundos en la 1.ª ronda; luego baja y se suman consignas')}</div>
                     <div className="vg-jaguar-fila"><span>Número máximo</span>{num('maxCongelados', 3, 10, 6)}{nota('baja solo si quedan menos jugadores')}</div>
                     <div className="vg-jaguar-fila"><span>🧍 Jugadores por equipo</span>{num('jugadoresCongelados', 0, 40, 0)}{nota('0 = los integrantes de cada equipo')}</div>
                     <div className="vg-jaguar-fila"><span>🏔 Pasos del ganador</span>{num('pasosCongelados', 1, 10, 3)}{nota('para el último equipo en pie')}</div>
@@ -1363,7 +1482,7 @@ function ConfigActivacion({ a, onCambiar, onBorrar, tiempoActual, duracion, hayE
                     </div>
                     <span className="vg-jaguar-nota">
                       Verde (moverse) y rojo (congelarse) están siempre. Tus colores salen primero, en este orden
-                      {a.soloPropiosSemaforo ? '.' : '; después, amarillo, azul, morado, naranja, rosado y celeste.'}
+                      {a.soloPropiosSemaforo ? '.' : '; después, los del juego (amarillo, azul, morado, naranja, rosado, celeste, blanco, gris y café) en un orden distinto cada partida.'}
                       {' '}Usa colores fuertes y acciones seguras para el salón.
                     </span>
                     {propios.map((c, k) => (
@@ -1371,7 +1490,7 @@ function ConfigActivacion({ a, onCambiar, onBorrar, tiempoActual, duracion, hayE
                         <input type="color" value={c.color || '#FF00FF'} title="Color" aria-label="Color" onChange={(e) => cambiar(k, { color: e.target.value })} />
                         <input type="text" value={c.icono || ''} maxLength={4} placeholder="⭐" title="Ícono (un emoji)" aria-label="Ícono"
                           style={{ width: 52, textAlign: 'center', fontSize: 20 }} onChange={(e) => cambiar(k, { icono: e.target.value })} />
-                        <input type="text" value={c.accion || ''} maxLength={24} placeholder="¡Salta!" aria-label="Acción"
+                        <input type="text" value={c.accion || ''} maxLength={24} placeholder="¡Saluda!" aria-label="Acción"
                           style={{ width: 150, fontWeight: 800 }} onChange={(e) => cambiar(k, { accion: e.target.value })} />
                         <input type="text" value={c.detalle || ''} maxLength={60} placeholder="Explicación corta (opcional)" aria-label="Explicación"
                           style={{ flex: '1 1 160px', minWidth: 120 }} onChange={(e) => cambiar(k, { detalle: e.target.value })} />
