@@ -11,7 +11,7 @@ El usuario es docente y escribe en español: responder en español, simple y sin
 - `tipos.js`: tipos de activación (cognitivos, físico-grupales, Modo Jaguar `jg-*`).
 - `editor.jsx`: editor y `ConfigActivacion`. Variantes: `editor-pdf/epub/podcast/imagenes.jsx`.
 - `presentar.jsx`: presentar base (tarjetas, tonos, `ImagenActivacion`). Variantes: `presentar-pdf/epub/podcast/imagenes.jsx`.
-- `editor-historia.jsx` / `presentar-historia.jsx`: **Modo Historia** (EN DESARROLLO: cerrado con `pronto` en `tipos.js`) (recurso `historia`): diapositivas propias del
+- `editor-historia.jsx` / `presentar-historia.jsx`: **Modo Historia** (abierto; para cerrarlo, `pronto: true` en `tipos.js`) (recurso `historia`): diapositivas propias del
   docente + pausas (activaciones con `diapo`). Competitiva = `act.competencia` capibara con `historia: true`: misión,
   montaña con la meta del docente (`sesion.cima`) y desenlace donde el equipo ganador resuelve el problema.
 - `presentar-reto.jsx`: Reto de activación (cóndor).

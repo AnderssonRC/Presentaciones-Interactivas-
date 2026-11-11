@@ -23,8 +23,8 @@
     { id: 'imagenes',  nombre: 'Imágenes',  desc: 'Mapas, infografías y fotos con activadores encima', icon: 'eye', tipos: ['pregunta', 'instruccion', 'creacion', 'escritura', 'contexto', 'glosario', 'reto'] },
     // Historia: el docente crea sus diapositivas, la cuenta y la detiene con pausas (editor-historia.jsx).
     // También competitiva: equipos que suben la montaña hacia la meta del docente.
-    // EN DESARROLLO: cerrada por ahora (quitar `pronto` y `etiquetaPronto` para abrirla).
-    { id: 'historia',  pronto: true, etiquetaPronto: 'En desarrollo', nombre: 'Historia',  desc: 'Crea tus diapositivas, cuenta tu historia y agrega pausas (también competitiva)', icon: 'bulb', tipos: ['pregunta', 'instruccion', 'creacion', 'escritura', 'contexto', 'glosario', 'reto'] },
+    // Para cerrarla de nuevo: agregar `pronto: true, etiquetaPronto: 'En desarrollo'`.
+    { id: 'historia',  nombre: 'Historia',  desc: 'Crea tus diapositivas, cuenta tu historia y agrega pausas (también competitiva)', icon: 'bulb', tipos: ['pregunta', 'instruccion', 'creacion', 'escritura', 'contexto', 'glosario', 'reto'] },
   ];
 
   const TIPOS = [

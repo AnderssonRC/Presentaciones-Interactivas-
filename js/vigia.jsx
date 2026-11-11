@@ -16,7 +16,7 @@ const VIGIA_LOGO = 'condor-vigia-icono.webp';   // 10 KB (el PNG pesa 96 KB)
 // Módulos del Modo Vigía, en orden. Al editar uno, sube su versión aquí
 // (y la de este archivo en index.html) para que el navegador no use la vieja.
 const VIGIA_MODULOS = [
-  ['js/vigia/tipos.js', '20261108d'],
+  ['js/vigia/tipos.js', '20261109a'],
   ['js/vigia/youtube.jsx', '20261020p'],
   ['js/vigia/audio.jsx', '20261024d'],
   ['js/vigia/drive.jsx', '20261020a'],
@@ -29,7 +29,7 @@ const VIGIA_MODULOS = [
   ['js/vigia/editor-epub.jsx', '20261108a'],
   ['js/vigia/editor-podcast.jsx', '20261108a'],
   ['js/vigia/editor-imagenes.jsx', '20261108a'],
-  ['js/vigia/editor-historia.jsx', '20261108a'],
+  ['js/vigia/editor-historia.jsx', '20261109a'],
   ['js/vigia/herramientas.jsx', '20261024n'],
   ['js/vigia/mando.jsx', '20261027f'],
   ['js/vigia/presentar.jsx', '20261108b'],
@@ -50,9 +50,9 @@ const VIGIA_MODULOS = [
   ['js/vigia/presentar-epub.jsx', '20261024l'],
   ['js/vigia/presentar-podcast.jsx', '20261024l'],
   ['js/vigia/presentar-imagenes.jsx', '20261108a'],
-  ['js/vigia/presentar-historia.jsx', '20261108a'],
+  ['js/vigia/presentar-historia.jsx', '20261109a'],
 ];
-const VIGIA_ESTILOS = ['js/vigia/estilos.css', '20261108c'];
+const VIGIA_ESTILOS = ['js/vigia/estilos.css', '20261109a'];
 // Pantalla del mando en el celular (la carga remote.jsx solo en el celular).
 const VIGIA_MANDO_VERSION = '20261108c';
 let promesaVigia = null;

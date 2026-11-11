@@ -26,20 +26,139 @@ function resumenDiapo(d) {
   return t.length > 60 ? t.slice(0, 57) + '…' : t;
 }
 
+/* ---------- Estilo de la historia (historia.estilo = { edad, fuente, animacion, paleta, transicion, color }) ----------
+   Catálogos separados por edad (primaria, secundaria, bachillerato). Sin estilo guardado,
+   la historia se ve como siempre (secundaria: Fraunces, «Suave», «Noche», «Deslizar»). */
+const HISTORIA_EDADES = [
+  { id: 'primaria', nombre: 'Primaria', emoji: '🧸', nota: 'Letras redondas, colores alegres y mucho movimiento.' },
+  { id: 'secundaria', nombre: 'Secundaria', emoji: '🎒', nota: 'Estilo de cuento y aventura, con movimiento moderado.' },
+  { id: 'bachillerato', nombre: 'Bachillerato', emoji: '🎓', nota: 'Sobrio y elegante: letras de libro y movimientos discretos.' },
+];
+const P = 'primaria', S = 'secundaria', B = 'bachillerato';
+// `google`: la familia tal como la pide Google Fonts. `peso`: grosor del texto normal.
+const HISTORIA_FUENTES = [
+  { id: 'fredoka', nombre: 'Fredoka', edades: [P], familia: "'Fredoka', system-ui, sans-serif", google: 'Fredoka:wght@400..700', peso: 600 },
+  { id: 'baloo', nombre: 'Baloo', edades: [P], familia: "'Baloo 2', system-ui, sans-serif", google: 'Baloo+2:wght@400..800', peso: 600 },
+  { id: 'patrick', nombre: 'A mano', edades: [P], familia: "'Patrick Hand', cursive", google: 'Patrick+Hand', peso: 400 },
+  { id: 'comic', nombre: 'Cómic suave', edades: [P], familia: "'Comic Neue', cursive", google: 'Comic+Neue:wght@400;700', peso: 700 },
+  { id: 'fraunces', nombre: 'Cuento', edades: [S], familia: "'Fraunces', Georgia, 'Times New Roman', serif", google: '', peso: 600 },
+  { id: 'nunito', nombre: 'Nunito', edades: [S], familia: "'Nunito', system-ui, sans-serif", google: 'Nunito:wght@400..900', peso: 700 },
+  { id: 'bangers', nombre: 'Historieta', edades: [S], familia: "'Bangers', Impact, sans-serif", google: 'Bangers', peso: 400 },
+  { id: 'poppins', nombre: 'Poppins', edades: [S, B], familia: "'Poppins', system-ui, sans-serif", google: 'Poppins:wght@400;600;800', peso: 600 },
+  { id: 'playfair', nombre: 'Elegante', edades: [B], familia: "'Playfair Display', Georgia, serif", google: 'Playfair+Display:wght@400..900', peso: 600 },
+  { id: 'lora', nombre: 'Libro', edades: [B], familia: "'Lora', Georgia, serif", google: 'Lora:wght@400..700', peso: 600 },
+  { id: 'montserrat', nombre: 'Montserrat', edades: [B], familia: "'Montserrat', system-ui, sans-serif", google: 'Montserrat:wght@400..800', peso: 600 },
+  { id: 'elite', nombre: 'Máquina de escribir', edades: [B], familia: "'Special Elite', 'Courier New', monospace", google: 'Special+Elite', peso: 400 },
+];
+// `paso`: segundos entre una palabra y la siguiente.
+const HISTORIA_ANIMACIONES = [
+  { id: 'rebote', nombre: 'Rebote', emoji: '🎈', edades: [P], paso: 0.12 },
+  { id: 'cae', nombre: 'Lluvia de palabras', emoji: '🌧', edades: [P, S], paso: 0.1 },
+  { id: 'gira', nombre: 'Voltereta', emoji: '🌀', edades: [P], paso: 0.12 },
+  { id: 'aparece', nombre: 'Suave', emoji: '✨', edades: [S, B], paso: 0.1 },
+  { id: 'desliza', nombre: 'Deslizar', emoji: '➡️', edades: [S, B], paso: 0.09 },
+  { id: 'maquina', nombre: 'Letra por letra', emoji: '⌨️', edades: [S, B], paso: 0.045 },
+  { id: 'foco', nombre: 'Enfoque', emoji: '🔎', edades: [B], paso: 0.13 },
+  { id: 'ninguna', nombre: 'Sin animación', emoji: '⏹', edades: [P, S, B], paso: 0 },
+];
+// `fondo`: diapositivas sin imagen. `caja`: el recuadro del texto sobre una imagen. `clara`: fondo claro.
+const HISTORIA_PALETAS = [
+  { id: 'cielo', nombre: 'Cielo', edades: [P], clara: true, fondo: 'linear-gradient(180deg, #8FD3FF, #E3F6FF)', texto: '#12324F', acento: '#B8400A', caja: 'rgba(255,255,255,.92)' },
+  { id: 'selva', nombre: 'Selva', edades: [P], fondo: 'linear-gradient(160deg, #1F6B3A, #0F3F26)', texto: '#F4FFE8', acento: '#FFD84D', caja: 'rgba(10,45,25,.82)' },
+  { id: 'caramelo', nombre: 'Caramelo', edades: [P], clara: true, fondo: 'linear-gradient(135deg, #FFE0EC, #FFF3C4)', texto: '#5A1846', acento: '#B3154F', caja: 'rgba(255,245,250,.93)' },
+  { id: 'atardecer', nombre: 'Atardecer', edades: [P, S], fondo: 'linear-gradient(180deg, #C2410C, #7A1F5C)', texto: '#FFF6E5', acento: '#FFE08A', caja: 'rgba(70,20,40,.82)' },
+  { id: 'noche', nombre: 'Noche', edades: [S],
+    fondo: 'radial-gradient(ellipse at 50% 120%, rgba(255,138,0,.17), transparent 60%), radial-gradient(ellipse at 50% -20%, rgba(77,148,255,.13), transparent 55%), #0B0805',
+    texto: '#FBF3E1', acento: '#E8C98E', grito: '#FFE3A3', caja: 'rgba(10,7,4,.74)' },
+  { id: 'oceano', nombre: 'Océano', edades: [S], fondo: 'radial-gradient(ellipse at 50% 120%, rgba(56,189,248,.22), transparent 60%), #06182B', texto: '#EAF6FF', acento: '#7DD3FC', caja: 'rgba(4,18,34,.8)' },
+  { id: 'neon', nombre: 'Neón', edades: [S], fondo: 'radial-gradient(ellipse at 50% 120%, rgba(217,70,239,.25), transparent 60%), #130822', texto: '#F6ECFF', acento: '#5EF2D6', caja: 'rgba(19,8,34,.82)' },
+  { id: 'papel', nombre: 'Papel antiguo', edades: [S, B], clara: true, fondo: 'radial-gradient(ellipse at 50% 50%, #FBF3DF, #EEDDB8)', texto: '#2B1D0E', acento: '#9A3B12', caja: 'rgba(250,242,224,.94)' },
+  { id: 'pizarra', nombre: 'Pizarra', edades: [B], fondo: 'linear-gradient(180deg, #232B38, #171C25)', texto: '#EEF1F5', acento: '#9FB4CC', caja: 'rgba(20,25,33,.84)' },
+  { id: 'tinta', nombre: 'Tinta', edades: [B], fondo: '#000000', texto: '#FFFFFF', acento: '#BDBDBD', caja: 'rgba(0,0,0,.8)' },
+  { id: 'editorial', nombre: 'Editorial', edades: [B], clara: true, fondo: '#FAF8F3', texto: '#1A1A1A', acento: '#8B1E2D', caja: 'rgba(250,248,243,.95)' },
+  { id: 'medianoche', nombre: 'Medianoche', edades: [B], fondo: 'linear-gradient(180deg, #0B1437, #070B1F)', texto: '#F3EBD3', acento: '#D4AF37', caja: 'rgba(7,11,31,.84)' },
+];
+// Cómo entra cada diapositiva al avanzar.
+const HISTORIA_TRANSICIONES = [
+  { id: 'saltar', nombre: 'Salto', emoji: '🐸', edades: [P] },
+  { id: 'girar', nombre: 'Carta lanzada', emoji: '🃏', edades: [P] },
+  { id: 'voltear', nombre: 'Pasar la página', emoji: '📖', edades: [P, S] },
+  { id: 'deslizar', nombre: 'Deslizar', emoji: '➡️', edades: [S, B] },
+  { id: 'zoom', nombre: 'Acercar', emoji: '🔍', edades: [S] },
+  { id: 'fundido', nombre: 'Fundido', emoji: '🌫', edades: [S, B] },
+  { id: 'cortina', nombre: 'Cortina', emoji: '🎭', edades: [B] },
+  { id: 'ninguna', nombre: 'Sin movimiento', emoji: '⏹', edades: [P, S, B] },
+];
+// Lo recomendado para cada edad (se aplica al elegirla).
+const HISTORIA_PRESETS = {
+  primaria: { fuente: 'fredoka', animacion: 'rebote', paleta: 'cielo', transicion: 'saltar' },
+  secundaria: { fuente: 'fraunces', animacion: 'aparece', paleta: 'noche', transicion: 'deslizar' },
+  bachillerato: { fuente: 'playfair', animacion: 'foco', paleta: 'pizarra', transicion: 'fundido' },
+};
+const HISTORIA_COLORES = ['#FFFFFF', '#FFE08A', '#7DD3FC', '#9BE38F', '#FF9EC4', '#1A1A1A'];
+
+// El estilo listo para usar (objetos del catálogo; lo que falte, lo de siempre).
+function estiloHistoria(crudo) {
+  const e = crudo || {};
+  const de = (lista, id, def) => lista.find((x) => x.id === id) || lista.find((x) => x.id === def);
+  const edad = HISTORIA_EDADES.some((x) => x.id === e.edad) ? e.edad : S;
+  const base = HISTORIA_PRESETS[S];
+  return {
+    edad,
+    fuente: de(HISTORIA_FUENTES, e.fuente, base.fuente),
+    animacion: de(HISTORIA_ANIMACIONES, e.animacion, base.animacion),
+    paleta: de(HISTORIA_PALETAS, e.paleta, base.paleta),
+    transicion: de(HISTORIA_TRANSICIONES, e.transicion, base.transicion),
+    color: /^#[0-9a-f]{6}$/i.test(e.color || '') ? e.color : '',
+  };
+}
+// Variables CSS y clases del estilo (diapositiva, fin y desenlace).
+function varsHistoria(est) {
+  const p = est.paleta;
+  return {
+    '--hs-fuente': est.fuente.familia, '--hs-peso': est.fuente.peso,
+    '--hs-fondo': p.fondo, '--hs-texto': est.color || p.texto, '--hs-acento': p.acento, '--hs-grito': p.grito || p.acento, '--hs-caja': p.caja,
+  };
+}
+const clasesHistoria = (est) => ' an-' + est.animacion.id + (est.paleta.clara ? ' hs-clara' : '');
+// Carga la letra desde Google Fonts (una sola vez cada una).
+function cargarFuenteHistoria(f) {
+  if (!f || !f.google || document.getElementById('hs-fuente-' + f.id)) return;
+  const l = document.createElement('link');
+  l.id = 'hs-fuente-' + f.id; l.rel = 'stylesheet';
+  l.href = 'https://fonts.googleapis.com/css2?family=' + f.google + '&display=swap';
+  document.head.appendChild(l);
+}
+
 /* Una diapositiva tal como se ve al presentar. `animar`: las palabras aparecen
    una a una (en el editor, quieta). `onListos`: el botón de la misión.
+   `estilo`: historia.estilo (letra, animación, paleta).
    Mide con unidades del contenedor (cqw/cqh): sirve igual en el editor y en Presentar. */
-function DiapoHistoria({ d, animar, onListos, competitiva }) {
+function DiapoHistoria({ d, animar, onListos, competitiva, estilo }) {
+  const est = estiloHistoria(estilo);
+  React.useEffect(() => { cargarFuenteHistoria(est.fuente); }, [est.fuente.id]);
   if (!d) return null;
   const img = (d.imagen || '').trim() ? urlImagen(d.imagen) : '';
   const texto = (d.texto || '').trim();
   const antes = (d.antes || '').trim();
   const mision = d.tipo === 'mision' && competitiva;
-  const palabras = (t, retraso, paso) => (animar
-    ? String(t).split(' ').map((p, i) => (
-        <span key={i} className="vg-hs-palabra" style={{ animationDelay: (retraso + i * (paso || 0.1)).toFixed(2) + 's' }}>{p}{' '}</span>))
-    : t);
-  const retrasoTexto = antes ? 1.2 : 0.3;
+  const an = est.animacion;
+  const palabras = (t, retraso, paso) => {
+    if (!animar || an.id === 'ninguna') return t;
+    if (an.id === 'maquina') {   // letra por letra (cada palabra entera, para que no se parta al final del renglón)
+      let n = 0;
+      return String(t).split(' ').map((p, i) => {
+        const letras = Array.from(p).map((c, j) => (
+          <span key={j} className="vg-hs-letra" style={{ animationDelay: (retraso + (n++) * an.paso).toFixed(2) + 's' }}>{c}</span>));
+        n++;
+        return <span key={i} className="vg-hs-pal-fija">{letras}{' '}</span>;
+      });
+    }
+    const cada = (paso || 0.1) * (an.paso / 0.1);
+    return String(t).split(' ').map((p, i) => (
+      <span key={i} className="vg-hs-palabra" style={{ animationDelay: (retraso + i * cada).toFixed(2) + 's' }}>{p}{' '}</span>));
+  };
+  const retrasoTexto = antes ? (an.id === 'maquina' ? 0.6 + antes.length * an.paso : 1.2) : 0.3;
   const cuerpo = (
     <React.Fragment>
       {antes && <p className="vg-hs-antes">{palabras(antes, 0.2, 0.22)}</p>}
@@ -54,7 +173,8 @@ function DiapoHistoria({ d, animar, onListos, competitiva }) {
     </React.Fragment>
   );
   return (
-    <div className={'vg-hs-diapo' + (img ? ' con-imagen' : ' solo-texto') + (mision ? ' mision' : '') + (d.grito ? ' con-grito' : '') + (animar ? ' animar' : '')}>
+    <div className={'vg-hs-diapo' + (img ? ' con-imagen' : ' solo-texto') + (mision ? ' mision' : '') + (d.grito ? ' con-grito' : '') + (animar ? ' animar' : '') + clasesHistoria(est)}
+      style={varsHistoria(est)}>
       {img ? (
         <React.Fragment>
           <div className="vg-hs-fondo" style={{ backgroundImage: 'url(' + JSON.stringify(img) + ')' }}></div>
@@ -81,7 +201,10 @@ function VigiaEditorHistoria({ act, onChange, onBack, onPresent }) {
 
   const [diapoId, setDiapoId] = React.useState(diapos[0] ? diapos[0].id : null);
   const [selId, setSelId] = React.useState(null);   // pausa seleccionada
-  const [verFinal, setVerFinal] = React.useState(false);   // configurar la meta y el desenlace
+  const [panel, setPanel] = React.useState(null);   // 'final' (la meta y el desenlace) | 'estilo' (letra, colores, movimiento)
+  const verFinal = panel === 'final', verEstilo = panel === 'estilo';
+  const setVerFinal = (v) => setPanel(v ? 'final' : null);
+  const est = estiloHistoria(h.estilo);
   const [estOpen, setEstOpen] = React.useState(false);
 
   const diapo = diapos.find((d) => d.id === diapoId) || diapos[0] || null;
@@ -208,12 +331,17 @@ function VigiaEditorHistoria({ act, onChange, onBack, onPresent }) {
       <div className="editor-body">
         {/* ---- columna 1: diapositivas ---- */}
         <div className="editor-list">
+          <button className={'slide-thumb vg-thumb vg-hs-thumb vg-hs-thumb-estilo' + (verEstilo ? ' active' : '')}
+            onClick={() => { setPanel('estilo'); setSelId(null); }} title="Tipo de letra, animación, colores y movimiento de las diapositivas">
+            <span className="vg-hs-thumb-texto" style={{ ...varsHistoria(est), fontFamily: est.fuente.familia, background: est.paleta.fondo, color: est.color || est.paleta.texto }}>🎨 Estilo de la historia</span>
+            <span className="vg-diapo-pie"><span>{HISTORIA_EDADES.find((x) => x.id === est.edad).nombre} · {est.fuente.nombre} · {est.paleta.nombre}</span></span>
+          </button>
           <div className="kicker" style={{ padding: '2px 4px' }}>Diapositivas · {diapos.length}</div>
           {diapos.map((d, i) => {
             const img = (d.imagen || '').trim() ? urlImagen(d.imagen) : '';
             const esMision = d.tipo === 'mision';
             return (
-              <button key={d.id} className={'slide-thumb vg-thumb vg-diapo-thumb vg-hs-thumb' + (diapo && d.id === diapo.id && !verFinal ? ' active' : '') + (esMision ? ' mision' : '')}
+              <button key={d.id} className={'slide-thumb vg-thumb vg-diapo-thumb vg-hs-thumb' + (diapo && d.id === diapo.id && !panel ? ' active' : '') + (esMision ? ' mision' : '')}
                 onClick={() => { setDiapoId(d.id); setSelId(null); setVerFinal(false); }}>
                 <span className="vg-diapo-num">{i + 1}</span>
                 {img ? <MiniImagen src={img} vacia="Sin imagen" />
@@ -247,7 +375,9 @@ function VigiaEditorHistoria({ act, onChange, onBack, onPresent }) {
 
         {/* ---- columna 2: vista previa + configuración ---- */}
         <div className="editor-canvas-col">
-          {verFinal && competitiva ? (
+          {verEstilo ? (
+            <ConfigEstiloHistoria h={h} setHistoria={setHistoria} diapo={diapo} onCerrar={() => setPanel(null)} />
+          ) : verFinal && competitiva ? (
             <ConfigFinalHistoria h={h} setHistoria={setHistoria} />
           ) : !diapo ? (
             <div className="vg-lienzo-marco vg-lienzo-vacio">
@@ -259,7 +389,7 @@ function VigiaEditorHistoria({ act, onChange, onBack, onPresent }) {
           ) : (
             <React.Fragment>
               <div className="vg-hs-marco">
-                <DiapoHistoria d={diapo} competitiva={competitiva || diapo.tipo === 'mision'} />
+                <DiapoHistoria d={diapo} competitiva={competitiva || diapo.tipo === 'mision'} estilo={h.estilo} />
               </div>
               <PausasDiapo pausas={pausas} selId={selId} onElegir={(id) => setSelId(id === selId ? null : id)} onMover={moverPausa} />
               {sel ? (
@@ -417,7 +547,7 @@ function ConfigFinalHistoria({ h, setHistoria }) {
   const ejemplo = { id: 'final', tipo: 'escena', antes: '🏆 ¡Problema resuelto!', texto: (f.texto || HISTORIA_FINAL_TEXTO).replace(/\{equipo\}/g, 'el Equipo Verde'), imagen: f.imagen || m.imagen || '' };
   return (
     <React.Fragment>
-      <div className="vg-hs-marco"><DiapoHistoria d={ejemplo} /></div>
+      <div className="vg-hs-marco"><DiapoHistoria d={ejemplo} estilo={h.estilo} /></div>
       <div className="config-card vg-hs-config">
         <div className="vg-img-cabeza"><strong>🏔 La meta</strong><span className="vg-img-nota">lo que hay en la cima de la montaña</span></div>
         <div className="field">
@@ -446,7 +576,118 @@ function ConfigFinalHistoria({ h, setHistoria }) {
   );
 }
 
+/* El estilo de toda la historia: edad → tipo de letra, animación de las palabras,
+   paleta de fondo, color de las letras y movimiento de las diapositivas.
+   Cada cambio vuelve a animar la vista previa. */
+function ConfigEstiloHistoria({ h, setHistoria, diapo, onCerrar }) {
+  const est = estiloHistoria(h.estilo);
+  const [vez, setVez] = React.useState(0);
+  const [todas, setTodas] = React.useState(false);
+  const guardado = { edad: est.edad, fuente: est.fuente.id, animacion: est.animacion.id, paleta: est.paleta.id, transicion: est.transicion.id, color: est.color };
+  const set = (patch) => { setHistoria({ estilo: { ...guardado, ...patch } }); setVez((v) => v + 1); };
+  const visibles = (lista, selId) => lista.filter((x) => todas || x.edades.includes(est.edad) || x.id === selId);
+  const fuentes = visibles(HISTORIA_FUENTES, est.fuente.id);
+  React.useEffect(() => { fuentes.forEach(cargarFuenteHistoria); });
+  const edad = HISTORIA_EDADES.find((x) => x.id === est.edad);
+  const ejemplo = diapo && diapo.tipo !== 'mision' && ((diapo.texto || '').trim() || (diapo.antes || '').trim())
+    ? diapo : { id: 'ejemplo', tipo: 'escena', antes: 'Había una vez…', texto: 'Una historia contada a tu manera, palabra por palabra.', imagen: (diapo && diapo.imagen) || '' };
+  const chips = (lista, selId, campo) => (
+    <div className="vg-hs-opciones">
+      {visibles(lista, selId).map((x) => (
+        <button key={x.id} type="button" className={'vg-hs-op' + (x.id === selId ? ' on' : '')} aria-pressed={x.id === selId} onClick={() => set({ [campo]: x.id })}>
+          <span aria-hidden="true">{x.emoji}</span> {x.nombre}
+        </button>
+      ))}
+    </div>
+  );
+  return (
+    <React.Fragment>
+      <div className="vg-hs-marco">
+        <div key={vez} className={'vg-hs-escenario vg-diapo desde-derecha tr-' + est.transicion.id}>
+          <DiapoHistoria d={ejemplo} animar estilo={h.estilo} />
+        </div>
+      </div>
+      <div className="config-card vg-hs-config vg-hs-estilo">
+        <div className="vg-img-cabeza">
+          <strong>🎨 Estilo de la historia</strong>
+          <span className="vg-img-nota">se aplica a todas las diapositivas</span>
+          <span style={{ flex: 1 }}></span>
+          <button type="button" className="vg-mini-accion" onClick={() => setVez((v) => v + 1)}>▶ Ver de nuevo</button>
+          <button type="button" className="vg-mini-accion" onClick={onCerrar}>Listo</button>
+        </div>
+
+        <div className="field">
+          <label>¿Para qué edad es la historia?</label>
+          <div className="vg-segmento vg-hs-segmento" role="radiogroup" aria-label="Edad">
+            {HISTORIA_EDADES.map((x) => (
+              <button key={x.id} type="button" role="radio" aria-checked={x.id === est.edad} className={x.id === est.edad ? 'on' : ''}
+                onClick={() => set({ edad: x.id, ...HISTORIA_PRESETS[x.id], color: '' })}>{x.emoji} {x.nombre}</button>
+            ))}
+          </div>
+          <div className="vg-hs-estilo-nota">{edad.nota} Al elegir una edad se pone su estilo recomendado; después puedes cambiar cada opción.</div>
+        </div>
+
+        <div className="field">
+          <label>Tipo de letra</label>
+          <div className="vg-hs-opciones">
+            {fuentes.map((f) => (
+              <button key={f.id} type="button" className={'vg-hs-op fuente' + (f.id === est.fuente.id ? ' on' : '')} aria-pressed={f.id === est.fuente.id}
+                style={{ fontFamily: f.familia, fontWeight: f.peso }} onClick={() => set({ fuente: f.id })}>
+                <b aria-hidden="true">Aa</b> {f.nombre}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="field">
+          <label>Animación de las palabras</label>
+          {chips(HISTORIA_ANIMACIONES, est.animacion.id, 'animacion')}
+        </div>
+
+        <div className="field">
+          <label>Paleta de fondo</label>
+          <div className="vg-hs-opciones">
+            {visibles(HISTORIA_PALETAS, est.paleta.id).map((p) => (
+              <button key={p.id} type="button" className={'vg-hs-op paleta' + (p.id === est.paleta.id ? ' on' : '')} aria-pressed={p.id === est.paleta.id}
+                style={{ background: p.fondo, color: p.texto }} onClick={() => set({ paleta: p.id })}>
+                <b aria-hidden="true" style={{ color: p.grito || p.acento }}>Aa</b> {p.nombre}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="field">
+          <label>Color de las letras</label>
+          <div className="vg-hs-opciones">
+            <button type="button" className={'vg-hs-op' + (!est.color ? ' on' : '')} aria-pressed={!est.color} onClick={() => set({ color: '' })}>El de la paleta</button>
+            {HISTORIA_COLORES.map((c) => (
+              <button key={c} type="button" className={'vg-hs-color' + (est.color.toUpperCase() === c ? ' on' : '')} aria-pressed={est.color.toUpperCase() === c}
+                style={{ background: c }} title={c} aria-label={'Color ' + c} onClick={() => set({ color: c })}></button>
+            ))}
+            <label className="vg-hs-color-otro" title="Elegir otro color">
+              <input type="color" value={est.color || est.paleta.texto} onChange={(e) => set({ color: e.target.value })} /> Otro…
+            </label>
+          </div>
+          <div className="vg-hs-estilo-nota">Mira la vista previa: las letras deben leerse bien sobre el fondo. Con «Exceso de luz» siempre se usan letras oscuras sobre papel claro.</div>
+        </div>
+
+        <div className="field">
+          <label>Movimiento de las diapositivas (cómo entra cada una)</label>
+          {chips(HISTORIA_TRANSICIONES, est.transicion.id, 'transicion')}
+        </div>
+
+        <label className="vg-hs-check">
+          <input type="checkbox" checked={todas} onChange={(e) => setTodas(e.target.checked)} />
+          <span><b>Ver las opciones de todas las edades</b> (no solo las de {edad.nombre.toLowerCase()}).</span>
+        </label>
+      </div>
+    </React.Fragment>
+  );
+}
+
 Object.assign(window, {
+  ConfigEstiloHistoria, estiloHistoria, varsHistoria, clasesHistoria, cargarFuenteHistoria,
+  HISTORIA_EDADES, HISTORIA_FUENTES, HISTORIA_ANIMACIONES, HISTORIA_PALETAS, HISTORIA_TRANSICIONES, HISTORIA_PRESETS,
   VigiaEditorHistoria, DiapoHistoria, PausasDiapo, ConfigDiapoHistoria, ConfigFinalHistoria,
   diapoConContenido, resumenDiapo, historiaDe, HISTORIA_FINAL_TEXTO,
 });

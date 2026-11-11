@@ -45,6 +45,7 @@ function VigiaPresentarHistoria({ act, onExit, onChange }) {
   const esMision = (d) => competitiva && d && d.tipo === 'mision';
   const misionPendiente = fase === 'diapo' && esMision(diapo) && !misionHecha;
   const nombreMeta = ((h.meta && h.meta.nombre) || '').trim() || 'la meta';
+  const est = estiloHistoria(h.estilo);   // letra, animación, paleta y movimiento elegidos por el docente
 
   // --- Equipos (solo competitiva): se reparten al empezar, se muestran en la misión ---
   const asegurarEquipos = () => {
@@ -155,9 +156,9 @@ function VigiaPresentarHistoria({ act, onExit, onChange }) {
   let escena = null;
   if (fase === 'diapo' && diapo) {
     escena = (
-      <div key={diapo.id} className={'vg-hs-escenario vg-diapo ' + (dir > 0 ? 'desde-derecha' : 'desde-izquierda')}
+      <div key={diapo.id} className={'vg-hs-escenario vg-diapo ' + (dir > 0 ? 'desde-derecha' : 'desde-izquierda') + ' tr-' + est.transicion.id}
         onClick={() => { if (!activa && !misionPendiente) avanzar(); }}>
-        <DiapoHistoria d={diapo} animar competitiva={competitiva} onListos={listos} />
+        <DiapoHistoria d={diapo} animar competitiva={competitiva} onListos={listos} estilo={h.estilo} />
       </div>
     );
   } else if (fase === 'grupos') {
@@ -195,7 +196,7 @@ function VigiaPresentarHistoria({ act, onExit, onChange }) {
     escena = <DesenlaceHistoria h={h} equipos={sesion.equipos || []} onVolver={() => ir(diapos.length - 1)} onInicio={desdeInicio} onSalir={onExit} />;
   } else if (fase === 'fin') {
     escena = (
-      <div className="vg-hs-fin">
+      <div className={'vg-hs-fin' + clasesHistoria(est)} style={varsHistoria(est)}>
         <div className="vg-hs-fin-caja">
           <div className="kicker" style={{ color: 'var(--vigia-naranja)' }}>Modo Historia</div>
           <h1>Fin</h1>
@@ -281,8 +282,10 @@ function DesenlaceHistoria({ h, equipos, onVolver, onInicio, onSalir }) {
   const confeti = React.useMemo(() => Array.from({ length: 36 }, (_, k) => ({
     x: Math.random() * 100, d: 3 + Math.random() * 4, r: -Math.random() * 6, c: ['#FFC233', '#FF8A00', '#3DDC97', '#4D94FF', '#FF5FA2'][k % 5],
   })), []);
+  const est = estiloHistoria(h.estilo);
+  React.useEffect(() => { cargarFuenteHistoria(est.fuente); }, [est.fuente.id]);
   return (
-    <div className={'vg-hs-desenlace' + (img ? ' con-imagen' : '')}>
+    <div className={'vg-hs-desenlace' + (img ? ' con-imagen' : '') + clasesHistoria(est)} style={varsHistoria(est)}>
       {img && <div className="vg-hs-fondo" style={{ backgroundImage: 'url(' + JSON.stringify(urlImagen(img)) + ')' }}></div>}
       <div className="vg-hs-confeti" aria-hidden="true">
         {confeti.map((c, k) => <span key={k} style={{ left: c.x + '%', background: c.c, animationDuration: c.d + 's', animationDelay: c.r + 's' }}></span>)}
