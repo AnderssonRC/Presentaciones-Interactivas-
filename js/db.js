@@ -181,11 +181,20 @@
     const u = currentUid();
     if (!u) return [];
     const snap = await presCol(u).orderBy('updatedAt', 'desc').get();
+    // Los ejemplos se siembran UNA sola vez por cuenta en este navegador: si el
+    // docente borra todas sus presentaciones, no deben reaparecer al recargar.
+    const marca = 'aip_sembrado_' + u;
+    let yaSembrado = false;
+    try { yaSembrado = localStorage.getItem(marca) === '1'; } catch (e) { /* sin almacenamiento */ }
+    const marcar = () => { try { localStorage.setItem(marca, '1'); } catch (e) { /* sin almacenamiento */ } };
     if (snap.empty) {
+      if (yaSembrado) return [];
       const seeded = seedPresentations();
       await Promise.all(seeded.map((p) => savePresentation(p)));
+      marcar();
       return seeded;
     }
+    if (!yaSembrado) marcar();
     return snap.docs.map((d) => d.data());
   }
 
@@ -233,6 +242,40 @@
     return requireDB().collection('remoteSessions');
   }
 
+  /* ---------- Limpieza de salas ----------
+     Si el docente cierra la pestaña sin pulsar «Salir», la sala y los nombres
+     de los estudiantes quedarían guardados. Para que no se acumulen:
+       1. Al crear una sala se borran los participantes que hubiera dejado una
+          sala anterior con ese mismo código.
+       2. Al crear una sala se borran, en segundo plano, las salas propias de
+          hace más de 12 horas (con sus participantes).
+       3. Al cerrar o recargar la pestaña se intenta cerrar la sala abierta
+          (no siempre alcanza a terminar: por eso existen 1 y 2). */
+  const SALA_VIEJA_MS = 12 * 3600 * 1000;
+  const salasDeEstaPestana = new Set();
+
+  async function borrarParticipantes(code) {
+    const parts = await remoteCol().doc(code).collection('participants').get();
+    await Promise.all(parts.docs.map((d) => d.ref.delete()));
+  }
+
+  async function limpiarSalasViejas(uidStr, actual) {
+    try {
+      const snap = await remoteCol().where('ownerUid', '==', uidStr).get();
+      const viejas = snap.docs.filter((d) => {
+        if (d.id === actual || salasDeEstaPestana.has(d.id)) return false;
+        const creado = d.data().createdAt;
+        return !creado || (Date.now() - creado) > SALA_VIEJA_MS;
+      });
+      for (const d of viejas) await closeRemoteSession(d.id);
+    } catch (e) { /* sin permiso o sin conexión: se intentará la próxima vez */ }
+  }
+
+  window.addEventListener('pagehide', (e) => {
+    if (e.persisted) return;   // la página queda en memoria y puede volver: no cerrar
+    Array.from(salasDeEstaPestana).forEach((code) => { closeRemoteSession(code); });
+  });
+
   // La TV crea (o reusa) una sesión. Devuelve { code, ref }.
   // Reintenta si el código ya está ocupado por otra sesión viva.
   async function createRemoteSession(initialState) {
@@ -248,6 +291,8 @@
         const fresca = data.createdAt && (Date.now() - data.createdAt) < 6 * 3600 * 1000;
         if (fresca && data.ownerUid !== u) continue;
       }
+      // Participantes que dejó una sala anterior con este código: fuera.
+      try { await borrarParticipantes(code); } catch (e) { /* si falla, la sala se crea igual */ }
       await ref.set({
         code,
         ownerUid: u,
@@ -255,6 +300,8 @@
         state: initialState || {},
         command: null,
       });
+      salasDeEstaPestana.add(code);
+      limpiarSalasViejas(u, code);   // en segundo plano, sin esperar
       return { code, ref };
     }
     throw new Error('No se pudo crear la sesión de control remoto. Intenta de nuevo.');
@@ -299,10 +346,10 @@
   // La TV cierra la sesión al salir del modo Presentar.
   async function closeRemoteSession(code) {
     if (!code) return;
+    salasDeEstaPestana.delete(code);
     try {
       // Borra participantes y respuestas antes de borrar la sesión.
-      const parts = await remoteCol().doc(code).collection('participants').get();
-      await Promise.all(parts.docs.map((d) => d.ref.delete()));
+      await borrarParticipantes(code);
       await remoteCol().doc(code).delete();
     } catch (e) { /* silencioso */ }
   }
