@@ -83,16 +83,76 @@
     return BASE + id + '/' + id + '.jsx' + (m && m.version ? '?v=' + m.version : '');
   }
 
+  /* ---------- Caché del código ya compilado ----------
+     Compilar con Babel es lo lento (el Modo Vigía son ~1 MB de JSX). El
+     resultado se guarda en este navegador (IndexedDB) junto a una huella del
+     archivo fuente: el archivo se sigue descargando siempre, y solo si su
+     contenido es idéntico al de la vez anterior se reutiliza lo compilado.
+     Así nunca se ejecuta una versión vieja, aunque se olvide subir el ?v=.
+     Si IndexedDB no está disponible (modo privado, etc.), se compila como antes. */
+  const CACHE_BD = 'rc-compilado', CACHE_ALMACEN = 'js', CACHE_FORMATO = 1;
+  let bdPromesa = null;
+  function abrirCache() {
+    if (!bdPromesa) {
+      bdPromesa = new Promise((resolve) => {
+        // Si el navegador no responde (algunos modos privados), seguir sin caché.
+        setTimeout(() => resolve(null), 1500);
+        try {
+          const req = window.indexedDB.open(CACHE_BD, 1);
+          req.onupgradeneeded = () => { req.result.createObjectStore(CACHE_ALMACEN); };
+          req.onsuccess = () => resolve(req.result);
+          req.onerror = () => resolve(null);
+          req.onblocked = () => resolve(null);
+        } catch (e) { resolve(null); }
+      });
+    }
+    return bdPromesa;
+  }
+  function leerCache(clave) {
+    return abrirCache().then((bd) => new Promise((resolve) => {
+      if (!bd) { resolve(null); return; }
+      try {
+        const req = bd.transaction(CACHE_ALMACEN, 'readonly').objectStore(CACHE_ALMACEN).get(clave);
+        req.onsuccess = () => resolve(req.result || null);
+        req.onerror = () => resolve(null);
+      } catch (e) { resolve(null); }
+    }));
+  }
+  function escribirCache(clave, valor) {
+    abrirCache().then((bd) => {
+      if (!bd) return;
+      try { bd.transaction(CACHE_ALMACEN, 'readwrite').objectStore(CACHE_ALMACEN).put(valor, clave); } catch (e) { /* sin caché: no pasa nada */ }
+    });
+  }
+  // Huella del contenido: dos sumas distintas + el largo + la versión de Babel.
+  function huella(src) {
+    let a = 5381, b = 2166136261;
+    for (let i = 0; i < src.length; i++) {
+      const c = src.charCodeAt(i);
+      a = ((a << 5) + a + c) >>> 0;
+      b = Math.imul(b ^ c, 16777619) >>> 0;
+    }
+    return CACHE_FORMATO + ':' + ((window.Babel && window.Babel.version) || '') + ':' + src.length + ':' + a.toString(36) + ':' + b.toString(36);
+  }
+
   // Descarga, compila (JSX) y ejecuta un archivo dentro de una función
   // aislada. Lo usan las actividades y también el Modo Vigía (js/vigia.jsx).
   function ejecutarJSX(url) {
+    const clave = url.split('?')[0];   // una entrada por archivo: la versión nueva reemplaza a la vieja
     return fetch(url)
       .then((r) => { if (!r.ok) throw new Error('HTTP ' + r.status + ' al cargar ' + url); return r.text(); })
       .then((src) => {
-        if (!window.Babel) throw new Error('Babel no está disponible para compilar ' + url);
-        const code = window.Babel.transform(src, { presets: ['react'], sourceType: 'script', filename: url }).code;
-        // sourceURL: en las herramientas del navegador el archivo aparece con su nombre real.
-        new Function(code + '\n//# sourceURL=' + url)();
+        const h = huella(src);
+        return leerCache(clave).then((guardado) => {
+          let code = guardado && guardado.h === h && typeof guardado.code === 'string' ? guardado.code : null;
+          if (!code) {
+            if (!window.Babel) throw new Error('Babel no está disponible para compilar ' + url);
+            code = window.Babel.transform(src, { presets: ['react'], sourceType: 'script', filename: url }).code;
+            escribirCache(clave, { h, code });
+          }
+          // sourceURL: en las herramientas del navegador el archivo aparece con su nombre real.
+          new Function(code + '\n//# sourceURL=' + url)();
+        });
       });
   }
 
