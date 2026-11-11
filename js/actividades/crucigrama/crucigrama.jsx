@@ -62,10 +62,8 @@ function CrucigramaRun({ config, tool }) {
     });
     // numerar: cada celda que inicia una palabra recibe número
     const numero = {}; let n = 0;
-    const inicios = colocadas.map((col) => col.celdas[0].r + ',' + col.celdas[0].c);
     // ordenar por posición (arriba-izquierda primero) para numeración clásica
     const ordenadas = [...colocadas].sort((a,b)=> a.celdas[0].r - b.celdas[0].r || a.celdas[0].c - b.celdas[0].c);
-    const numDe = {};
     for (const col of ordenadas) {
       const k = col.celdas[0].r + ',' + col.celdas[0].c;
       if (!(k in numero)) { n++; numero[k] = n; }

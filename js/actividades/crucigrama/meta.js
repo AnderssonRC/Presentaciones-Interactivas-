@@ -1,7 +1,7 @@
 /* Crucigrama — datos de la actividad (código en crucigrama.jsx). */
 Actividades.registrar({
   id: 'crucigrama',
-  version: '20261017a',
+  version: '20261110a',
   nombre: 'Crucigrama',
   desc: 'Cruza palabras por sus pistas',
   color: '#116CF5',

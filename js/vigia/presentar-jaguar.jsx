@@ -155,12 +155,6 @@ function ManoPPT({ cual, size }) {
       strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{MANOS_PPT[cual]}</svg>
   );
 }
-const PPT_PASOS = [
-  { t: 0, texto: 'Piedra', mano: 'piedra' },
-  { t: 0.75, texto: 'Papel', mano: 'papel' },
-  { t: 1.5, texto: 'Tijera', mano: 'tijera' },
-  { t: 2.25, texto: '¡YA!', mano: null },
-];
 const PPT_DURACION_MS = 3300;   // "¡YA!" en 2,4 s y se deja ver un momento
 
 /* Jaguar con los ojos en llamas (intro, "Que siga la lucha", ganador y

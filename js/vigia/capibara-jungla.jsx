@@ -58,7 +58,6 @@ const BANCO_JN = [
   { id: 'mariposa', animal: 'MARIPOSA', art: 'una', accion: 'aletear', verbo: 'ALETEA', tecla: 'V', key: 'v' },
 ];
 const instrJN = (id) => BANCO_JN.find((x) => x.id === id);
-const fraseJN = (x) => '¡Si ves ' + x.art + ' ' + x.animal + ', ' + x.verbo + '!';
 
 /* Animales dibujados por código: centro en (0,0), unos 200 de ancho; t = reloj (ms). */
 function trazoJN(ctx, relleno, ancho) { ctx.fillStyle = relleno; ctx.fill(); ctx.strokeStyle = BJ; ctx.lineWidth = ancho || 7; ctx.stroke(); }

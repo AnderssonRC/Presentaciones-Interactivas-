@@ -281,11 +281,6 @@ const svJoinWrap = {
   display: 'flex', flexDirection: 'column', justifyContent: 'center',
   padding: '24px 20px', boxSizing: 'border-box',
 };
-const svInput = {
-  width: '100%', fontSize: 18, padding: '14px 16px', marginBottom: 12,
-  borderRadius: 12, border: '2px solid #2A2F29', background: '#141814',
-  color: '#F2F5EF', boxSizing: 'border-box', fontFamily: 'inherit',
-};
 /* Inputs y botón más grandes para la pantalla de unirse en celular. */
 const svInputBig = {
   width: '100%', fontSize: 20, padding: '18px 18px', marginBottom: 14,

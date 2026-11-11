@@ -9,8 +9,7 @@
    El ícono y el título de la pestaña los cambia app.jsx (usarIconoPestana).
    Ver js/vigia/LEEME.md. */
 
-// Ícono recortado al marco interior (el cóndor llena el cuadro). El original
-// completo, con márgenes negros, es condor-vigia.png.
+// Ícono recortado al marco interior (el cóndor llena el cuadro).
 const VIGIA_LOGO = 'condor-vigia-icono.webp';   // 10 KB (el PNG pesa 96 KB)
 
 // Módulos del Modo Vigía, en orden. Al editar uno, sube su versión aquí
@@ -34,11 +33,11 @@ const VIGIA_MODULOS = [
   ['js/vigia/mando.jsx', '20261110a'],
   ['js/vigia/presentar.jsx', '20261110a'],
   ['js/vigia/presentar-reto.jsx', '20261026b'],
-  ['js/vigia/presentar-jaguar.jsx', '20261110a'],
+  ['js/vigia/presentar-jaguar.jsx', '20261110b'],
   ['js/vigia/presentar-capibara.jsx', '20261108a'],
   ['js/vigia/capibara-comun.jsx', '20261106a'],
   ['js/vigia/capibara-muro.jsx', '20261108c'],
-  ['js/vigia/capibara-jungla.jsx', '20261108c'],
+  ['js/vigia/capibara-jungla.jsx', '20261110a'],
   ['js/vigia/capibara-dedos.jsx', '20261028c'],
   ['js/vigia/capibara-espejo.jsx', '20261108b'],
   ['js/vigia/capibara-semaforo.jsx', '20261108c'],
