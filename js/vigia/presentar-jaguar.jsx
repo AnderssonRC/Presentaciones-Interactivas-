@@ -2033,6 +2033,13 @@ function EquipoAlAzar({ equipos, autoGirar, conPunto }) {
     }
     timers.current.push(setTimeout(() => setGirando(false), t + 50));
   };
+  // Mando: el celular ve el equipo elegido, gira de nuevo ('azar-girar') y suma el punto ('azar-punto').
+  const elegido = !girando && actual !== null && equipos[actual] ? equipos[actual].nombre : null;
+  usePublicarMando('azar', { girando, elegido, conPunto: !!conPunto });
+  useOrdenMando((o) => {
+    if (o.accion === 'azar-girar') girar();
+    else if (o.accion === 'azar-punto' && conPunto && !girando && actual !== null) jaguarPunto(actual, 1);
+  });
   return (
     <div className="vg-azar-equipos">
       <div className="vg-azar-fila">

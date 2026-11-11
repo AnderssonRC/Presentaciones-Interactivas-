@@ -23,18 +23,18 @@ const VIGIA_MODULOS = [
   ['js/vigia/pdf.jsx', '20261020f'],
   ['js/vigia/epub.jsx', '20261020f'],
   ['js/vigia/respaldo.jsx', '20261024h'],
-  ['js/vigia/ruleta.jsx', '20261020l'],
+  ['js/vigia/ruleta.jsx', '20261110a'],
   ['js/vigia/editor.jsx', '20261108d'],
   ['js/vigia/editor-pdf.jsx', '20261108a'],
   ['js/vigia/editor-epub.jsx', '20261108a'],
   ['js/vigia/editor-podcast.jsx', '20261108a'],
   ['js/vigia/editor-imagenes.jsx', '20261108a'],
   ['js/vigia/editor-historia.jsx', '20261109a'],
-  ['js/vigia/herramientas.jsx', '20261024n'],
-  ['js/vigia/mando.jsx', '20261027f'],
-  ['js/vigia/presentar.jsx', '20261108b'],
+  ['js/vigia/herramientas.jsx', '20261110a'],
+  ['js/vigia/mando.jsx', '20261110a'],
+  ['js/vigia/presentar.jsx', '20261110a'],
   ['js/vigia/presentar-reto.jsx', '20261026b'],
-  ['js/vigia/presentar-jaguar.jsx', '20261108a'],
+  ['js/vigia/presentar-jaguar.jsx', '20261110a'],
   ['js/vigia/presentar-capibara.jsx', '20261108a'],
   ['js/vigia/capibara-comun.jsx', '20261106a'],
   ['js/vigia/capibara-muro.jsx', '20261108c'],
@@ -54,7 +54,7 @@ const VIGIA_MODULOS = [
 ];
 const VIGIA_ESTILOS = ['js/vigia/estilos.css', '20261109a'];
 // Pantalla del mando en el celular (la carga remote.jsx solo en el celular).
-const VIGIA_MANDO_VERSION = '20261108c';
+const VIGIA_MANDO_VERSION = '20261110a';
 let promesaVigia = null;
 // Tipografía de los títulos de las tarjetas (Fraunces, cursiva "suave"): elegante y juguetona.
 const VIGIA_FUENTE = 'https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT,WONK@1,9..144,600..900,100,1&display=swap';

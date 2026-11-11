@@ -351,6 +351,85 @@ function SalirCapibaraCel({ orden }) {
   );
 }
 
+/* Ruleta / recuadro de nombres y opciones de la pregunta cerrada de la tarjeta
+   en pantalla (estado `extra.sorteo`, `extra['sorteo-espera']`, `extra.opciones`). */
+function SorteoCel({ extra, orden }) {
+  const s = extra.sorteo || null;
+  const espera = !!extra['sorteo-espera'];
+  const op = extra.opciones || null;
+  if (!s && !espera && !op) return null;
+  const nombre = s && s.tipo === 'ruleta' ? 'la ruleta' : 'los nombres';
+  return (
+    <React.Fragment>
+      {(s || espera) && (
+        <div className="vgm-fila" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
+          {s && s.elegido && !s.girando && (
+            <div style={{ textAlign: 'center', fontWeight: 800, fontSize: 18 }}>🎯 {s.elegido}</div>
+          )}
+          <button className="vgm-btn grande azul" disabled={!!(s && s.girando)} onClick={() => orden('sorteo-girar')}>
+            {s && s.girando ? 'Eligiendo…' : s && s.elegido ? '↻ Elegir otra vez' : (s && s.tipo === 'ruleta' ? '🎡 Girar la ruleta' : '🎲 Elegir quién responde')}
+          </button>
+          {s && <small style={{ textAlign: 'center', opacity: 0.7 }}>Se pone a andar {nombre} en el televisor</small>}
+        </div>
+      )}
+      {op && (
+        <React.Fragment>
+          <div className="vgm-fila">
+            {Array.from({ length: op.total }, (_, i) => {
+              const ok = op.revelada && i === op.correcta, mal = op.revelada && i === op.elegida && i !== op.correcta;
+              return (
+                <button key={i} className={'vgm-btn ' + (op.elegida === i || ok ? 'azul' : 'borde')} disabled={op.revelada}
+                  style={ok ? { background: '#1F9D55', color: '#fff' } : mal ? { background: '#C0392B', color: '#fff' } : undefined}
+                  onClick={() => orden('pc-opcion', { i })}>
+                  {String.fromCharCode(65 + i)}{ok ? ' ✓' : mal ? ' ✗' : ''}
+                </button>
+              );
+            })}
+          </div>
+          {!op.revelada && <button className="vgm-btn borde" onClick={() => orden('pc-revelar')}>👁 Revelar respuesta</button>}
+        </React.Fragment>
+      )}
+    </React.Fragment>
+  );
+}
+
+/* Equipo al azar (Modo Jaguar) y herramientas del pincel: sortear equipo, QR, borrar. */
+function HerramientasCel({ extra, orden }) {
+  const az = extra.azar || null;
+  const h = extra.herramientas || null;
+  if (!az && !h) return null;
+  const hayBotones = h && (h.sorteo || h.qr || h.hayAlgo);
+  if (!az && !hayBotones) return null;
+  return (
+    <div className="vgm-panel">
+      <div className="vgm-kicker">Herramientas</div>
+      {az && (
+        <React.Fragment>
+          {az.elegido && <div style={{ textAlign: 'center', fontWeight: 800, fontSize: 18 }}>👊 Responde el {az.elegido}</div>}
+          <div className="vgm-fila">
+            <button className="vgm-btn azul" disabled={az.girando} onClick={() => orden('azar-girar')}>
+              {az.girando ? 'Eligiendo…' : az.elegido ? '↻ Otro equipo' : '🎲 ¿Qué equipo responde?'}
+            </button>
+            {az.conPunto && az.elegido && !az.girando && <button className="vgm-btn borde" onClick={() => orden('azar-punto')}>+1 punto</button>}
+          </div>
+        </React.Fragment>
+      )}
+      {hayBotones && (
+        <div className="vgm-fila">
+          {h.sorteo && <button className={'vgm-btn ' + (h.verSorteo ? 'azul' : 'borde')} onClick={() => orden('herr-sorteo')}>{h.verSorteo ? '✕ Cerrar sorteo' : '🎲 Sortear equipo'}</button>}
+          {h.qr && <button className={'vgm-btn ' + (h.verQr ? 'azul' : 'borde')} onClick={() => orden('herr-qr')}>{h.verQr ? '✕ Cerrar QR' : '▦ QR'}</button>}
+        </div>
+      )}
+      {h && h.hayAlgo && (
+        <div className="vgm-fila">
+          <button className="vgm-btn borde" onClick={() => orden('herr-deshacer')}>↶ Deshacer marca</button>
+          <button className="vgm-btn borde" onClick={() => orden('herr-borrar')}>🧽 Borrar marcas</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function VigiaMandoCelular({ code, state, send }) {
   const st = state || {};
   React.useEffect(() => {
@@ -404,6 +483,7 @@ function VigiaMandoCelular({ code, state, send }) {
         <div className="vgm-panel tarjeta" style={{ '--c': (itemActivo && itemActivo.color) || '#FF8A00' }}>
           <div className="vgm-kicker">En pantalla · {itemActivo ? itemActivo.nombre : 'Activación'}{activa.pequena ? ' (pequeña)' : ''}</div>
           {itemActivo && itemActivo.texto && <div style={{ fontWeight: 700, fontSize: 15 }}>{itemActivo.texto}</div>}
+          <SorteoCel extra={st.extra || {}} orden={orden} />
           {/^cp-/.test(activa.tipo) ? (
             /* Modo Capibara · historia de Jomu: los mismos botones de la pantalla */
             <React.Fragment>
@@ -1199,6 +1279,8 @@ function VigiaMandoCelular({ code, state, send }) {
           </div>
         </div>
       )}
+
+      <HerramientasCel extra={st.extra || {}} orden={orden} />
 
       <div className="vgm-pie">
         <button className="vgm-btn borde" onClick={() => orden('tono')}>☀ Tono</button>

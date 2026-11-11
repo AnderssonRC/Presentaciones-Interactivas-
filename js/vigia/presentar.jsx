@@ -518,11 +518,18 @@ const ESCALAS_TARJETA = [0.7, 0.8, 0.9, 1, 1.12, 1.25, 1.4, 1.6];
 const CABECERA_ESPERA_MS = 2800;
 function CabeceraTarjeta({ ti, selector }) {
   const [fase, setFase] = React.useState('titulo');   // 'titulo' | 'quien'
+  const [autoGirar, setAutoGirar] = React.useState(false);
   React.useEffect(() => {
     if (!selector) return;
     const t = setTimeout(() => setFase('quien'), CABECERA_ESPERA_MS);
     return () => clearTimeout(t);
   }, [!!selector]);
+  // Mando: mientras se ve el título, el celular ya puede pedir "Elegir": se
+  // adelanta el recuadro de nombres y empieza a andar apenas aparece.
+  usePublicarMando('sorteo-espera', selector && fase === 'titulo' ? true : null);
+  useOrdenMando((o) => {
+    if (o.accion === 'sorteo-girar' && selector && fase === 'titulo') { setAutoGirar(true); setFase('quien'); }
+  });
   const titulo = (
     <div className={'vg-tarjeta-kicker' + (selector && fase === 'quien' ? ' sale' : '')}
       onClick={selector ? () => setFase('quien') : undefined} aria-hidden={selector && fase === 'quien' ? 'true' : undefined}>
@@ -536,7 +543,7 @@ function CabeceraTarjeta({ ti, selector }) {
   return (
     <div className="vg-cabecera">
       {titulo}
-      {fase === 'quien' && <div className="vg-cabecera-quien">{selector}</div>}
+      {fase === 'quien' && <div className="vg-cabecera-quien">{autoGirar ? React.cloneElement(selector, { autoGirar: true }) : selector}</div>}
     </div>
   );
 }
@@ -652,10 +659,21 @@ function ContenidoBase({ a }) {
   const [elegida, setElegida] = React.useState(null);
   const [revelada, setRevelada] = React.useState(false);
   const texto = a.texto || '';
+  // Pregunta cerrada en el mando: elegir opción ('pc-opcion', i) y revelar ('pc-revelar').
+  const opcionesMando = a.tipo === 'pregunta' ? (a.opciones || []).map((o) => (o || '').trim()).filter(Boolean) : [];
+  const cerradaMando = a.tipo === 'pregunta' && a.modo === 'cerrada' && opcionesMando.length >= 2;
+  usePublicarMando('opciones', cerradaMando
+    ? { total: opcionesMando.length, elegida, revelada, correcta: revelada ? Math.min(a.correcta || 0, opcionesMando.length - 1) : null }
+    : null);
+  useOrdenMando((o) => {
+    if (!cerradaMando) return;
+    if (o.accion === 'pc-opcion' && typeof o.i === 'number' && !revelada) setElegida((e) => (e === o.i ? null : o.i));
+    else if (o.accion === 'pc-revelar') setRevelada(true);
+  });
 
   if (a.tipo === 'pregunta') {
-    const opciones = (a.opciones || []).map((o) => (o || '').trim()).filter(Boolean);
-    const cerrada = a.modo === 'cerrada' && opciones.length >= 2;
+    const opciones = opcionesMando;
+    const cerrada = cerradaMando;
     const correcta = Math.min(a.correcta || 0, opciones.length - 1);
     // Cerrada: pregunta y opciones comparten la tarjeta, así que la letra baja
     // antes (según el largo de la pregunta y de la opción más larga).

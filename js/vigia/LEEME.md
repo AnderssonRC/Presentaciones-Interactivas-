@@ -10,7 +10,7 @@ Vuelve interactivos los recursos "cerrados" (videos, documentales, podcast…): 
 | `tipos.js` | Recursos (Video, Documento, Podcast, Imágenes, Historia) y los 5 tipos de activación: nombre, color, ícono, propósito, textos del editor y si usan ruleta. |
 | `youtube.jsx` | Reproductor de YouTube (`useYouTube`) e `idDeYouTube(url)`. |
 | `pdf.jsx` | PDF: carga PDF.js (desde cdnjs, solo al abrir un PDF), guarda el archivo subido en el navegador (IndexedDB) y `VisorPdf` (páginas + activadores encima). |
-| `ruleta.jsx` | Ruleta de estudiantes (no repite a nadie hasta que hayan salido todos). |
+| `ruleta.jsx` | Ruleta de estudiantes y recuadro de nombres `SelectorNombres` (no repiten a nadie hasta que hayan salido todos). Ambos se manejan desde el celular (`extra.sorteo`, orden `sorteo-girar`). |
 | `editor.jsx` | `VigiaEditor` (elige el editor según el recurso), editor de **video** y piezas compartidas: `ConfigActivacion`, `RecursoChips`, `EstudiantesPopover`. |
 | `editor-pdf.jsx` | Editor de **documento**: enlace o subida del PDF y marcado de activadores arrastrando sobre el texto. |
 | `presentar.jsx` | `ImagenActivacion` muestra la imagen (`a.imagen`) y el video de YouTube opcional (`a.youtube` → `VideoActivacion`, con Reproducir/Desde el inicio/Agrandar; orden del celular `video-tarjeta`). `VigiaPresentar` (elige según el recurso), Presentar de **video** y la tarjeta de la activación (`TarjetaActivacion`, `ContenidoActivacion`, Glosario). |
@@ -106,6 +106,7 @@ En un documento (`recurso: 'documento'`), en lugar de `video` hay `pdf: { url, n
   - En la raíz: `className={'vigia vg-presentar … tono-' + tono}`.
   - Al final de la raíz: `<TonoLateral tono={tono} setTono={setTono} />` (botón ☀ en el borde izquierdo: aparece al acercar el mouse y se oculta al retirarlo).
   - Mando a distancia (mando.jsx): `const mando = useMandoVigia(estado, manejar)` y `<MandoBadge mando={mando} />`. `estado` es lo que ve el celular (recurso, lista con `itemMando`, activa…); `manejar(accion)` recibe 'alternar', 'continuar', 'abrir', 'siguiente', 'saltar', 'zoom', 'salir'… La pantalla del celular es `mando-celular.jsx` (la carga remote.jsx; versión en `VIGIA_MANDO_VERSION` de vigia.jsx).
+    Piezas sueltas de la pantalla avisan al celular con `usePublicarMando('clave', valor)` (llega como `estado.extra.clave`) y escuchan con `useOrdenMando`: `sorteo` / `sorteo-espera` (ruleta y nombres → `sorteo-girar`), `opciones` (pregunta cerrada → `pc-opcion`, `pc-revelar`), `azar` (equipo al azar → `azar-girar`, `azar-punto`), `herramientas` (→ `herr-sorteo`, `herr-qr`, `herr-deshacer`, `herr-borrar`).
   - Y después: `<HerramientasPresentar />` (herramientas.jsx: pincel abajo a la izquierda con lupa, marcador, puntero y texto; la lupa escala `.vg-presentar`).
   - Lo que se proyecta lleva una clase genérica para que los tonos lo afecten:
     - `vg-proyectado-doc`: páginas, textos e **imágenes** (Imágenes y Documento).

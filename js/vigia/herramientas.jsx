@@ -264,6 +264,15 @@ function HerramientasPresentar({ act }) {
   const hayAlgo = trazos.length > 0 || textos.length > 0;
   const conColor = activa === 'marcador' || activa === 'texto';
 
+  // Mando: sortear equipo, QR y borrar marcas también desde el celular.
+  usePublicarMando('herramientas', { sorteo: hayJaguar, verSorteo: verSorteo && hayJaguar, qr: !!act, verQr, hayAlgo });
+  useOrdenMando((o) => {
+    if (o.accion === 'herr-sorteo' && hayJaguar) { setActiva(null); setVerQr(false); setVerSorteo((v) => !v); }
+    else if (o.accion === 'herr-qr' && act) { setActiva(null); setVerSorteo(false); setVerQr((v) => !v); }
+    else if (o.accion === 'herr-deshacer') deshacer();
+    else if (o.accion === 'herr-borrar') borrarTodo();
+  });
+
   const capa = (
     <div className={'vg-herr-capa' + (activa ? ' activa-' + activa : '') + (zoom.on ? ' acercada' : '')}>
       <canvas ref={lienzo} className="vg-herr-lienzo"

@@ -64,6 +64,9 @@ function RuletaEstudiantes({ nombres, usados, onElegido, titulo, orden, giroExte
     if (girarRef.current) girarRef.current();
   }, [giroExterno]);
   React.useEffect(() => { if (onEstado) onEstado({ girando, elegido }); }, [girando, elegido]);
+  // Mando: el celular ve la ruleta y la hace girar ('sorteo-girar').
+  usePublicarSorteo(n > 0 ? { tipo: 'ruleta', girando, elegido: elegido ? nombreAnuncio(elegido, orden) : null } : null);
+  useOrdenSorteo(girarRef);
 
   if (!n) return null;
   const a = 360 / n;
@@ -147,21 +150,35 @@ function RuletaEstudiantes({ nombres, usados, onElegido, titulo, orden, giroExte
   );
 }
 
+// Aviso al mando (si el mando no está cargado, no hace nada).
+function usePublicarSorteo(valor) {
+  (window.usePublicarMando || (() => {}))('sorteo', valor);
+}
+function useOrdenSorteo(girarRef) {
+  (window.useOrdenMando || (() => {}))((o) => { if (o.accion === 'sorteo-girar' && girarRef.current) girarRef.current(); });
+}
+
 /* ---------- Selector de nombres (recuadro compacto) ----------
    Alternativa a la ruleta cuando el espacio importa (preguntas cerradas):
    un recuadro donde los nombres van pasando — cada uno sale por arriba
    desvaneciéndose y el siguiente entra desde abajo —, primero rápido y
    frenando, hasta detenerse en el elegido. Misma regla de "no repetir".
-   Props: nombres, usados, onElegido, titulo, orden. */
+   Props: nombres, usados, onElegido, titulo, orden.
+   `autoGirar`: elige apenas aparece (cuando el celular lo pidió antes). */
 const SELECTOR_PASOS = 24;
-function SelectorNombres({ nombres, usados, onElegido, titulo, orden, clase }) {
+function SelectorNombres({ nombres, usados, onElegido, titulo, orden, clase, autoGirar }) {
   const lista = (nombres || []).map((n) => (n || '').trim()).filter(Boolean);
   const etiquetas = etiquetasRuleta(lista, orden);
   const [vista, setVista] = React.useState({ actual: null, previo: null, n: 0, dur: 300 });
   const [girando, setGirando] = React.useState(false);
   const [elegido, setElegido] = React.useState(null);
   const timers = React.useRef([]);
+  const girarRef = React.useRef(null);
   React.useEffect(() => () => timers.current.forEach(clearTimeout), []);
+  React.useEffect(() => { if (autoGirar && girarRef.current) girarRef.current(); }, []);   // eslint-disable-line react-hooks/exhaustive-deps
+  // Mando: el celular ve el recuadro de nombres y lo pone a andar ('sorteo-girar').
+  usePublicarSorteo(lista.length ? { tipo: 'nombres', girando, elegido: elegido ? nombreAnuncio(elegido, orden) : null } : null);
+  useOrdenSorteo(girarRef);
   if (!lista.length) return null;
 
   const girar = () => {
@@ -197,6 +214,7 @@ function SelectorNombres({ nombres, usados, onElegido, titulo, orden, clase }) {
       if (onElegido) onElegido(lista[final]);
     }, t + 450));
   };
+  girarRef.current = girar;
 
   const etiqueta = (i) => (i === null || i === undefined ? '' : etiquetas[i]);
   return (

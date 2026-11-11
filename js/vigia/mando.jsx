@@ -25,6 +25,34 @@ function useOrdenMando(fn) {
   }, []);
 }
 
+/* Estado "extra" para el celular: piezas sueltas de la pantalla (ruleta,
+   recuadro de nombres, opciones de la pregunta cerrada, equipo al azar,
+   herramientas…) avisan qué tienen a la vista con
+   usePublicarMando('clave', valor) mientras están montadas. El mando lo
+   publica en `extra` y el celular muestra los botones equivalentes. */
+const mandoExtra = { datos: {}, oyentes: new Set() };
+function fijarMandoExtra(clave, valor) {
+  const nuevo = valor === undefined ? null : valor;
+  if (JSON.stringify(mandoExtra.datos[clave] === undefined ? null : mandoExtra.datos[clave]) === JSON.stringify(nuevo)) return;
+  const d = { ...mandoExtra.datos };
+  if (nuevo === null) delete d[clave]; else d[clave] = nuevo;
+  mandoExtra.datos = d;
+  mandoExtra.oyentes.forEach((f) => f(d));
+}
+function useMandoExtra() {
+  const [d, setD] = React.useState(mandoExtra.datos);
+  React.useEffect(() => {
+    mandoExtra.oyentes.add(setD); setD(mandoExtra.datos);
+    return () => { mandoExtra.oyentes.delete(setD); };
+  }, []);
+  return d;
+}
+function usePublicarMando(clave, valor) {
+  const k = JSON.stringify(valor === undefined ? null : valor);
+  React.useEffect(() => { fijarMandoExtra(clave, valor); }, [clave, k]);   // eslint-disable-line react-hooks/exhaustive-deps
+  React.useEffect(() => () => fijarMandoExtra(clave, null), [clave]);
+}
+
 function useMandoVigia(estado, manejar) {
   const [code, setCode] = React.useState(null);
   const [conectado, setConectado] = React.useState(false);
@@ -78,7 +106,8 @@ function useMandoVigia(estado, manejar) {
   const modoEquipos = marcador ? (sesionJaguar.modo || 'jaguar') : null;   // 'jaguar' | 'capibara'
   const capibaraMontana = !!(marcador && sesionJaguar.verMontana);         // ¿"Ver la montaña" abierta?
   const metaCapibara = marcador ? (sesionJaguar.meta || null) : null;
-  const clave = JSON.stringify({ ...estado, tiempo: undefined, pin, marcador, jaguarDesafio, jaguarGrupos, capibara, modoEquipos, capibaraMontana, metaCapibara });
+  const extra = useMandoExtra();   // ruleta, nombres, opciones, equipo al azar, herramientas
+  const clave = JSON.stringify({ ...estado, tiempo: undefined, pin, marcador, jaguarDesafio, jaguarGrupos, capibara, modoEquipos, capibaraMontana, metaCapibara, extra });
   const ultimoTiempo = React.useRef({ t: 0, en: 0 });
   React.useEffect(() => {
     if (!code) return;
@@ -96,7 +125,7 @@ function useMandoVigia(estado, manejar) {
   function publicar() {
     ultimoTiempo.current = { t: estado.tiempo || 0, en: Date.now() };
     const hash = pin && typeof window.hashPin === 'function' ? window.hashPin(pin) : '';
-    AIP.updateRemoteState(code, { ...estado, clase: 'vigia', en: Date.now(), mandoHash: hash, permiteEstudiantes: false, marcador, jaguarDesafio, jaguarGrupos, capibara: capibara || null, modoEquipos, capibaraMontana, metaCapibara })
+    AIP.updateRemoteState(code, { ...estado, clase: 'vigia', en: Date.now(), mandoHash: hash, permiteEstudiantes: false, marcador, jaguarDesafio, jaguarGrupos, capibara: capibara || null, modoEquipos, capibaraMontana, metaCapibara, extra })
       .catch((e) => console.error('[mando vigía] estado:', e));
   }
 
@@ -152,4 +181,4 @@ function itemMando(a, etiqueta, visto) {
   return { id: a.id, tipo: a.tipo, nombre: ti.nombre, color: ti.color, etiqueta, texto: cortoMando(texto), visto: !!visto, video };
 }
 
-Object.assign(window, { useMandoVigia, useOrdenMando, MandoBadge, itemMando, cortoMando });
+Object.assign(window, { useMandoVigia, useOrdenMando, MandoBadge, itemMando, cortoMando, usePublicarMando, fijarMandoExtra });
