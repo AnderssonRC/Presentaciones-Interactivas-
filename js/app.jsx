@@ -118,14 +118,107 @@ React.useEffect(() => {
     return () => { activo = false; };
   }, [user]);
 
-  // Guarda una presentación concreta (crear o actualizar) en Firestore + estado local
-  const persist = (pres) => {
+  /* ----- Guardado en Firestore, con pausa breve -----
+     La pantalla se actualiza al instante, pero a Firestore solo se envía la
+     ÚLTIMA versión tras 0,8 s sin cambios (antes: una escritura completa por
+     cada tecla y por cada movimiento al arrastrar). Se guarda de inmediato al
+     crear, al presentar, al salir del editor, al ocultar o cerrar la pestaña
+     y antes de cerrar sesión. Si un guardado falla o tarda, se avisa. */
+  const colaGuardado = React.useRef(new Map());   // id -> { pres, timer }: pendientes de enviar
+  const ultimaVersion = React.useRef(new Map());  // id -> versión más reciente conocida
+  const fallidas = React.useRef(new Set());       // ids cuyo último guardado falló
+  const enVuelo = React.useRef(new Set());        // guardados enviados y aún sin confirmar
+  const lentas = React.useRef(new Set());         // …que llevan más de 8 s sin confirmar
+  const [avisoGuardado, setAvisoGuardado] = React.useState(null);   // null | 'fallo' | 'lento'
+  const refrescarAviso = () => setAvisoGuardado(fallidas.current.size ? 'fallo' : (lentas.current.size ? 'lento' : null));
+
+  const guardarYa = (id) => {
+    const e = colaGuardado.current.get(id);
+    if (!e) return Promise.resolve();
+    clearTimeout(e.timer);
+    colaGuardado.current.delete(id);
+    fallidas.current.delete(id);
+    const marca = {};
+    enVuelo.current.add(marca);
+    const lento = setTimeout(() => { lentas.current.add(marca); refrescarAviso(); }, 8000);
+    const fin = () => { clearTimeout(lento); enVuelo.current.delete(marca); lentas.current.delete(marca); };
+    return AIP.savePresentation(e.pres)
+      .then(() => { fin(); refrescarAviso(); })
+      .catch((err) => {
+        fin();
+        console.error('No se pudo guardar:', err);
+        // Solo cuenta como fallo si no hay ya una versión más nueva en camino.
+        if (ultimaVersion.current.get(id) === e.pres) fallidas.current.add(id);
+        refrescarAviso();
+      });
+  };
+  const guardarTodo = () => Promise.all(Array.from(colaGuardado.current.keys()).map(guardarYa));
+  const reintentarGuardado = () => {
+    Array.from(fallidas.current).forEach((id) => {
+      const p = ultimaVersion.current.get(id);
+      if (!p) { fallidas.current.delete(id); return; }
+      if (!colaGuardado.current.has(id)) colaGuardado.current.set(id, { pres: p, timer: null });
+      guardarYa(id);
+    });
+    refrescarAviso();
+  };
+  const olvidarGuardado = (id) => {
+    const e = colaGuardado.current.get(id);
+    if (e) clearTimeout(e.timer);
+    colaGuardado.current.delete(id);
+    ultimaVersion.current.delete(id);
+    fallidas.current.delete(id);
+    refrescarAviso();
+  };
+
+  // Guarda una presentación concreta (crear o actualizar): estado local al
+  // instante + Firestore tras la pausa (o de inmediato con `ya === true`).
+  const persist = (pres, ya) => {
     setPresentations((prev) => {
       const exists = prev.some((p) => p.id === pres.id);
       return exists ? prev.map((p) => (p.id === pres.id ? pres : p)) : [pres, ...prev];
     });
-    AIP.savePresentation(pres).catch((e) => console.error('No se pudo guardar:', e));
+    ultimaVersion.current.set(pres.id, pres);
+    const previo = colaGuardado.current.get(pres.id);
+    if (previo) clearTimeout(previo.timer);
+    colaGuardado.current.set(pres.id, { pres, timer: setTimeout(() => guardarYa(pres.id), 800) });
+    if (ya === true) guardarYa(pres.id);
   };
+
+  // Al entrar o salir del editor o de Presentar: enviar lo pendiente.
+  React.useEffect(() => { guardarTodo(); }, [editingId, presentingId]);
+
+  // Al ocultar o cerrar la pestaña: enviar lo pendiente; si aún hay algo sin
+  // confirmar, el navegador pregunta antes de cerrar. Al volver el internet,
+  // se reintenta lo que falló.
+  React.useEffect(() => {
+    const alOcultar = () => { if (document.visibilityState === 'hidden') guardarTodo(); };
+    const alSalir = () => { guardarTodo(); };
+    const antesDeCerrar = (e) => {
+      const pendiente = colaGuardado.current.size > 0 || enVuelo.current.size > 0 || fallidas.current.size > 0;
+      guardarTodo();
+      if (pendiente) { e.preventDefault(); e.returnValue = ''; }
+    };
+    const alConectar = () => reintentarGuardado();
+    document.addEventListener('visibilitychange', alOcultar);
+    window.addEventListener('pagehide', alSalir);
+    window.addEventListener('beforeunload', antesDeCerrar);
+    window.addEventListener('online', alConectar);
+    return () => {
+      document.removeEventListener('visibilitychange', alOcultar);
+      window.removeEventListener('pagehide', alSalir);
+      window.removeEventListener('beforeunload', antesDeCerrar);
+      window.removeEventListener('online', alConectar);
+    };
+  }, []);
+
+  // Sin sesión no queda nada por guardar (ya no se podría escribir).
+  React.useEffect(() => {
+    if (user) return;
+    colaGuardado.current.forEach((e) => clearTimeout(e.timer));
+    colaGuardado.current.clear(); ultimaVersion.current.clear(); fallidas.current.clear();
+    refrescarAviso();
+  }, [user]);
 
   // `modo`: 'normal' | 'equipos' (botón "Modo Equipos" del Dashboard). En
   // modo equipos se crea ya con los dos equipos por defecto, los mismos que
@@ -143,7 +236,7 @@ React.useEffect(() => {
       nueva.modo = 'equipos';
       nueva.equipos = [{ name: 'Equipo Verde', color: '#11F555' }, { name: 'Equipo Naranja', color: '#F53711' }];
     }
-    persist(nueva);
+    persist(nueva, true);
     setEditingId(nueva.id);
   };
 
@@ -161,7 +254,7 @@ React.useEffect(() => {
     else if (nueva.recurso === 'podcast') nueva.podcast = { url: '', fuente: '', src: '', imagen: '' };
     else if (nueva.recurso === 'imagenes') nueva.galeria = { diapos: [], musica: null };
     else nueva.video = { url: '', id: '' };
-    persist(nueva);
+    persist(nueva, true);
     setEditingId(nueva.id);
   };
 
@@ -170,6 +263,7 @@ React.useEffect(() => {
   const deletePres = (id) => {
     const esVigia = presentations.some((p) => p.id === id && p.clase === 'vigia');
     const borrar = () => {
+      olvidarGuardado(id);   // un guardado pendiente volvería a crear el documento borrado
       setPresentations((prev) => prev.filter((p) => p.id !== id));
       AIP.deletePresentation(id).catch((e) => console.error('No se pudo eliminar:', e));
       // Documento guardado en este computador para esa activación: también se borra.
@@ -187,11 +281,14 @@ React.useEffect(() => {
 
   const present = (id) => {
     const target = presentations.find((p) => p.id === id);
-    if (target) persist({ ...target, usos: (target.usos || 0) + 1, lastPresented: Date.now() });
+    if (target) persist({ ...target, usos: (target.usos || 0) + 1, lastPresented: Date.now() }, true);
     setPresentingId(id);
   };
 
-  const logout = () => { AIP.signOut(); };
+  // Antes de cerrar sesión se envía lo pendiente (máx. 2,5 s de espera).
+  const logout = () => {
+    Promise.race([guardarTodo(), new Promise((r) => setTimeout(r, 2500))]).then(() => AIP.signOut());
+  };
 
   // Retira la pantalla de carga Res Cogitans (index.html) cuando ya hay algo
   // que mostrar: el inicio de sesión o el panel con las presentaciones.
@@ -306,6 +403,7 @@ if (adminOpen && AIP.esAdmin()) {
             theme={theme} setTheme={setTheme} />
         )}
         <ResCogitasFooter />
+        <AvisoGuardado tipo={avisoGuardado} onReintentar={reintentarGuardado} />
         <AppTweaks t={t} setTweak={setTweak} />
       </React.Fragment>
     );
@@ -331,10 +429,37 @@ if (adminOpen && AIP.esAdmin()) {
               theme={theme} setTheme={setTheme} />
           )}
           <ResCogitasFooter />
+          <AvisoGuardado tipo={avisoGuardado} onReintentar={reintentarGuardado} />
         </React.Fragment>
       )}
       <AppTweaks t={t} setTweak={setTweak} />
     </React.Fragment>
+  );
+}
+
+/* Aviso fijo cuando un guardado falló ('fallo') o lleva rato sin confirmarse
+   ('lento', típico sin internet). No se muestra durante Presentar. */
+function AvisoGuardado({ tipo, onReintentar }) {
+  if (!tipo) return null;
+  const fallo = tipo === 'fallo';
+  return (
+    <div role="alert" style={{
+      position: 'fixed', left: '50%', bottom: 22, transform: 'translateX(-50%)', zIndex: 1500,
+      display: 'flex', alignItems: 'center', gap: 14, maxWidth: 'calc(100vw - 32px)',
+      padding: '12px 16px', borderRadius: 14, background: '#2A0E08', color: '#FFE9E2',
+      border: '2px solid #F53711', boxShadow: '0 14px 40px -12px rgba(0,0,0,.6)',
+      fontSize: 14.5, fontWeight: 600, lineHeight: 1.35,
+    }}>
+      <span>{fallo
+        ? 'No se pudieron guardar los últimos cambios.'
+        : 'El guardado aún no se confirma. Revisa tu internet y no cierres esta pestaña.'}</span>
+      {fallo && (
+        <button onClick={onReintentar} style={{
+          flexShrink: 0, padding: '8px 14px', borderRadius: 10, border: 'none', cursor: 'pointer',
+          background: '#F53711', color: '#fff', fontWeight: 800, fontFamily: 'var(--font-display)', fontSize: 14,
+        }}>Reintentar</button>
+      )}
+    </div>
   );
 }
 
