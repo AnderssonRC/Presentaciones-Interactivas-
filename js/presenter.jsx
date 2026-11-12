@@ -22,6 +22,11 @@ if (!window.hashPin) {
   };
 }
 
+/* Diapositiva de respaldo: se usa si la presentación llega sin diapositivas
+   (o con `slides` indefinido), para que el Presenter no se rompa leyendo
+   `.id`/`.type` de undefined (eso dejaba la pantalla en negro). */
+const SLIDE_VACIO = { id: '__vacio', type: 'contenido', titulo: '', texto: '', elementos: [] };
+
 /* ---------- Marcador global de equipos ---------- */
 function TeamScoreboard({ teams, hidden, accentText }) {
   if (!teams || !teams.length) return null;
@@ -141,6 +146,8 @@ function PodioGanador({ teams, onCerrar }) {
       </div>
     </div>
   );
+
+  if (!orden.length) return null;
 
   return (
     <div className="panel-entra" style={{
@@ -370,7 +377,44 @@ function MiniTimer({ duracion, accent }) {
   );
 }
 
-function Presenter({ pres, onExit, onChange }) {
+/* ---------- Blindaje: si algo falla dentro del Presenter ----------
+   ANTES, cualquier error al renderizar (una función global que no cargó,
+   una diapositiva mal formada…) desmontaba todo el modo Presentar y la
+   pantalla quedaba en negro sin pista alguna. Ahora se muestra el error
+   en pantalla, con un botón para salir, y se registra en la consola. */
+class PresenterBlindaje extends React.Component {
+  constructor(props) { super(props); this.state = { error: null }; }
+  static getDerivedStateFromError(error) { return { error }; }
+  componentDidCatch(error, info) { console.error('[Presenter] error al presentar:', error, info); }
+  render() {
+    if (!this.state.error) return this.props.children;
+    const e = this.state.error;
+    return (
+      <div className="presenter-overlay" style={{ display: 'grid', placeItems: 'center', background: '#0B0E0B', color: '#F2F5EF', padding: 40 }}>
+        <div style={{ maxWidth: 760, textAlign: 'center' }}>
+          <div style={{ fontSize: 48 }}>⚠️</div>
+          <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 28, margin: '12px 0' }}>
+            No se pudo abrir el modo Presentar
+          </div>
+          <pre style={{ whiteSpace: 'pre-wrap', textAlign: 'left', background: '#141814', padding: 16, borderRadius: 12, fontSize: 14, color: '#FF8A65' }}>
+            {String((e && (e.message || e)) || 'Error desconocido')}
+          </pre>
+          <button className="hud-btn" onClick={this.props.onExit} style={{ marginTop: 20 }}>✕ Salir</button>
+        </div>
+      </div>
+    );
+  }
+}
+
+function Presenter(props) {
+  return (
+    <PresenterBlindaje key={props.pres && props.pres.id} onExit={props.onExit}>
+      <PresenterInterno {...props} />
+    </PresenterBlindaje>
+  );
+}
+
+function PresenterInterno({ pres, onExit, onChange }) {
   const [idx, setIdx] = React.useState(0);
   // `paso` = cuántos niveles de animación se han revelado en el slide actual.
   // Avanza con → / espacio antes de pasar al siguiente slide.
@@ -378,7 +422,10 @@ function Presenter({ pres, onExit, onChange }) {
   // `replay` fuerza re-montaje del lienzo para reanimar al entrar a un slide.
   const [replay, setReplay] = React.useState(0);
   const [scale, setScale] = React.useState(0.5);
-  const slides = pres.slides;
+  // Blindado: si `pres.slides` no es un array, se trata como vacío.
+  const slides = Array.isArray(pres.slides) ? pres.slides : [];
+  // Diapositiva en la posición i, o la de respaldo si no hay ninguna.
+  const slideEn = (i) => slides[Math.min(i, slides.length - 1)] || SLIDE_VACIO;
 
   // --- Equipos (modo 'equipos') ---
   const esEquipos = pres.modo === 'equipos';
@@ -395,13 +442,7 @@ function Presenter({ pres, onExit, onChange }) {
   const [brilloAlto, setBrilloAlto] = React.useState(false);
 
   // Refs con el valor más reciente de idx/paso, para leerlos de forma
-  // síncrona dentro de avanzar/retroceder. ANTES, esas funciones leían el
-  // resultado de un setPaso(p => ...) anidado dentro de un setIdx(i => ...)
-  // a través de una variable (`saltar`/`bajar`) mutada en el updater de
-  // paso: React no garantiza que ese updater ya se haya ejecutado en el
-  // momento de leer la variable, así que a veces el primer clic no hacía
-  // nada (se necesitaba un segundo clic para "notar" el cambio). Usar refs
-  // evita depender de ese orden.
+  // síncrona dentro de avanzar/retroceder (ver historial del archivo).
   const idxRef = React.useRef(idx);
   const pasoRef = React.useRef(paso);
   idxRef.current = idx;
@@ -454,19 +495,10 @@ function Presenter({ pres, onExit, onChange }) {
   React.useEffect(() => { setTeams(equiposBase); setHideScores(false); }, [equiposBase]);
 
   // --- Resultado del sorteo de "Formar grupos", por diapositiva ---
-  // GruposRun guarda su resultado en estado local, que se pierde al salir de
-  // la diapositiva (se desmonta). Lo guardamos aquí también, en el Presenter
-  // (que no se desmonta al navegar), para que si el docente retrocede y
-  // vuelve a esa diapositiva, siga viendo los mismos grupos sin tener que
-  // sortear de nuevo.
   const [gruposPorSlide, setGruposPorSlide] = React.useState({});
   React.useEffect(() => { setGruposPorSlide({}); }, [pres.id]);
 
   // --- Historial de partidas (Modo Equipos) ---
-  // Al mostrar el podio (automático al final o manual con "Ver ganador"),
-  // se guarda una sola vez por sesión el resultado final: equipos, sus
-  // integrantes (configurados en el Editor) y el puntaje con el que
-  // terminó cada uno. Se consulta luego desde el Editor.
   const historialGuardadoRef = React.useRef(false);
   React.useEffect(() => { historialGuardadoRef.current = false; }, [pres.id]);
   React.useEffect(() => {
@@ -486,10 +518,6 @@ function Presenter({ pres, onExit, onChange }) {
   }, [verPodio, esEquipos, teams, pres, onChange]);
 
   // --- Pantalla completa real del navegador (como PowerPoint/Slides) ---
-  // Al entrar a Presentar pedimos fullscreen para ocultar pestañas y barra
-  // del navegador. Los navegadores exigen que esto ocurra tras un gesto del
-  // usuario; como Presentar se abre al pulsar el botón, el permiso ya existe.
-  // Si el navegador lo rechaza, la app sigue funcionando igual (sin fullscreen).
   React.useEffect(() => {
     const el = document.documentElement;
     const pedir = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
@@ -512,9 +540,7 @@ function Presenter({ pres, onExit, onChange }) {
   }, []);
 
   // Si el docente sale de pantalla completa con F11 o Esc del navegador,
-  // cerramos también el modo Presentar para no quedar en un estado a medias
-  // (ventana normal con el overlay encima). Solo actúa cuando ya NO hay
-  // elemento en fullscreen (es decir, se acaba de salir).
+  // cerramos también el modo Presentar.
   React.useEffect(() => {
     const onFsChange = () => {
       const enFs = document.fullscreenElement || document.webkitFullscreenElement;
@@ -531,32 +557,37 @@ function Presenter({ pres, onExit, onChange }) {
   // --- Control remoto ---
   const [remoteCode, setRemoteCode] = React.useState(null);
   const [badgeVisible, setBadgeVisible] = React.useState(true);
-  // Señal que las actividades pueden observar para reaccionar a comandos del celular.
   const [remoteSignal, setRemoteSignal] = React.useState({ action: null, nonce: null });
   const lastNonce = React.useRef(null);
 
-  // Ref del intervalo del sorteo, para poder limpiarlo si el docente sale
-  // de Presentar (o cambia de diapositiva) a mitad de la animación.
   const sorteoRef = React.useRef(null);
   React.useEffect(() => () => { if (sorteoRef.current) clearTimeout(sorteoRef.current); }, []);
 
   // --- Estudiantes / participación ---
-  // Coincide con el checkbox del editor (editor.jsx: pres.estudiantes === true):
-  // desactivado por defecto, el docente lo enciende explícitamente.
   const conEstudiantes = pres.estudiantes === true;
   const [participants, setParticipants] = React.useState([]);
-  // Ronda de participación: 'idle' | 'pedir' (manos abiertas) | 'sorteo' (ya hay elegido)
   const [ronda, setRonda] = React.useState('idle');
   const [elegido, setElegido] = React.useState(null); // pid del sorteado
   const [sorteando, setSorteando] = React.useState(false);
 
   React.useEffect(() => { setIdx(0); setPaso(0); setReplay((r) => r + 1); setVerPodio(false); }, [pres.id]);
 
-  // Precarga en segundo plano, una por una, el código de las actividades de
-  // esta presentación (ver js/actividades/nucleo.js): al llegar a cada una
-  // ya está lista y no se ve el aviso "Cargando actividad…".
+  // Precarga en segundo plano el código de las actividades de esta
+  // presentación (ver js/actividades/nucleo.js). BLINDADO: si `Actividades`
+  // no existe (archivo no cargado o versión vieja en caché), antes lanzaba
+  // un ReferenceError que tumbaba todo el Presenter y dejaba la pantalla en
+  // negro. Ahora solo avisa en consola y las actividades cargan al llegar.
   React.useEffect(() => {
-    Actividades.precargar(slides.filter((s) => s.type === 'actividad').map((s) => s.tool));
+    try {
+      if (typeof Actividades !== 'undefined' && Actividades && typeof Actividades.precargar === 'function') {
+        const r = Actividades.precargar(slides.filter((s) => s && s.type === 'actividad').map((s) => s.tool));
+        if (r && typeof r.catch === 'function') r.catch((e) => console.warn('[Presenter] precarga falló:', e));
+      } else {
+        console.warn('[Presenter] Actividades.precargar no está disponible (¿nucleo.js no cargó?).');
+      }
+    } catch (e) {
+      console.warn('[Presenter] precarga falló:', e);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pres.id]);
 
@@ -570,12 +601,10 @@ function Presenter({ pres, onExit, onChange }) {
   // Navegación con teclado (sigue funcionando junto al control remoto).
   React.useEffect(() => {
     const onKey = (e) => {
-      // Con el podio abierto, Esc/Izquierda lo cierran; lo demás se ignora.
       if (verPodio) {
         if (e.key === 'Escape' || e.key === 'ArrowLeft') { e.preventDefault(); setVerPodio(false); }
         return;
       }
-      // Tecla "h": ocultar/mostrar el HUD (atajo rápido para el docente).
       if (e.key === 'h' || e.key === 'H') { e.preventDefault(); setHudOculto((v) => !v); return; }
       if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') { e.preventDefault(); avanzar(); }
       else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); retroceder(); }
@@ -606,22 +635,18 @@ function Presenter({ pres, onExit, onChange }) {
     return unsub;
   }, [remoteCode, conEstudiantes]);
 
-  // Abrir ronda de participación: limpia manos y abre el periodo de "levantar la mano".
   const abrirParticipacion = () => {
     setElegido(null);
     setRonda('pedir');
     if (AIP.resetRound) AIP.resetRound(remoteCode);
   };
-  // Sortear entre quienes levantaron la mano.
   const sortear = () => {
     const manos = participants.filter((p) => p.hand);
     if (!manos.length || sorteando) return;
     setSorteando(true);
     if (sorteoRef.current) clearTimeout(sorteoRef.current);
-    // Los nombres pasan rápido y van frenando poco a poco (cada pausa un 13 % más larga);
-    // en unos 1,4 s se detiene en el elegido (antes: ritmo fijo y parada en seco).
     let espera = 60, total = 0;
-    const paso = () => {
+    const tick = () => {
       if (total >= 1400) {
         setElegido(manos[Math.floor(Math.random() * manos.length)].pid);
         setSorteando(false);
@@ -631,19 +656,13 @@ function Presenter({ pres, onExit, onChange }) {
       }
       setElegido(manos[Math.floor(Math.random() * manos.length)].pid);
       espera *= 1.13; total += espera;
-      sorteoRef.current = setTimeout(paso, espera);
+      sorteoRef.current = setTimeout(tick, espera);
     };
-    paso();
+    tick();
   };
   const cerrarParticipacion = () => { setRonda('idle'); setElegido(null); };
 
   // --- Quiz en los celulares (actividad "elige") ---
-  // EligeRun (js/actividades/elige/elige.jsx) avisa vía onQuiz qué pregunta muestra el TV, en
-  // qué orden van sus opciones y si ya se reveló ('abierta' | 'cerrada').
-  // Se guarda junto al id de la diapositiva: el efecto del hijo corre antes
-  // que los del Presenter, así que en vez de limpiar al cambiar de slide se
-  // ignora un quiz que no sea del slide actual. `ronda` cuenta cada apertura
-  // (también al repetir la misma pregunta) para distinguir rondas.
   const [quizTv, setQuizTv] = React.useState(null);
   const recibirQuiz = React.useCallback((slideId, qz) => {
     setQuizTv((prev) => {
@@ -662,8 +681,6 @@ function Presenter({ pres, onExit, onChange }) {
       const cmd = data.command;
       if (cmd.nonce === lastNonce.current) return; // ya procesado
       lastNonce.current = cmd.nonce;
-      // Se llama vía ref (ver abajo) para no depender de una versión
-      // congelada de handleRemoteCommand (evita leer verPodio/idx viejos).
       handleRemoteCommandRef.current(cmd);
       AIP.clearRemoteCommand(remoteCode);
     });
@@ -680,7 +697,7 @@ function Presenter({ pres, onExit, onChange }) {
         if (verPodio) { setVerPodio(false); break; }
         retroceder(); break;
       case 'goto':
-        if (typeof cmd.payload === 'number') {
+        if (typeof cmd.payload === 'number' && slides.length) {
           setVerPodio(false);
           const destino = Math.max(0, Math.min(cmd.payload, slides.length - 1));
           setIdx(destino); setPaso(maxPaso(slides[destino])); setReplay((r) => r + 1);
@@ -694,19 +711,14 @@ function Presenter({ pres, onExit, onChange }) {
       case 'toggleScores':
         setHideScores((h) => (typeof cmd.payload === 'boolean' ? cmd.payload : !h)); break;
       case 'podium':
-        // El celular puede pedir mostrar/ocultar el podio del ganador.
         setVerPodio((v) => (typeof cmd.payload === 'boolean' ? cmd.payload : !v)); break;
       case 'hud':
-        // El celular puede ocultar/mostrar todo el HUD del televisor (igual
-        // que la tecla H en el propio Presenter), para presentar limpio.
         setHudOculto((h) => (typeof cmd.payload === 'boolean' ? cmd.payload : !h)); break;
       case 'brillo':
-        // El celular puede activar/desactivar el Modo Exceso de Luz.
         setBrilloAlto((b) => (typeof cmd.payload === 'boolean' ? cmd.payload : !b)); break;
       case 'exit':
         onExit(); break;
       case 'activity':
-        // Reenvía una "acción de actividad" a la actividad activa vía señal.
         setRemoteSignal({ action: (cmd.payload && cmd.payload.action) || 'primary', nonce: cmd.nonce });
         break;
       default: break;
@@ -715,7 +727,7 @@ function Presenter({ pres, onExit, onChange }) {
   handleRemoteCommandRef.current = handleRemoteCommand;
 
   // Quiz vigente (solo si es del slide en pantalla) y su clave de ronda.
-  const slideActualId = slides[Math.min(idx, slides.length - 1)].id;
+  const slideActualId = slideEn(idx).id;
   const quizVigente = quizTv && quizTv.slideId === slideActualId ? quizTv : null;
   const quizKey = quizVigente ? (slideActualId + ':' + quizVigente.qid + ':' + quizVigente.ronda) : null;
 
@@ -725,9 +737,6 @@ function Presenter({ pres, onExit, onChange }) {
     AIP.resetAnswers(remoteCode).catch((e) => console.error('[quiz] reset:', e));
   }, [quizKey, remoteCode, conEstudiantes]);
 
-  // Al revelar: gana quien respondió bien primero. answerAt es la hora del
-  // SERVIDOR (db.js: submitAnswer), así no influye el reloj de cada celular;
-  // si aún no llegó (escritura pendiente) cuenta como la última.
   const ganadorQuiz = React.useMemo(() => {
     if (!quizVigente || quizVigente.fase !== 'cerrada') return null;
     const ms = (t) => (t && typeof t.toMillis === 'function') ? t.toMillis() : (typeof t === 'number' ? t : Infinity);
@@ -739,20 +748,14 @@ function Presenter({ pres, onExit, onChange }) {
   // Escribir el estado espejo en Firestore cada vez que cambia algo relevante.
   React.useEffect(() => {
     if (!remoteCode || !AIP.updateRemoteState) return;
-    const slide = slides[Math.min(idx, slides.length - 1)];
+    const slide = slideEn(idx);
     const isAct = slide.type === 'actividad';
-    const t = isAct ? AIP.toolById(slide.tool) : null;
+    const t = isAct && AIP.toolById ? AIP.toolById(slide.tool) : null;
     const cfg = slide.config || {};
-    // 'mirror' = lo que el estudiante ve en su celular. Incluye `config`
-    // (para montar el mismo Runtime de la actividad, EspejoActividad en
-    // student.jsx) o `slide` (para replicar el lienzo libre con EspejoSlide).
     const mirror = isAct
       ? { tipo: 'actividad', tool: slide.tool, nombre: t && t.nombre, color: t && t.color,
           titulo: cfg.titulo || '', instrucciones: cfg.instrucciones || '', config: cfg }
       : { tipo: 'contenido', titulo: slide.titulo || '', texto: slide.texto || '', slide };
-    // Ronda de Quiz/Kahoot para la actividad "elige": sigue la pregunta que
-    // muestra el TV (mismo orden de opciones) y se cierra al revelarla.
-    // `qi` lo usa el espejo del celular para mostrar la misma pregunta.
     const quiz = quizVigente
       ? { fase: quizVigente.fase, key: quizKey, qi: quizVigente.qid,
           opciones: quizVigente.opciones, correctIdx: quizVigente.correctIdx,
@@ -763,52 +766,39 @@ function Presenter({ pres, onExit, onChange }) {
       total: slides.length,
       tema: pres.tema || '',
       modo: esEquipos ? 'equipos' : 'normal',
-      // Permisos/seguridad que remote.jsx lee para mostrar "Soy estudiante"
-      // y para pedir el PIN antes de entrar como docente.
       permiteEstudiantes: conEstudiantes,
       mandoHash: (pres.mandoPin && typeof window.hashPin === 'function') ? window.hashPin(pres.mandoPin) : '',
       hideScores,
       podio: verPodio,
-      // Para que el celular sepa si el HUD del televisor ya está oculto y
-      // pueda mostrar el botón con la etiqueta correcta ("Ocultar"/"Mostrar").
       hudOculto,
-      // Igual, pero para el Modo Exceso de Luz.
       brilloAlto,
       activity: isAct ? { tool: slide.tool, titulo: cfg.titulo || (t && t.nombre) || '' } : null,
       teams: esEquipos ? teams : [],
       mirror,
       quiz,
-      // Estado de la ronda de participación para los estudiantes.
       ronda: { fase: ronda, elegido },
     });
   }, [remoteCode, idx, slides.length, hideScores, hudOculto, brilloAlto, teams, esEquipos, ronda, elegido, verPodio, conEstudiantes, pres.mandoPin, quizKey, quizVigente && quizVigente.fase, ganadorQuiz]);
 
-  const slide = slides[Math.min(idx, slides.length - 1)];
+  const slide = slideEn(idx);
   const isAct = slide.type === 'actividad';
-  const tool = isAct ? AIP.toolById(slide.tool) : null;
+  const tool = isAct && AIP.toolById ? AIP.toolById(slide.tool) : null;
+  const cfgSlide = slide.config || {};
 
-  // Cronómetro pequeño (ver MiniTimer arriba).
+  // Cronómetro pequeño (ver MiniTimer arriba). BLINDADO: si falta
+  // AIP.tiempoHabilitado o useCountdown (archivo no cargado / caché vieja),
+  // simplemente no se muestra, en vez de tumbar todo el Presenter.
   const mostrarMiniTimer = isAct && !(tool && tool.timerPropio)
-    && AIP.tiempoHabilitado(slide.config, slide.tool) && (slide.config.duracion || 0) > 0;
+    && typeof AIP.tiempoHabilitado === 'function' && AIP.tiempoHabilitado(cfgSlide, slide.tool)
+    && (cfgSlide.duracion || 0) > 0
+    && typeof useCountdown === 'function' && typeof fmtTime === 'function';
 
-  // API que consumen las actividades de equipo (RetaEquipoRun, PulsadorRun,
-  // ApuestaRun, RecuadrosRun, GruposRun). Esperan
-  // { equipos, sumar(id,pts), color(id), asignarMiembros(gruposPorId) }
-  // con cada equipo en forma { id, nombre, color, puntos, miembros }.
-  // Nuestro estado `teams` usa { name, color, score, miembros }, así que
-  // mapeamos usando el índice como id.
-  // Solo se entrega en modo equipos; en presentaciones normales es undefined
-  // y las actividades muestran su aviso "solo Modo Equipos".
   const equiposApi = React.useMemo(() => {
     if (!esEquipos) return undefined;
     return {
       equipos: teams.map((t, i) => ({ id: i, nombre: t.name || ('Equipo ' + (i + 1)), color: t.color, puntos: t.score || 0, miembros: t.miembros || [] })),
       sumar: (id, pts) => setTeams((prev) => prev.map((t, i) => (i === id ? { ...t, score: Math.max(0, (t.score || 0) + pts) } : t))),
       color: (id) => (teams[id] && teams[id].color) || '#11F555',
-      // Asigna integrantes a los equipos a partir del resultado del sorteo de
-      // "Formar grupos" (GruposRun): un array de arrays de nombres, uno por
-      // equipo, en el mismo orden que `equipos`. Así el marcador y el
-      // historial quedan con los integrantes reales sin escribirlos a mano.
       asignarMiembros: (gruposPorId) => setTeams((prev) => prev.map((t, i) =>
         (gruposPorId[i] ? { ...t, miembros: gruposPorId[i] } : t))),
     };
@@ -816,13 +806,17 @@ function Presenter({ pres, onExit, onChange }) {
 
   // Estado de los botones ← / → (deshabilitado al inicio / al final).
   const inicioTotal = idx === 0 && paso === 0;
-  const finalTotal = idx === slides.length - 1 && paso >= maxPaso(slide) && (!esEquipos || verPodio);
+  const finalTotal = idx >= slides.length - 1 && paso >= maxPaso(slide) && (!esEquipos || verPodio);
 
   return (
     <div className="presenter-overlay" data-screen-label={'Presentar · ' + String(idx + 1).padStart(2, '0')}>
       <div className="presenter-stagewrap">
         <div className={'slide slide-entra' + (brilloAlto ? ' slide-brillo' : '')} key={slide.id} style={{ position: 'absolute', left: '50%', top: '50%', transform: `translate(-50%, -50%) scale(${scale})`, transformOrigin: 'center', background: isAct ? '#0B0E0B' : '#FFFFFF', color: isAct ? '#F2F5EF' : '#0B0F0C' }}>
-          {isAct
+          {!slides.length ? (
+            <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 64, color: '#7B857A' }}>
+              Esta presentación no tiene diapositivas
+            </div>
+          ) : isAct
             ? <ActividadRun toolId={slide.tool} config={slide.config} tool={tool} remoteSignal={remoteSignal} equiposApi={equiposApi}
                 onQuiz={(qz) => recibirQuiz(slide.id, qz)}
                 gruposGuardados={gruposPorSlide[slide.id]}
@@ -831,15 +825,10 @@ function Presenter({ pres, onExit, onChange }) {
         </div>
       </div>
 
-      {/* Marcador de equipos (solo modo equipos). Se oculta junto con el HUD. */}
       {esEquipos && <TeamScoreboard teams={teams} hidden={hideScores || hudOculto} />}
 
-      {/* Pantalla del equipo ganador (podio) */}
       {esEquipos && verPodio && <PodioGanador teams={teams} onCerrar={() => setVerPodio(false)} />}
 
-      {/* Con el HUD oculto: un único botón discreto abajo a la derecha para
-          traerlo de vuelta. Todo lo demás (tarjeta de código, paneles y la
-          barra superior) queda escondido para presentar sin estorbos. */}
       {hudOculto ? (
         <button className="hud-btn hud-reveal" onClick={() => setHudOculto(false)}
           title="Mostrar controles (tecla H)"
@@ -848,17 +837,14 @@ function Presenter({ pres, onExit, onChange }) {
         </button>
       ) : (
         <React.Fragment>
-          {/* Tarjeta de conexión del control remoto */}
           {badgeVisible && <RemoteBadge code={remoteCode} onClose={() => setBadgeVisible(false)} count={participants.length} />}
 
-          {/* Panel de participación (sorteo de manos levantadas) */}
           {ronda !== 'idle' && (
             <ParticipationPanel
               fase={ronda} participants={participants} elegido={elegido}
               sorteando={sorteando} onSortear={sortear} onCerrar={cerrarParticipacion} />
           )}
 
-          {/* Panel manual de puntos (¿Quién acertó?) — solo modo equipos */}
           {esEquipos && verPuntos && (
             <PanelPuntos
               teams={teams}
@@ -866,16 +852,10 @@ function Presenter({ pres, onExit, onChange }) {
               onCerrar={() => setVerPuntos(false)} />
           )}
 
-          {/* HUD fuera del escenario escalado.
-              `hud-top-right` (styles.css) permite que la fila haga wrap alineada a
-              la derecha para que "Salir" nunca quede cortado por el borde. */}
           <div className="presenter-hud hud-top-right" style={{ top: 18, right: 18, gap: 8 }}>
-            {/* Ocultar todo el HUD para presentar limpio (también con la tecla H). */}
             <button className="hud-btn" onClick={() => setHudOculto(true)} title="Ocultar controles (tecla H)">
               🙈 Ocultar controles
             </button>
-            {/* Modo Exceso de Luz: invierte el brillo de la diapositiva para
-                que se vea mejor bajo luz solar directa. */}
             <button className={'hud-btn' + (brilloAlto ? ' on' : '')} onClick={() => setBrilloAlto((v) => !v)}
               title="Invierte el brillo de la diapositiva para verla mejor con luz solar directa">
               ☀️ {brilloAlto ? 'Quitar Modo Exceso de Luz' : 'Modo Exceso de Luz'}
@@ -905,17 +885,14 @@ function Presenter({ pres, onExit, onChange }) {
             )}
             <button className="hud-btn" onClick={onExit} title="Salir (Esc)">✕ Salir</button>
           </div>
-          {/* Píldora informativa (tema · página): fondo oscuro para leerse
-              sobre diapositivas blancas. */}
           <div className="presenter-hud hud-info" style={{ bottom: 18, left: 18, fontSize: 16, fontWeight: 600, gap: 8 }}>
             <span style={{ fontFamily: 'var(--font-display)' }}>{pres.tema}</span>
             <span style={{ opacity: .6 }}>·</span>
-            <span>{idx + 1} / {slides.length}</span>
+            <span>{Math.min(idx + 1, slides.length)} / {slides.length}</span>
           </div>
-          {/* Cronómetro de la actividad, justo arriba de esa píldora. */}
           {mostrarMiniTimer && (
             <div className="presenter-hud" style={{ bottom: 74, left: 18 }}>
-              <MiniTimer key={slide.id} duracion={slide.config.duracion} accent={tool && tool.color} />
+              <MiniTimer key={slide.id} duracion={cfgSlide.duracion} accent={tool && tool.color} />
             </div>
           )}
           <div className="presenter-hud" style={{ bottom: 18, right: 18 }}>
