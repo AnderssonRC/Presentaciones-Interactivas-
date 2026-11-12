@@ -1091,12 +1091,13 @@
 }
 .vg-podcast-portada.grande .vg-podcast-ondas { bottom: 20px; height: 40px; }
 .vg-podcast-ondas span {
-  width: 6px; height: 30%; border-radius: 3px;
+  /* Alto fijo y se «estira» desde abajo (scaleY): la animación no recalcula el diseño en cada cuadro. */
+  width: 6px; height: 100%; border-radius: 3px; transform: scaleY(.3); transform-origin: 50% 100%;
   background: linear-gradient(to top, var(--vigia-naranja, #FF8A00), var(--vigia-azul, #4D94FF));
 }
 .vg-podcast-portada.sonando .vg-podcast-ondas { opacity: .95; }
 .vg-podcast-portada.sonando .vg-podcast-ondas span { animation: vgOnda 1s ease-in-out infinite alternate; }
-@keyframes vgOnda { 0% { height: 20%; } 50% { height: 100%; } 100% { height: 40%; } }
+@keyframes vgOnda { 0% { transform: scaleY(.2); } 50% { transform: scaleY(1); } 100% { transform: scaleY(.4); } }
 .vg-presentar-podcast .vg-video-zona { overflow: hidden; }
 
 .vg-controles-audio { display: flex; align-items: center; gap: 8px; width: 100%; max-width: 980px; flex-wrap: wrap; }
@@ -1124,7 +1125,7 @@
 .vg-ico-img { background: linear-gradient(135deg, var(--vigia-azul, #4D94FF), #7B5CFF); }
 .tono-luz .vg-podcast-titulo { color: #fff; }
 @media (prefers-reduced-motion: reduce) {
-  .vg-podcast-portada.sonando .vg-podcast-ondas span { animation: none; height: 60%; }
+  .vg-podcast-portada.sonando .vg-podcast-ondas span { animation: none; transform: scaleY(.6); }
   .vg-podcast-capa.entra { animation: none; }
 }
 
@@ -1148,10 +1149,9 @@
   background: radial-gradient(circle at 50% 45%, #06210A 0%, #020905 55%, #000 100%); }
 .vg-jaguar-destello { position: absolute; inset: 0; pointer-events: none; opacity: 0;
   background: radial-gradient(circle at 50% 45%, rgba(57,255,20,.55), rgba(47,128,255,.25) 40%, transparent 70%);
-  animation: vgJaguarPulso 2.4s ease-out both; will-change: opacity; }
+  animation: vgJaguarPulso 2.4s ease-out both; }
 @keyframes vgJaguarPulso { 0%, 8% { opacity: 0; } 12% { opacity: 1; } 30% { opacity: .2; } 55% { opacity: .7; } 70%, 100% { opacity: .15; } }
-.vg-jaguar-cabeza { position: relative; width: min(64vh, 72vw); aspect-ratio: 1; animation: vgJaguarIrrumpe 2.4s cubic-bezier(.2,.9,.2,1) both;
-  will-change: transform, opacity; }   /* capa propia: se mueve sin volver a pintar */
+.vg-jaguar-cabeza { position: relative; width: min(64vh, 72vw); aspect-ratio: 1; animation: vgJaguarIrrumpe 2.4s cubic-bezier(.2,.9,.2,1) both; }
 /* Sin filtros: la imagen ya trae su brillo neón (los filtros sobre una imagen grande traban la animación). */
 .vg-jaguar-cabeza img { width: 100%; height: 100%; display: block; user-select: none; }
 @keyframes vgJaguarIrrumpe {
@@ -1794,7 +1794,7 @@ button.vg-sil-chip.vg-eqj-boton:not(.elegido):hover { background: color-mix(in s
 .vg-ppt-luchador { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2.4vh; }
 /* La mano: 3 golpes (sube, golpea, rebota) y en "¡YA!" un golpe final que estalla */
 .vg-ppt-golpe {
-  position: relative; width: var(--tam); height: var(--tam); color: var(--c); will-change: transform, opacity;
+  position: relative; width: var(--tam); height: var(--tam); color: var(--c);
   animation: vgManoGolpe .7s cubic-bezier(.5, 0, .2, 1) 0s 3 both, vgManoYa .9s cubic-bezier(.5, 0, .2, 1) 2.1s forwards;   /* forwards: no pisa los golpes antes de empezar */
 }
 @keyframes vgManoGolpe {
@@ -2598,9 +2598,9 @@ html.vg-sin-cursor, html.vg-sin-cursor * { cursor: none !important; }
   position: relative; width: 42px; height: 24px; border-radius: 999px; border: 0; cursor: pointer; flex-shrink: 0;
   background: rgba(127,127,127,.35); transition: background .2s;
 }
-.vg-interruptor span { position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: left .2s; }
+.vg-interruptor span { position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: transform .2s; }
 .vg-interruptor.on { background: var(--vigia-naranja, #FF8A00); }
-.vg-interruptor.on span { left: 21px; }
+.vg-interruptor.on span { transform: translateX(18px); }
 /* El reproductor de la música existe pero no se ve. */
 .vg-musica-oculta { position: fixed; right: 0; bottom: 0; width: 220px; height: 124px; opacity: 0; pointer-events: none; z-index: -1; overflow: hidden; }
 
@@ -2705,7 +2705,7 @@ html.vg-sin-cursor, html.vg-sin-cursor * { cursor: none !important; }
 
 /* Pantalla final del Modo Jaguar: la presentación de debajo deja de pintarse. */
 .vg-final-activo .vg-presentar { visibility: hidden; }
-.vg-jaguar-final-nombre, .vg-desempate-uno, .vg-desempate-dos, .vg-jaguar-golpe, .vg-jaguar-lucha, .vg-jaguar-ganar { will-change: transform, opacity; }
+/* (Sin will-change permanente: estas animaciones corren una sola vez; el navegador ya las acelera mientras duran.) */
 
 [data-vg-tono="luz"] .vg-jaguar-tarjeta .vg-tarjeta-letra button { color: #1C1712; }
 [data-vg-tono="luz"] .vg-jaguar-tarjeta .vg-tarjeta-letra { background: rgba(0,0,0,.05); border-color: rgba(0,0,0,.14); }
@@ -3059,7 +3059,8 @@ html.vg-sin-cursor, html.vg-sin-cursor * { cursor: none !important; }
 .vg-dd-col-cabeza strong { font-style: italic; font-weight: 900; color: color-mix(in srgb, var(--c) 70%, #1F1408); }
 .vg-dd-nombre { min-height: 1.2em; font-weight: 800; font-size: calc(var(--u) * 24px); color: #3A2614; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
 .vg-dd-tubo { position: relative; flex: 1; width: 100%; border-radius: calc(var(--u) * 18px); background: color-mix(in srgb, var(--c) 12%, #FFFFFF); overflow: hidden; }
-.vg-dd-tubo i { position: absolute; left: 0; right: 0; bottom: 0; background: var(--c); transition: height .08s linear; }
+/* El relleno ocupa todo el tubo y se «estira» desde abajo (scaleY, lo pone capibara-dedos.jsx): no recalcula el diseño en cada toque. */
+.vg-dd-tubo i { position: absolute; left: 0; right: 0; bottom: 0; height: 100%; background: var(--c); transform: scaleY(0); transform-origin: 50% 100%; transition: transform .08s linear; }
 .vg-dd-tubo b { position: absolute; inset: 0; display: grid; place-items: center; font-weight: 900; font-size: calc(var(--u) * 120px); color: #1F1408;
   text-shadow: 0 0 calc(var(--u) * 12px) #FFFFFF, 0 0 calc(var(--u) * 4px) #FFFFFF; font-variant-numeric: tabular-nums; }
 .vg-dd-tecla { display: grid; place-items: center; min-width: calc(var(--u) * 110px); height: calc(var(--u) * 100px); padding: 0 calc(var(--u) * 14px);
@@ -3661,7 +3662,8 @@ html.vg-sin-cursor, html.vg-sin-cursor * { cursor: none !important; }
 .vg-hs-tabla-chip { display: inline-flex; gap: 8px; align-items: center; padding: 6px 14px; border-radius: 999px; border: 2px solid var(--c); font-size: 16px; font-weight: 700; color: #FBF3E1; }
 .vg-hs-tabla-chip.gana { background: var(--c); color: #FFFFFF; }
 .vg-hs-confeti { position: absolute; inset: 0; pointer-events: none; z-index: 1; }
-.vg-hs-confeti span { position: absolute; top: -6vh; width: 11px; height: 17px; border-radius: 3px; animation: vgHsConfeti linear infinite; }
+/* 3 caídas y se queda abajo, fuera de la pantalla (antes caía sin fin en el desenlace). */
+.vg-hs-confeti span { position: absolute; top: -6vh; width: 11px; height: 17px; border-radius: 3px; animation: vgHsConfeti linear 3 forwards; }
 @keyframes vgHsConfeti { to { transform: translateY(116vh) rotate(720deg); } }
 
 /* «Exceso de luz»: papel claro y letras oscuras */

@@ -151,8 +151,10 @@ const DIBUJOS_JN = {
 };
 
 /* Icono de un animal (panel de instrucciones y anuncio). */
-function IconoAnimalJN({ id, tam }) {
+// `quieto` (juego en pausa): se dibuja una vez, en la última posición, y deja de repintarse.
+function IconoAnimalJN({ id, tam, quieto }) {
   const ref = React.useRef(null);
+  const ultimoT = React.useRef(0);
   tam = tam || 64;
   React.useEffect(() => {
     const c = ref.current;
@@ -161,17 +163,22 @@ function IconoAnimalJN({ id, tam }) {
     c.width = tam * dpr; c.height = tam * dpr;
     const ctx = c.getContext('2d');
     let raf = 0, vivo = true;
-    const pintar = (t) => {
-      if (!vivo) return;
+    const dibujar = (t) => {
       ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, c.width, c.height);
       const k = (tam * dpr) / 300;
       ctx.setTransform(k, 0, 0, k, (tam * dpr) / 2, (tam * dpr) / 2);
       (DIBUJOS_JN[id] || DIBUJOS_JN.ave)(ctx, t || 0);
+    };
+    if (quieto) { dibujar(ultimoT.current); return undefined; }
+    const pintar = (t) => {
+      if (!vivo) return;
+      ultimoT.current = t || 0;
+      dibujar(t);
       raf = requestAnimationFrame(pintar);
     };
     raf = requestAnimationFrame(pintar);
     return () => { vivo = false; cancelAnimationFrame(raf); };
-  }, [id, tam]);
+  }, [id, tam, quieto]);
   return <canvas ref={ref} style={{ width: tam, height: tam }} aria-hidden="true" />;
 }
 
@@ -722,7 +729,7 @@ function JunglaCapibara({ a, estudiantes, onContinuar }) {
           <div className="vg-jn-panel" aria-label="Instrucciones activas">
             {G.instr.map((id) => { const x = instrJN(id); return (
               <div key={id} className="vg-jn-instr">
-                <IconoAnimalJN id={id} tam={Math.round(46 * tam.u + 14)} />
+                <IconoAnimalJN id={id} tam={Math.round(46 * tam.u + 14)} quieto={pausado} />
                 <span>{x.verbo}{modo === 'individual' ? <kbd>{x.tecla}</kbd> : null}</span>
               </div>
             ); })}
@@ -748,7 +755,7 @@ function JunglaCapibara({ a, estudiantes, onContinuar }) {
         {fase === 'anuncio' && G.nuevo && (
           <div className="vg-mi-capa">
             <div className="vg-jn-anuncio">
-              <IconoAnimalJN id={G.nuevo.id} tam={Math.round(260 * tam.u)} />
+              <IconoAnimalJN id={G.nuevo.id} tam={Math.round(260 * tam.u)} quieto={pausado} />
               <h2>¡Si ves {G.nuevo.art} <b>{G.nuevo.animal}</b>,<br /><b>{G.nuevo.verbo}</b>!</h2>
               {modo === 'individual' && <p>Tecla <kbd>{G.nuevo.tecla}</kbd></p>}
             </div>

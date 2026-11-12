@@ -39,7 +39,7 @@ function TeamScoreboard({ teams, hidden, accentText }) {
       {teams.map((t, i) => (
         <div key={i} style={{
           display: 'flex', alignItems: 'center', gap: 12,
-          background: 'rgba(11,14,11,.78)', backdropFilter: 'blur(8px)',
+          background: 'rgba(11,14,11,.9)',
           borderRadius: 16, padding: '10px 16px 10px 12px',
           border: '2px solid ' + (t.color || '#2A2F29'),
           minWidth: 190,
@@ -68,7 +68,8 @@ function Confeti({ activo }) {
   // Generamos las piezas una sola vez; cada una cae con retraso/posición aleatorios.
   const piezas = React.useMemo(() => {
     const cols = ['#11F555', '#F53711', '#116CF5', '#F5C211', '#A855F7', '#EC4899', '#FFFFFF'];
-    return Array.from({ length: 130 }, (_, i) => ({
+    // 60 piezas (antes 130): se ve igual de festivo y pesa la mitad en equipos modestos.
+    return Array.from({ length: 60 }, (_, i) => ({
       id: i,
       left: Math.random() * 100,
       delay: Math.random() * 3,
@@ -88,7 +89,8 @@ function Confeti({ activo }) {
           width: p.size, height: p.redondo ? p.size : p.size * 0.5,
           background: p.color, borderRadius: p.redondo ? '50%' : 2,
           opacity: 0.9,
-          animation: `confetiCae ${p.dur}s linear ${p.delay}s infinite`,
+          // 3 caídas y se detiene abajo, fuera de la pantalla (antes caía sin fin mientras el podio seguía abierto).
+          animation: `confetiCae ${p.dur}s linear ${p.delay}s 3 forwards`,
           ['--giro']: p.giro + 'deg',
         }} />
       ))}
@@ -195,7 +197,7 @@ function RemoteBadge({ code, onClose, count }) {
   return (
     <div className="panel-entra" style={{
       position: 'absolute', top: 18, left: 18, zIndex: 30,
-      background: 'rgba(11,14,11,.82)', backdropFilter: 'blur(8px)',
+      background: 'rgba(11,14,11,.9)',
       border: '2px solid #2A2F29', borderRadius: 18, padding: 16,
       display: 'flex', alignItems: 'center', gap: 16, maxWidth: 360,
     }}>
@@ -222,7 +224,7 @@ function ParticipationPanel({ fase, participants, elegido, sorteando, onSortear,
   return (
     <div className="panel-entra" style={{
       position: 'absolute', right: 18, top: '50%', transform: 'translateY(-50%)',
-      width: 340, zIndex: 35, background: 'rgba(11,14,11,.92)', backdropFilter: 'blur(10px)',
+      width: 340, zIndex: 35, background: 'rgba(11,14,11,.94)',
       border: '2px solid #116CF5', borderRadius: 20, padding: 18, color: '#F2F5EF',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
@@ -283,7 +285,7 @@ function PanelPuntos({ teams, onPunto, onCerrar }) {
   return (
     <div className="panel-entra" style={{
       position: 'absolute', right: 18, top: '50%', transform: 'translateY(-50%)',
-      width: 320, zIndex: 36, background: 'rgba(11,14,11,.92)', backdropFilter: 'blur(10px)',
+      width: 320, zIndex: 36, background: 'rgba(11,14,11,.94)',
       border: '2px solid #11F555', borderRadius: 20, padding: 18, color: '#F2F5EF',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
@@ -347,7 +349,7 @@ function MiniTimer({ duracion, accent }) {
       style={{
         display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer',
         border: '3px solid ' + color, borderRadius: 999, padding: '8px 26px 8px 8px',
-        background: 'rgba(11,14,11,.85)', backdropFilter: 'blur(10px)',
+        background: 'rgba(11,14,11,.92)',
         boxShadow: '0 0 28px -6px ' + color + (acabado ? ', 0 0 0 6px rgba(245,55,17,.18)' : ''),
         animation: (acabado || bajo) ? 'a-pulse 1s ease-in-out infinite' : 'none',
         transition: 'border-color .2s ease, box-shadow .2s ease',

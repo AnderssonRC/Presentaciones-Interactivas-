@@ -634,7 +634,6 @@ input, textarea, select { font-family: var(--font-body); color: inherit; }
   display: flex; flex-direction: column; gap: 14px; padding: 22px 18px;
   background: linear-gradient(to right, rgba(6,8,6,.98), rgba(6,8,6,.9));
   border-right: 2px solid rgba(255,255,255,.08);
-  backdrop-filter: blur(8px);
 }
 .score-side-head { display: flex; align-items: center; justify-content: space-between; }
 .score-side-list { display: flex; flex-direction: column; gap: 12px; overflow-y: auto; }

@@ -386,7 +386,7 @@ function DedosVeloces({ a, estudiantes, onContinuar }) {
                   {fase === 'prueba' ? (
                     <div className="vg-dd-prueba">{G.cambiando === i ? 'Presiona la nueva tecla…' : G.probadas[i] ? '✓ ¡Detectada!' : 'Presiona tu tecla'}</div>
                   ) : (
-                    <div className="vg-dd-tubo"><i style={{ height: Math.min(100, (n / maxToques) * 100) + '%' }}></i><b>{n}</b></div>
+                    <div className="vg-dd-tubo"><i style={{ transform: 'scaleY(' + Math.min(1, n / maxToques).toFixed(4) + ')' }}></i><b>{n}</b></div>
                   )}
                   <kbd className="vg-dd-tecla">{teclas[i]}</kbd>
                 </div>

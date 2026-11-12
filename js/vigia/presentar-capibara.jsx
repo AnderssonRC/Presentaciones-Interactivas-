@@ -293,7 +293,11 @@ function MontanaCapibara({ equipos, meta }) {
   const [desde] = React.useState(() => { const v = jaguarSesion().montanaVista || []; return eq.map((_, i) => fr(v[i])); });
   const refs = React.useRef([]);
   const [marcas, setMarcas] = React.useState(null);   // [[{x, y}, …meta+1], …] por camino
-  const [t, setT] = React.useState(0);
+  // Avance de la animación (0 → 1). Va en una ref, no en el estado: cada cuadro mueve
+  // solo las fichas (fichas.current) sin volver a dibujar toda la montaña.
+  const avance = React.useRef(0);
+  const fichas = React.useRef([]);
+  const [fase, setFase] = React.useState('espera');   // 'espera' | 'mueve' | 'fin' (para las clases camina/llego)
 
   // Las marcas de cada paso sobre su camino (se miden en el SVG ya pintado).
   React.useEffect(() => {
@@ -309,12 +313,18 @@ function MontanaCapibara({ equipos, meta }) {
   // Avance: cada emoji sube (o baja) desde donde estaba hasta sus pasos de ahora.
   React.useEffect(() => {
     if (!marcas) return undefined;
-    let raf = 0, vivo = true;
+    let raf = 0, vivo = true, ultima = 'espera';
     const inicio = performance.now() + 700;
     const cuadro = (ahora) => {
       if (!vivo) return;
       const x = Math.max(0, Math.min(1, (ahora - inicio) / MONTANA_ANIM_MS));
-      setT(x);
+      avance.current = x;
+      fichas.current.forEach((g, i) => {
+        const q = g && posicionRef.current(i);
+        if (q) g.setAttribute('transform', 'translate(' + q.x.toFixed(1) + ' ' + q.y.toFixed(1) + ')');
+      });
+      const f = x <= 0 ? 'espera' : (x < 1 ? 'mueve' : 'fin');
+      if (f !== ultima) { ultima = f; setFase(f); }
       if (x < 1) raf = requestAnimationFrame(cuadro);
       else cambiarJaguar((s) => ({ montanaVista: (s.equipos || []).map((e) => e.puntos || 0) }));
     };
@@ -326,11 +336,14 @@ function MontanaCapibara({ equipos, meta }) {
   const posicion = (i) => {
     const p = refs.current[i];
     if (!p || !marcas) return null;
-    const f = desde[i] + (destino[i] - desde[i]) * suave(t);
+    const f = desde[i] + (destino[i] - desde[i]) * suave(avance.current);
     const q = p.getPointAtLength(p.getTotalLength() * f);
     return { x: q.x, y: q.y };
   };
-  const moviendo = (i) => t > 0 && t < 1 && desde[i] !== destino[i];
+  // El bucle de animación usa siempre la versión más reciente (puntos al día).
+  const posicionRef = React.useRef(posicion);
+  posicionRef.current = posicion;
+  const moviendo = (i) => fase === 'mueve' && desde[i] !== destino[i];
 
   return (
     <div className="vg-cp-montana">
@@ -393,9 +406,9 @@ function MontanaCapibara({ equipos, meta }) {
         {eq.map((e, i) => {
           const q = posicion(i);
           if (!q) return null;
-          const llego = (e.puntos || 0) >= metaN && t >= 1;
+          const llego = (e.puntos || 0) >= metaN && fase === 'fin';
           return (
-            <g key={'e' + i} transform={'translate(' + q.x.toFixed(1) + ' ' + q.y.toFixed(1) + ')'}>
+            <g key={'e' + i} ref={(el) => { fichas.current[i] = el; }} transform={'translate(' + q.x.toFixed(1) + ' ' + q.y.toFixed(1) + ')'}>
               <g className={'vg-cp-ficha' + (moviendo(i) ? ' camina' : '') + (llego ? ' llego' : '')}>
                 <circle r="35" fill="#FFFDF6" stroke={e.color} strokeWidth="7" />
                 <text y="2" textAnchor="middle" dominantBaseline="middle" fontSize="40">{e.emoji}</text>

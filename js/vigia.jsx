@@ -34,11 +34,11 @@ const VIGIA_MODULOS = [
   ['js/vigia/presentar.jsx', '20261110a'],
   ['js/vigia/presentar-reto.jsx', '20261026b'],
   ['js/vigia/presentar-jaguar.jsx', '20261110b'],
-  ['js/vigia/presentar-capibara.jsx', '20261108a'],
+  ['js/vigia/presentar-capibara.jsx', '20261111a'],
   ['js/vigia/capibara-comun.jsx', '20261106a'],
   ['js/vigia/capibara-muro.jsx', '20261108c'],
-  ['js/vigia/capibara-jungla.jsx', '20261110a'],
-  ['js/vigia/capibara-dedos.jsx', '20261028c'],
+  ['js/vigia/capibara-jungla.jsx', '20261111a'],
+  ['js/vigia/capibara-dedos.jsx', '20261111a'],
   ['js/vigia/capibara-espejo.jsx', '20261108b'],
   ['js/vigia/capibara-semaforo.jsx', '20261108c'],
   ['js/vigia/capibara-vf.jsx', '20261029a'],
@@ -51,7 +51,7 @@ const VIGIA_MODULOS = [
   ['js/vigia/presentar-imagenes.jsx', '20261108a'],
   ['js/vigia/presentar-historia.jsx', '20261109a'],
 ];
-const VIGIA_ESTILOS = ['js/vigia/estilos.css', '20261111f'];
+const VIGIA_ESTILOS = ['js/vigia/estilos.css', '20261111g'];
 // Pantalla del mando en el celular (la carga remote.jsx solo en el celular).
 const VIGIA_MANDO_VERSION = '20261111a';
 let promesaVigia = null;
