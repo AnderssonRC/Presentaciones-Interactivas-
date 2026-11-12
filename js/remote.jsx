@@ -227,6 +227,10 @@ function RemoteControl({ initialCode }) {
             }}>
             {connecting ? 'Conectando…' : 'Conectar'}
           </button>
+          <button onClick={() => { location.href = location.pathname; }}
+            style={{ marginTop: 18, background: 'transparent', border: 0, color: '#9AA396', fontSize: 14, fontWeight: 700, cursor: 'pointer', padding: 10 }}>
+            ← Volver a la página
+          </button>
         </div>
       </div>
     );
@@ -416,4 +420,71 @@ const toggleBtn = (activo) => ({
   color: activo ? '#06140A' : '#9AA396', cursor: 'pointer',
 });
 
-Object.assign(window, { RemoteControl });
+/* Botón «Conectar mando» (solo en el celular, sobre la página normal).
+   Si el docente tiene una presentación en vivo en otro equipo (televisor,
+   video beam), se ve «● En vivo · Sala 4821» y un toque lo conecta como
+   mando. Si no, abre la pantalla para escribir el código. No aparece
+   cuando ESTE mismo equipo está presentando. */
+function esCelularMando() {
+  try { return window.matchMedia('(pointer: coarse)').matches && Math.min(screen.width, screen.height) < 820; } catch (e) { return false; }
+}
+function BotonMandoCelular() {
+  const [celular] = React.useState(esCelularMando);
+  const [uidActual, setUid] = React.useState(null);
+  const [info, setInfo] = React.useState({ salas: [], aqui: false });
+  const [plegado, setPlegado] = React.useState(false);
+  React.useEffect(() => {
+    if (!celular || !window.AIP || !AIP.onAuth) return undefined;
+    return AIP.onAuth((u) => setUid(u ? u.uid : null));
+  }, [celular]);
+  React.useEffect(() => {
+    setInfo({ salas: [], aqui: false });
+    if (!celular || !uidActual || !AIP.listenMisSalas) return undefined;
+    return AIP.listenMisSalas(uidActual, setInfo);
+  }, [celular, uidActual]);
+  if (!celular || info.aqui) return null;
+  const ir = (code) => { location.href = location.pathname + '?remote=' + (code || ''); };
+  const salas = info.salas;
+  const base = {
+    position: 'fixed', left: 12, right: 12, bottom: 'calc(12px + env(safe-area-inset-bottom))', zIndex: 1400,
+    borderRadius: 18, boxShadow: '0 14px 40px -10px rgba(0,0,0,.7)', fontFamily: 'var(--font-display, Sora, sans-serif)',
+  };
+  // Sin salas en vivo: botón discreto.
+  if (!salas.length || plegado) {
+    return (
+      <button onClick={() => (salas.length ? setPlegado(false) : ir(''))}
+        style={{ ...base, left: 'auto', padding: '12px 16px', border: '1.5px solid ' + (salas.length ? '#11F555' : '#2A2F29'),
+          background: '#141814', color: '#F2F5EF', fontWeight: 800, fontSize: 15, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}>
+        {salas.length ? <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#11F555', boxShadow: '0 0 10px #11F555' }}></span> : '📱'}
+        Conectar mando
+      </button>
+    );
+  }
+  // Hay salas en vivo: tarjeta llamativa con cada una.
+  return (
+    <div style={{ ...base, padding: 14, background: '#0E120E', border: '2px solid #11F555', color: '#F2F5EF' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+        <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#11F555', boxShadow: '0 0 10px #11F555', animation: 'aip-pulso 1.4s ease-in-out infinite' }}></span>
+        <strong style={{ fontSize: 15 }}>{salas.length === 1 ? 'Tienes una sala en vivo' : 'Tienes ' + salas.length + ' salas en vivo'}</strong>
+        <button onClick={() => setPlegado(true)} aria-label="Ocultar"
+          style={{ marginLeft: 'auto', background: 'transparent', border: 0, color: '#9AA396', fontSize: 20, padding: '2px 6px', cursor: 'pointer' }}>✕</button>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {salas.slice(0, 3).map((s) => (
+          <button key={s.code} onClick={() => ir(s.code)}
+            style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '12px 14px', borderRadius: 14, border: 'none',
+              background: '#11F555', color: '#06140A', fontWeight: 800, fontSize: 16, cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit' }}>
+            <span style={{ fontSize: 22 }}>📱</span>
+            <span style={{ flex: 1, minWidth: 0 }}>
+              <span style={{ display: 'block' }}>Conectar mando · Sala {s.code}</span>
+              {s.titulo && <small style={{ display: 'block', fontWeight: 600, fontSize: 13, opacity: 0.75, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.vigia ? 'Modo Vigía · ' : ''}{s.titulo}</small>}
+            </span>
+            <span>›</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+Object.assign(window, { RemoteControl, BotonMandoCelular });

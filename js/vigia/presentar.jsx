@@ -84,6 +84,8 @@ function VigiaPresentar(props) {
       {conCapibara && <MarcadorCapibara />}
       {(conJaguar || conCapibara) && <PantallaGruposJaguar />}
       {conCapibara && <PantallaMontanaCapibara />}
+      {/* ⚡ En vivo: crear una activación mientras se proyecta y lanzarla (en-vivo.jsx). */}
+      {window.ActivacionesEnVivo && <ActivacionesEnVivo act={act} onChange={props.onChange} />}
       {/* Encima de la presentación (que sigue montada: "Volver" la retoma donde iba). */}
       {ganador && (
         <GanadorJaguar onSalir={() => { setGanador(null); props.onExit(); }}
@@ -175,6 +177,8 @@ function VigiaPresentarVideo({ act, onExit }) {
     if (activa && yt.reproduciendo) yt.pause();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activa, yt.reproduciendo]);
+  // Activación en vivo en pantalla (en-vivo.jsx): el video espera y sigue al cerrarla.
+  useEnVivoPausa(yt.reproduciendo, () => yt.pause(), () => { prevT.current = yt.tiempo; yt.play(); });
 
   const continuar = () => {
     prevT.current = activa ? activa.t + 0.1 : yt.tiempo;

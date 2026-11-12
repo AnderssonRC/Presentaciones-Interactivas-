@@ -293,6 +293,9 @@
       }
       // Participantes que dejó una sala anterior con este código: fuera.
       try { await borrarParticipantes(code); } catch (e) { /* si falla, la sala se crea igual */ }
+      // Se marca ANTES de crearla: así el aviso «sala en vivo» (listenMisSalas)
+      // ya sabe que es de esta pestaña cuando llega la primera noticia.
+      salasDeEstaPestana.add(code);
       await ref.set({
         code,
         ownerUid: u,
@@ -300,7 +303,6 @@
         state: initialState || {},
         command: null,
       });
-      salasDeEstaPestana.add(code);
       limpiarSalasViejas(u, code);   // en segundo plano, sin esperar
       return { code, ref };
     }
@@ -341,6 +343,20 @@
     if (!code) return null;
     const snap = await remoteCol().doc(code).get();
     return snap.exists ? snap.data() : null;
+  }
+
+  /* Salas en vivo del docente (para el botón «Conectar mando» del celular).
+     cb({ salas: [{ code, titulo, vigia, createdAt }], aqui }) — `aqui` = esta
+     misma pestaña está presentando (entonces el celular ES la pantalla). */
+  function listenMisSalas(uidStr, cb) {
+    if (!uidStr) return () => {};
+    return remoteCol().where('ownerUid', '==', uidStr).onSnapshot((snap) => {
+      const salas = snap.docs
+        .map((d) => { const x = d.data() || {}; const st = x.state || {}; return { code: d.id, createdAt: x.createdAt || 0, titulo: st.titulo || st.tema || '', vigia: st.clase === 'vigia' }; })
+        .filter((s) => !salasDeEstaPestana.has(s.code) && s.createdAt && (Date.now() - s.createdAt) < SALA_VIEJA_MS)
+        .sort((a, b) => b.createdAt - a.createdAt);
+      cb({ salas, aqui: salasDeEstaPestana.size > 0 });
+    }, () => cb({ salas: [], aqui: salasDeEstaPestana.size > 0 }));
   }
 
   // La TV cierra la sesión al salir del modo Presentar.
@@ -438,7 +454,7 @@
     loadPresentations, savePresentation, deletePresentation,
     // control remoto
     createRemoteSession, updateRemoteState, clearRemoteCommand,
-    sendRemoteCommand, listenRemoteSession, getRemoteSession, closeRemoteSession,
+    sendRemoteCommand, listenRemoteSession, getRemoteSession, closeRemoteSession, listenMisSalas,
     // sala multijugador
     joinSession, raiseHand, submitAnswer, resetRound, resetAnswers, listenParticipants,
   };

@@ -31,7 +31,7 @@ const VIGIA_MODULOS = [
   ['js/vigia/editor-historia.jsx', '20261109a'],
   ['js/vigia/herramientas.jsx', '20261110a'],
   ['js/vigia/mando.jsx', '20261110a'],
-  ['js/vigia/presentar.jsx', '20261110a'],
+  ['js/vigia/presentar.jsx', '20261111a'],
   ['js/vigia/presentar-reto.jsx', '20261026b'],
   ['js/vigia/presentar-jaguar.jsx', '20261110b'],
   ['js/vigia/presentar-capibara.jsx', '20261111a'],
@@ -47,13 +47,14 @@ const VIGIA_MODULOS = [
   ['js/vigia/capibara-congelados.jsx', '20261108b'],
   ['js/vigia/presentar-pdf.jsx', '20261024l'],
   ['js/vigia/presentar-epub.jsx', '20261024l'],
-  ['js/vigia/presentar-podcast.jsx', '20261024l'],
+  ['js/vigia/presentar-podcast.jsx', '20261111a'],
   ['js/vigia/presentar-imagenes.jsx', '20261108a'],
   ['js/vigia/presentar-historia.jsx', '20261109a'],
+  ['js/vigia/en-vivo.jsx', '20261111a'],
 ];
-const VIGIA_ESTILOS = ['js/vigia/estilos.css', '20261111h'];
+const VIGIA_ESTILOS = ['js/vigia/estilos.css', '20261111i'];
 // Pantalla del mando en el celular (la carga remote.jsx solo en el celular).
-const VIGIA_MANDO_VERSION = '20261111b';
+const VIGIA_MANDO_VERSION = '20261111c';
 let promesaVigia = null;
 // Tipografía de los títulos de las tarjetas (Fraunces, cursiva "suave"): elegante y juguetona.
 const VIGIA_FUENTE = 'https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT,WONK@1,9..144,600..900,100,1&display=swap';

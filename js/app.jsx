@@ -499,9 +499,12 @@ function AppTweaks({ t, setTweak }) {
 /* Si la URL trae ?remote=CÓDIGO, este dispositivo es el control remoto
    (el celular del docente), no la app principal. */
 function Root() {
-  const remoteCode = new URLSearchParams(location.search).get('remote');
+  // ?remote=CÓDIGO entra directo; ?remote= (vacío) muestra la pantalla para escribir el código.
+  const params = new URLSearchParams(location.search);
+  const esMando = params.has('remote');
+  const remoteCode = params.get('remote') || '';
   React.useEffect(() => {
-    if (remoteCode) {
+    if (esMando) {
       // El control remoto no monta <App>, así que fijamos aquí las
       // variables de tema que usan los estilos.
       const root = document.documentElement;
@@ -510,12 +513,13 @@ function Root() {
       root.style.setProperty('--acento', '#11F555');
       root.style.setProperty('--acento-text', '#06140A');
     }
-  }, [remoteCode]);
-  if (remoteCode) return <RemoteControl initialCode={remoteCode} />;
+  }, [esMando]);
+  if (esMando) return <RemoteControl initialCode={remoteCode} />;
   return (
     <React.Fragment>
       <App />
       {window.TerminosGate ? <TerminosGate /> : null}
+      {window.BotonMandoCelular ? <BotonMandoCelular /> : null}
     </React.Fragment>
   );
 }

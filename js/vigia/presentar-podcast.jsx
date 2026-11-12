@@ -51,6 +51,8 @@ function VigiaPresentarPodcast({ act, onExit, onChange }) {
     if (activa && rep.reproduciendo) rep.pause();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activa, rep.reproduciendo]);
+  // Activación en vivo en pantalla (en-vivo.jsx): el audio espera y sigue al cerrarla.
+  useEnVivoPausa(rep.reproduciendo, () => rep.pause(), () => { prevT.current = rep.tiempo; rep.play(); });
 
   const continuar = () => {
     prevT.current = activa ? activa.t + 0.1 : rep.tiempo;

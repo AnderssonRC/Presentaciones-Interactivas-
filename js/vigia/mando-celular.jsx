@@ -430,6 +430,115 @@ function HerramientasCel({ extra, orden }) {
   );
 }
 
+/* ⚡ Activaciones en vivo (en-vivo.jsx): crear desde el celular, lanzar, borrar
+   y cerrar la tarjeta. Estado `extra.enVivo`; órdenes `vivo-*`. */
+function EnVivoCel({ extra, orden }) {
+  const v = extra.enVivo || null;
+  const [form, setForm] = React.useState(null);
+  if (!v) return null;
+  const tipos = v.tipos || [];
+  const nuevo = () => {
+    const t = tipos[0] || {};
+    setForm({ tipo: t.id || 'pregunta', texto: '', modo: 'abierta', opciones: ['', '', '', ''], correcta: 0, ruleta: !!t.ruletaPorDefecto, reto: ((v.retos || [])[0] || {}).id });
+  };
+  const cambiar = (c) => setForm((f) => ({ ...f, ...c }));
+  const ti = form ? (tipos.find((t) => t.id === form.tipo) || {}) : {};
+  const ok = form && (form.tipo === 'reto' || form.texto.trim()) && !(form.tipo === 'pregunta' && form.modo === 'cerrada' && form.opciones.filter((o) => o.trim()).length < 2);
+  const enviar = (lanzar) => { if (!ok) return; orden('vivo-crear', { datos: form, lanzar }); setForm(null); };
+
+  if (v.activa) {
+    return (
+      <div className="vgm-panel tarjeta" style={{ '--c': v.activa.color || '#FFC233' }}>
+        <div className="vgm-kicker">⚡ En vivo · {v.activa.nombre}</div>
+        {v.activa.texto && <div style={{ fontWeight: 700, fontSize: 15 }}>{v.activa.texto}</div>}
+        <SorteoCel extra={extra} orden={orden} />
+        <button className="vgm-btn grande" onClick={() => orden('vivo-cerrar')}>Volver a la presentación ›</button>
+      </div>
+    );
+  }
+  return (
+    <div className="vgm-panel" style={{ borderColor: 'rgba(255,194,51,.45)' }}>
+      <div className="vgm-kicker">⚡ Activaciones en vivo</div>
+      {!form && (
+        <React.Fragment>
+          {(v.lista || []).length > 0 && (
+            <div className="vgm-lista">
+              {v.lista.map((x) => (
+                <div key={x.id} style={{ display: 'flex', gap: 8 }}>
+                  <button className={'vgm-item' + (x.visto ? ' visto' : '')} onClick={() => orden('vivo-lanzar', { id: x.id })}>
+                    <span className="vgm-punto" style={{ background: x.color, color: x.color }}></span>
+                    <span style={{ minWidth: 0, flex: 1 }}>
+                      <b>{x.nombre}{x.visto ? ' ✓' : ''}</b>
+                      {x.texto && <small>{x.texto}</small>}
+                    </span>
+                    <span className="vgm-et">▶ Lanzar</span>
+                  </button>
+                  <button className="vgm-btn borde" style={{ flex: '0 0 52px', minHeight: 'auto', padding: 8 }} aria-label="Borrar"
+                    onClick={() => vigiaConfirmar('Se borrará esta activación en vivo.', { titulo: '¿Borrar?', aceptar: 'Borrar' }).then((s) => { if (s) orden('vivo-borrar', { id: x.id }); })}>✕</button>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="vgm-fila">
+            <button className="vgm-btn azul" onClick={nuevo}>＋ Crear activación</button>
+            <button className="vgm-btn borde" onClick={() => orden('vivo-panel')}>{v.panel ? '✕ Cerrar en TV' : '📺 Ver en TV'}</button>
+          </div>
+        </React.Fragment>
+      )}
+      {form && (
+        <React.Fragment>
+          <div className="vgm-chips">
+            {tipos.map((t) => (
+              <button key={t.id} className={'vgm-chip' + (form.tipo === t.id ? ' on' : '')} style={{ '--c': t.color }}
+                onClick={() => cambiar({ tipo: t.id, ruleta: !!t.ruletaPorDefecto })}>{t.nombre}</button>
+            ))}
+          </div>
+          {form.tipo === 'reto' && (
+            <div className="vgm-chips">
+              {(v.retos || []).map((r) => (
+                <button key={r.id} className={'vgm-chip' + (form.reto === r.id ? ' on' : '')} style={{ '--c': ti.color || '#00D4FF' }}
+                  onClick={() => cambiar({ reto: r.id })}>{r.nombre}</button>
+              ))}
+            </div>
+          )}
+          <div style={{ fontSize: 13, fontWeight: 700, opacity: 0.8 }}>{ti.etiqueta}</div>
+          <textarea className="vgm-campo" rows={3} value={form.texto} placeholder={ti.placeholder}
+            style={{ borderColor: 'rgba(255,194,51,.55)', resize: 'vertical' }}
+            onChange={(e) => cambiar({ texto: e.target.value })} />
+          {form.tipo === 'pregunta' && (
+            <React.Fragment>
+              <div className="vgm-fila">
+                <button className={'vgm-btn ' + (form.modo === 'abierta' ? 'azul' : 'borde')} onClick={() => cambiar({ modo: 'abierta' })}>Abierta</button>
+                <button className={'vgm-btn ' + (form.modo === 'cerrada' ? 'azul' : 'borde')} onClick={() => cambiar({ modo: 'cerrada' })}>Opción múltiple</button>
+              </div>
+              {form.modo === 'cerrada' && form.opciones.map((o, i) => (
+                <div key={i} style={{ display: 'flex', gap: 8 }}>
+                  <button className={'vgm-btn ' + (form.correcta === i ? '' : 'borde')} style={{ flex: '0 0 58px', minHeight: 52, ...(form.correcta === i ? { background: '#1F9D55', color: '#fff' } : {}) }}
+                    onClick={() => cambiar({ correcta: i })}>{String.fromCharCode(65 + i)}{form.correcta === i ? '✓' : ''}</button>
+                  <input className="vgm-campo" style={{ borderColor: 'rgba(255,255,255,.25)' }} value={o} placeholder={'Opción ' + String.fromCharCode(65 + i) + (i > 1 ? ' (opcional)' : '')}
+                    onChange={(e) => { const ops = form.opciones.slice(); ops[i] = e.target.value; cambiar({ opciones: ops }); }} />
+                </div>
+              ))}
+              {form.modo === 'cerrada' && <small style={{ opacity: 0.7 }}>Toca la letra de la respuesta correcta.</small>}
+            </React.Fragment>
+          )}
+          {ti.ruleta && v.hayEstudiantes && (
+            <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontWeight: 700, fontSize: 15 }}>
+              <input type="checkbox" checked={!!form.ruleta} onChange={(e) => cambiar({ ruleta: e.target.checked })} style={{ width: 22, height: 22 }} />
+              Elegir estudiante al azar
+            </label>
+          )}
+          <button className="vgm-btn grande" disabled={!ok} onClick={() => enviar(true)}>⚡ Lanzar ahora</button>
+          <div className="vgm-fila">
+            <button className="vgm-btn borde" disabled={!ok} onClick={() => enviar(false)}>Guardar para después</button>
+            <button className="vgm-btn borde" onClick={() => setForm(null)}>Cancelar</button>
+          </div>
+        </React.Fragment>
+      )}
+    </div>
+  );
+}
+
 function VigiaMandoCelular({ code, state, send }) {
   const st = state || {};
   React.useEffect(() => {
@@ -1259,6 +1368,9 @@ function VigiaMandoCelular({ code, state, send }) {
           {st.modoEquipos !== 'capibara' && <button className="vgm-btn borde" onClick={() => orden('jaguar-ganador')}>🏁 Finalizar lucha</button>}
         </div>
       )}
+
+      {/* ⚡ Activaciones en vivo: crear y lanzar mientras se proyecta */}
+      <EnVivoCel extra={st.extra || {}} orden={orden} />
 
       {/* Activaciones: tocar una la abre en el televisor */}
       {lista.length > 0 && (
