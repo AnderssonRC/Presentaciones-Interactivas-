@@ -49,7 +49,7 @@ function TeamScoreboard({ teams, hidden, accentText }) {
           }} />
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{
-              fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 18,
+              fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 20,
               color: '#F2F5EF', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
             }}>{t.name || ('Equipo ' + (i + 1))}</div>
           </div>
@@ -901,7 +901,7 @@ function Presenter({ pres, onExit, onChange }) {
           </div>
           {/* Píldora informativa (tema · página): fondo oscuro para leerse
               sobre diapositivas blancas. */}
-          <div className="presenter-hud hud-info" style={{ bottom: 18, left: 18, fontSize: 14, fontWeight: 600, gap: 8 }}>
+          <div className="presenter-hud hud-info" style={{ bottom: 18, left: 18, fontSize: 16, fontWeight: 600, gap: 8 }}>
             <span style={{ fontFamily: 'var(--font-display)' }}>{pres.tema}</span>
             <span style={{ opacity: .6 }}>·</span>
             <span>{idx + 1} / {slides.length}</span>

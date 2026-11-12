@@ -1229,7 +1229,7 @@
 .vg-jaguar-contenido { margin: auto 0; width: 100%; display: flex; flex-direction: column; align-items: center; gap: clamp(10px, 1.8vh, 20px); padding-top: 8px; }
 .vg-jaguar-cabecera { display: flex; align-items: center; gap: 10px; }
 .vg-jaguar-cabecera img { width: clamp(44px, 4.6vw, 68px); filter: drop-shadow(0 0 10px rgba(57,255,20,.7)); }
-.vg-jaguar-cabecera span { font-weight: 900; letter-spacing: .26em; text-transform: uppercase; font-size: clamp(13px, 1.1vw, 17px); color: var(--jy); text-shadow: 0 0 12px rgba(255,230,0,.7); }
+.vg-jaguar-cabecera span { font-weight: 900; letter-spacing: .26em; text-transform: uppercase; font-size: clamp(15px, 1.2vw, 20px); color: var(--jy); text-shadow: 0 0 12px rgba(255,230,0,.7); }
 .vg-jaguar-titulo {
   margin: 0; font-family: var(--font-display, 'Sora', sans-serif); font-weight: 900; font-size: clamp(34px, 5.2vw, 90px); line-height: 1.04;
   color: #FFFFFF; text-shadow: 0 0 14px var(--c, #39FF14), 0 0 40px var(--c, #39FF14);
@@ -1243,7 +1243,7 @@
   box-shadow: 0 0 24px -6px var(--c); transition: transform .12s ease;
 }
 .vg-jaguar-rival strong { font-size: clamp(20px, 2vw, 32px); }
-.vg-jaguar-rival span { font-size: 13px; font-weight: 800; color: var(--c); letter-spacing: .08em; text-transform: uppercase; }
+.vg-jaguar-rival span { font-size: clamp(15px, 1.1vw, 18px); font-weight: 800; color: var(--c); letter-spacing: .08em; text-transform: uppercase; }
 .vg-jaguar-rival:hover { transform: translateY(-2px) scale(1.03); }
 .vg-jaguar-rival:active { transform: scale(.96); }
 .vg-jaguar-grilla { width: 100%; display: flex; flex-wrap: wrap; justify-content: center; align-items: stretch; gap: clamp(10px, 1.2vw, 18px); }
@@ -1257,7 +1257,7 @@
 .vg-jaguar-equipo-cabeza span { font-weight: 900; font-size: clamp(15px, 1.4vw, 22px); color: #fff; text-shadow: 0 0 10px var(--c); }
 .vg-jaguar-equipo-cabeza b { min-width: 2em; padding: 2px 8px; border-radius: 999px; background: rgba(0,0,0,.35); color: #fff; font-size: clamp(15px, 1.4vw, 22px); text-align: center; }
 .vg-jaguar-miembros { display: flex; flex-direction: column; padding: 4px 12px 10px; }
-.vg-jaguar-miembros span { padding: 6px 2px; font-weight: 800; font-size: clamp(14px, 1.3vw, 21px); border-top: 1px solid color-mix(in srgb, var(--c) 30%, transparent); text-wrap: balance; }
+.vg-jaguar-miembros span { padding: 6px 2px; font-weight: 800; font-size: clamp(16px, 1.4vw, 23px); border-top: 1px solid color-mix(in srgb, var(--c) 30%, transparent); text-wrap: balance; }
 .vg-jaguar-miembros span:first-child { border-top: 0; }
 .vg-jaguar-sin { padding: 18px 12px; color: rgba(255,255,255,.55); font-weight: 700; }
 .vg-jaguar-acciones { display: flex; justify-content: flex-end; align-items: center; gap: 12px; padding: 14px 0 16px; }
@@ -1291,7 +1291,7 @@
 /* La caja de la palabra: oculta (ojos) o visible 5 s con su cuenta */
 .vg-mm-turno { display: flex; align-items: baseline; justify-content: center; gap: 14px; flex-wrap: wrap; font-weight: 800; font-size: clamp(20px, 2.2vw, 34px); color: #EFFFE8; }
 .vg-mm-turno strong { color: var(--c); text-shadow: 0 0 .35em var(--c); text-transform: uppercase; }
-.vg-mm-turno small { font-size: clamp(12px, 1vw, 15px); font-weight: 700; color: rgba(207,227,255,.8); letter-spacing: .04em; }
+.vg-mm-turno small { font-size: clamp(15px, 1.1vw, 19px); font-weight: 700; color: rgba(207,227,255,.8); letter-spacing: .04em; }
 [data-vg-tono="luz"] .vg-mm-turno { color: #0B1A10; }
 [data-vg-tono="luz"] .vg-mm-turno strong { color: #0B1A10; }
 [data-vg-tono="luz"] .vg-mm-turno small { color: #33473A; }
@@ -1315,7 +1315,7 @@
 .vg-mm .vg-sil-memoria { gap: 1vh; }
 .vg-mm .vg-sil-botones .vg-btn { font-size: clamp(15px, 1.3vw, 20px); padding: 11px 20px; }
 .vg-mm .vg-sil-memoria span { font-size: clamp(18px, 2vw, 32px); }
-.vg-mm-ayuda { font-weight: 700; font-size: clamp(13px, 1.2vw, 18px); color: rgba(207,227,255,.8); }
+.vg-mm-ayuda { font-weight: 700; font-size: clamp(16px, 1.3vw, 21px); color: rgba(207,227,255,.8); }
 .vg-mm-indicacion { margin: 0; font-weight: 700; font-size: clamp(15px, 1.4vw, 21px); color: #EFFFE8; }
 .vg-mm-era { font-weight: 800; font-size: clamp(18px, 2vw, 30px); color: #EFFFE8; }
 .vg-mm-era strong { color: var(--c); text-transform: uppercase; text-shadow: 0 0 .3em var(--c); }
@@ -1526,7 +1526,7 @@
 /* Duelo "todos contra todos": pie con el avance y "Enfrentar equipos" */
 .vg-jaguar-duelo-caja { display: flex; flex-direction: column; align-items: center; gap: 10px; }
 .vg-jaguar-duelo-pie { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; justify-content: center; }
-.vg-jaguar-duelo-pie span { font-weight: 800; font-size: 13.5px; color: #CFE3FF; letter-spacing: .04em; }
+.vg-jaguar-duelo-pie span { font-weight: 800; font-size: clamp(16px, 1.2vw, 20px); color: #CFE3FF; letter-spacing: .04em; }
 /* Equipo al azar: el elegido y sus botones */
 .vg-azar-elegido { font-weight: 800; font-size: clamp(18px, 1.8vw, 28px); color: #EFFFE8; animation: vgPop .5s cubic-bezier(.2,1.6,.4,1) both; }
 .vg-azar-elegido strong { color: var(--c); text-shadow: 0 0 14px var(--c); }
@@ -1635,7 +1635,7 @@ button.vg-sil-chip.vg-eqj-boton:not(.elegido):hover { background: color-mix(in s
 [data-vg-tono="luz"] .vg-sil-chip.vg-eqj-fuera { opacity: .45; }
 .vg-sil-le-toca { display: flex; flex-direction: column; align-items: center; gap: 4px; font-weight: 800; font-size: clamp(20px, 2.2vw, 34px); color: #EFFFE8; animation: vgAparece .3s ease both; }
 .vg-sil-le-toca strong { color: var(--c); text-shadow: 0 0 .35em var(--c); }
-.vg-sil-le-toca small { font-size: clamp(12px, 1vw, 15px); font-weight: 700; color: rgba(207,227,255,.8); letter-spacing: .04em; }
+.vg-sil-le-toca small { font-size: clamp(15px, 1.1vw, 19px); font-weight: 700; color: rgba(207,227,255,.8); letter-spacing: .04em; }
 .vg-sil-botones { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
 .vg-sil-botones .vg-btn { font-size: clamp(16px, 1.5vw, 22px); padding: 12px 26px; }
 /* 2 · Cuenta 3, 2, 1 */
@@ -1702,7 +1702,7 @@ button.vg-sil-chip.vg-eqj-boton:not(.elegido):hover { background: color-mix(in s
 }
 @keyframes vgConfeti { 0% { opacity: 1; transform: rotate(var(--a)) translateY(0) rotate(45deg) scale(1.2); } 100% { opacity: 0; transform: rotate(var(--a)) translateY(calc(-1 * var(--d))) rotate(225deg) scale(.6); } }
 /* Siluetas disponibles (cada una se usa una sola vez) */
-.vg-sil-quedan { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: center; font-weight: 800; font-size: clamp(13px, 1.1vw, 17px); color: rgba(207,227,255,.85); letter-spacing: .03em; }
+.vg-sil-quedan { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: center; font-weight: 800; font-size: clamp(15px, 1.2vw, 20px); color: rgba(207,227,255,.85); letter-spacing: .03em; }
 .vg-sil-quedan.agotadas { color: #FFB3BE; }
 /* Editor: lista de siluetas */
 .vg-siluetas { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; padding-top: 8px; border-top: 1px solid rgba(57,255,20,.25); }
@@ -1950,20 +1950,20 @@ button.vg-sil-chip.vg-eqj-boton:not(.elegido):hover { background: color-mix(in s
 }
 .vg-marcador-chip .vg-jaguar-puno { width: 28px; height: 28px; border-radius: 50%; }
 .vg-marcador-chip:hover, .vg-marcador.abierto .vg-marcador-chip { opacity: 1; }
-.vg-marcador-mini { min-width: 26px; padding: 2px 6px; border-radius: 999px; text-align: center; font-weight: 900; font-size: 13px; background: var(--c); color: #031006; }
+.vg-marcador-mini { min-width: 26px; padding: 2px 6px; border-radius: 999px; text-align: center; font-weight: 900; font-size: 15px; background: var(--c); color: #031006; }
 .vg-marcador-panel {
   width: 300px; padding: 14px; border-radius: 18px; display: flex; flex-direction: column; gap: 8px; color: #EFFFE8;
   background: rgba(3,10,5,.95); border: 1px solid rgba(57,255,20,.45); box-shadow: 0 20px 50px rgba(0,0,0,.6), 0 0 30px -12px #39FF14;
   animation: vgHerrAbre .25s ease both;
 }
-.vg-marcador-titulo { font-weight: 900; font-size: 13px; letter-spacing: .12em; text-transform: uppercase; color: #39FF14; }
+.vg-marcador-titulo { font-weight: 900; font-size: 15px; letter-spacing: .12em; text-transform: uppercase; color: #39FF14; }
 .vg-marcador-fila { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-radius: 12px; border: 1.5px solid color-mix(in srgb, var(--c) 55%, transparent); }
 .vg-marcador-fila.lider { border-color: var(--c); box-shadow: 0 0 16px -6px var(--c); }
 .vg-marcador-nombre { flex: 1; min-width: 0; font-weight: 800; color: var(--c); }
 .vg-marcador-fila button { width: 32px; height: 32px; border-radius: 9px; border: 1.5px solid var(--c); background: transparent; color: #fff; font: inherit; font-weight: 900; font-size: 17px; cursor: pointer; }
 .vg-marcador-fila button:last-child { background: var(--c); color: #031006; }
 .vg-marcador-fila button:disabled { opacity: .35; cursor: default; }
-.vg-marcador-fila b { min-width: 28px; text-align: center; font-size: 18px; }
+.vg-marcador-fila b { min-width: 28px; text-align: center; font-size: 20px; }
 .vg-marcador-ganador { margin-top: 4px; justify-content: center; }
 
 /* Ganador: encima de todo (la presentación sigue montada debajo) */
@@ -2315,7 +2315,7 @@ button.vg-sil-chip.vg-eqj-boton:not(.elegido):hover { background: color-mix(in s
 }
 .vg-reto-cabeza { display: flex; align-items: center; gap: 12px; }
 .vg-reto-cabeza img { width: clamp(46px, 5vw, 72px); height: auto; border-radius: 14px; filter: drop-shadow(0 0 12px rgba(0,212,255,.7)); }
-.vg-reto-cabeza span { font-size: clamp(13px, 1.1vw, 17px); font-weight: 800; letter-spacing: .22em; text-transform: uppercase; color: #00D4FF; text-shadow: 0 0 12px rgba(0,212,255,.8); }
+.vg-reto-cabeza span { font-size: clamp(15px, 1.2vw, 20px); font-weight: 800; letter-spacing: .22em; text-transform: uppercase; color: #00D4FF; text-shadow: 0 0 12px rgba(0,212,255,.8); }
 .vg-reto-titulo {
   margin: 0; font-family: 'Fraunces', Georgia, serif; font-style: italic; font-weight: 900; font-variation-settings: "SOFT" 100, "WONK" 1;
   font-size: clamp(38px, 6vw, 104px); line-height: 1.02; color: #FFF3E6;
@@ -2830,7 +2830,7 @@ html.vg-sin-cursor, html.vg-sin-cursor * { cursor: none !important; }
   background: linear-gradient(180deg, #A8D8EE 0%, #CFE8EE 45%, #EFE7CF 100%); }
 .vg-cp-montana-cabeza { position: absolute; top: 2.4vh; left: 3vw; z-index: 2; text-align: left; }
 .vg-cp-montana-cabeza .vg-cp-titulo { font-size: clamp(26px, 3vw, 52px); color: #3A2614; text-shadow: 0 0 18px rgba(255,253,246,.9); }
-.vg-cp-montana-cabeza p { margin: .3em 0 0; font-family: 'Fraunces', Georgia, serif; font-style: italic; font-weight: 600; font-size: clamp(14px, 1.3vw, 21px); color: #3A2614; }
+.vg-cp-montana-cabeza p { margin: .3em 0 0; font-family: 'Fraunces', Georgia, serif; font-style: italic; font-weight: 600; font-size: clamp(17px, 1.4vw, 23px); color: #3A2614; }
 .vg-cp-montana-svg { flex: 1; min-height: 0; width: 100%; display: block; overflow: visible; }
 .vg-cp-jomu { font-family: 'Fraunces', Georgia, serif; font-style: italic; font-weight: 900; font-size: 34px; fill: #4A3220; paint-order: stroke; stroke: #FFF8E7; stroke-width: 8px; }
 .vg-cp-nube { animation: vgCpNube 26s ease-in-out infinite alternate; }
@@ -2845,8 +2845,8 @@ html.vg-sin-cursor, html.vg-sin-cursor * { cursor: none !important; }
 .vg-cp-chip { display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px 6px 8px; border-radius: 999px; background: #FFFDF6; border: 2.5px solid var(--c);
   box-shadow: 0 .4vh 1vh -.5vh rgba(107,74,43,.45); font-family: 'Fraunces', Georgia, serif; }
 .vg-cp-chip .emo { font-size: clamp(20px, 1.8vw, 30px); line-height: 1; }
-.vg-cp-chip strong { font-style: italic; font-weight: 800; font-size: clamp(14px, 1.3vw, 21px); color: color-mix(in srgb, var(--c) 70%, #2A1A0C); }
-.vg-cp-chip small { font-weight: 700; font-size: clamp(12px, 1.05vw, 17px); color: #6B4A2B; }
+.vg-cp-chip strong { font-style: italic; font-weight: 800; font-size: clamp(16px, 1.3vw, 22px); color: color-mix(in srgb, var(--c) 70%, #2A1A0C); }
+.vg-cp-chip small { font-weight: 700; font-size: clamp(14px, 1.05vw, 18px); color: #6B4A2B; }
 .vg-cp-chip.llego { background: color-mix(in srgb, var(--c) 18%, #FFFDF6); }
 /* La montaña con la navegación de la historia: la navegación en tonos tierra */
 .vg-cp.fase-grupos .vg-cp-nav, .vg-cp.fase-montana .vg-cp-nav { background: rgba(107,74,43,.14); }
