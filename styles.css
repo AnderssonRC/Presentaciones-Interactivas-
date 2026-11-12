@@ -605,6 +605,11 @@ input, textarea, select { font-family: var(--font-body); color: inherit; }
 @media (prefers-reduced-motion: reduce) {
   .anim-fade, .anim-slideUp, .anim-slideDown, .anim-slideLeft, .anim-slideRight,
   .anim-zoomIn, .anim-zoomOut, .anim-pop, .anim-flip, .anim-rotate { animation: none; }
+  /* Las que se repiten sin fin (pulso, temblor, cambio de color) también se detienen;
+     incluye el pulso del cronómetro pequeño de Presentar, que usa a-pulse. */
+  .anim-pulse, .anim-shake, .anim-colorShift .canvas-text { animation: none; }
+  @keyframes a-pulse { 0%,100% { transform: none; } }
+  @keyframes a-shake { 0%,100% { transform: none; } }
 }
 
 /* ============ Marcador lateral izquierdo (Modo Equipos, presentador) ============ */

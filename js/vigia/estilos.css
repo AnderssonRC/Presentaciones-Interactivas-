@@ -3714,3 +3714,12 @@ html.vg-sin-cursor, html.vg-sin-cursor * { cursor: none !important; }
 .vg-hs-modo.on { border-color: #7DB46C; background: rgba(125,180,108,.08); }
 .vg-hs-segmento { display: flex; width: 100%; }
 .vg-hs-segmento button { flex: 1; }
+
+/* ==================== REDUCIR MOVIMIENTO (red general) ====================
+   Para quien activó «reducir movimiento» en su equipo: ninguna animación de Vigía se repite
+   sin fin (latidos, brillos, confeti, llamas…). Cada una corre una sola vez y se queda quieta.
+   Las entradas (una sola vez) siguen igual; los bloques de más arriba afinan cada caso. */
+@media (prefers-reduced-motion: reduce) {
+  [class*="vg-"], [class*="vg-"]::before, [class*="vg-"]::after { animation-iteration-count: 1 !important; }
+  .vg-hs-confeti { display: none; }
+}
