@@ -149,7 +149,7 @@
 .vg-recurso-card {
   position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; text-align: left;
   padding: 18px; border-radius: 16px; cursor: pointer; color: var(--ink);
-  background: var(--surface2); border: 1.5px solid var(--line); transition: all .15s ease;
+  background: var(--surface2); border: 1.5px solid var(--line); transition: .15s ease; transition-property: var(--tr-props);
 }
 .vg-recurso-card span:not(.vg-recurso-ico):not(.soon-tag) { font-size: 12.5px; color: var(--muted); }
 .vg-recurso-card:hover:not(:disabled) { border-color: var(--vigia-naranja); box-shadow: 0 0 26px -8px rgba(255,138,0,.8); transform: translateY(-2px); }
@@ -405,7 +405,7 @@
   display: flex; align-items: center; gap: 14px; text-align: left; cursor: pointer;
   padding: 16px 18px; border-radius: 16px; border: 2px solid rgba(255,255,255,.14);
   background: rgba(255,255,255,.05); color: #fff; font-size: clamp(18px, 1.6vw, 26px); font-weight: 700;
-  transition: all .18s ease;
+  transition: .18s ease; transition-property: var(--tr-props);
 }
 .vg-opcion:hover { border-color: var(--vigia-azul); }
 .vg-opcion-letra {
@@ -1105,7 +1105,7 @@
 .vg-plataformas { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
 .vg-plataformas span {
   font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px;
-  border: 1px solid var(--line); color: var(--muted); transition: all .2s;
+  border: 1px solid var(--line); color: var(--muted); transition: .2s; transition-property: var(--tr-props);
 }
 .vg-plataformas span.on { border-color: var(--vigia-naranja, #FF8A00); color: var(--vigia-naranja, #FF8A00); background: rgba(255,138,0,.1); }
 
@@ -1504,7 +1504,7 @@
 .vg-azar-fila { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
 .vg-azar-chip {
   padding: 10px 18px; border-radius: 999px; font-weight: 900; font-size: clamp(16px, 1.5vw, 24px);
-  border: 2px solid var(--c); color: #fff; background: rgba(255,255,255,.04); transition: all .08s ease;
+  border: 2px solid var(--c); color: #fff; background: rgba(255,255,255,.04); transition: .08s ease; transition-property: var(--tr-props);
 }
 .vg-azar-chip.on { background: var(--c); color: #031006; box-shadow: 0 0 26px -2px var(--c); transform: scale(1.08); }
 .vg-azar-chip.elegido { animation: vgPop .55s cubic-bezier(.2,1.6,.4,1) both; }
@@ -2759,7 +2759,7 @@ html.vg-sin-cursor, html.vg-sin-cursor * { cursor: none !important; }
 .vg-cp-nav button { width: 34px; height: 34px; border-radius: 50%; border: 0; cursor: pointer; font: 700 22px/1 Georgia, serif; color: var(--cp-crema); background: rgba(251,243,225,.14); }
 .vg-cp-nav button:disabled { opacity: .3; cursor: default; }
 .vg-cp-puntos { display: flex; gap: 7px; }
-.vg-cp-puntos span { width: 8px; height: 8px; border-radius: 50%; background: rgba(251,243,225,.3); transition: all .3s; }
+.vg-cp-puntos span { width: 8px; height: 8px; border-radius: 50%; background: rgba(251,243,225,.3); transition: width .3s, border-radius .3s, background-color .3s; }
 .vg-cp-puntos span.visto { background: rgba(251,243,225,.6); }
 .vg-cp-puntos span.on { width: 22px; border-radius: 6px; background: #A7D88E; }
 .vg-cp-escena.mision ~ .vg-cp-nav { background: rgba(62,115,57,.25); }
