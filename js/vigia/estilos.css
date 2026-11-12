@@ -13,7 +13,14 @@
   transition: transform .15s ease, box-shadow .15s ease, filter .15s ease;
 }
 .vg-btn:hover { transform: translateY(-2px); filter: brightness(1.08); box-shadow: 0 0 34px -4px rgba(255,138,0,1); }
-.vg-btn:disabled { opacity: .55; cursor: default; transform: none; }
+.vg-btn:active { transform: scale(.97); }
+.vg-btn:disabled { opacity: .55; cursor: default; transform: none; filter: none; }
+.vg-btn:focus-visible, .vg-ctrl:focus-visible, .vg-opcion:focus-visible { outline: 3px solid #FFFFFF; outline-offset: 3px; }
+/* Pantallas táctiles: el «mouse encima» no se queda pegado después de tocar */
+@media (hover: none) {
+  .vg-btn:hover { transform: none; filter: none; }
+  .vg-btn:active { transform: scale(.97); }
+}
 .vg-btn-texto {
   background: none; border: none; padding: 0; cursor: pointer;
   color: var(--vigia-azul); font-weight: 700; font-size: 13.5px; text-decoration: underline; text-underline-offset: 3px;
@@ -536,6 +543,7 @@
   background: transparent; color: #FFF3E6; font-family: var(--font-display); font-weight: 800; font-size: 20px;
 }
 .vg-ctrl:hover:not(:disabled) { background: rgba(255,255,255,.12); }
+.vg-ctrl:active:not(:disabled) { transform: scale(.94); }
 .vg-ctrl:disabled { opacity: .35; cursor: default; }
 .vg-ctrl-zoom { font-size: 13px; min-width: 56px; color: #FFD3A3; }
 .vg-ctrl-sig { font-size: 14px; background: linear-gradient(100deg, var(--vigia-naranja), #FF5E00); color: #140800; padding: 0 14px; }

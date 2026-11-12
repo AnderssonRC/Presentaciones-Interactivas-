@@ -1138,3 +1138,40 @@ input, textarea, select { font-family: var(--font-body); color: inherit; }
   .vigia-topnav .vigia-btn-crear { display: none; }   /* ya está en el héroe */
   .vigia-marca-agua { right: -18%; opacity: .14; }   /* detrás del texto, más tenue */
 }
+
+/* ============================================================
+   RESPUESTA DE LOS BOTONES — pulsado, deshabilitado y foco
+   (va al final para ganarle a los :hover de más arriba)
+   ============================================================ */
+/* Pulsado: el botón se hunde un poco */
+.btn:active, .icon-btn:active, .navlink:active, .tool-card:active, .lz-btn:active, .lz-item:active,
+.hud-btn:active, .act-option:active, .score-edit button:active { transform: scale(.97); }
+.hud-btn:not(.on):active { background: rgba(255,255,255,.32); }
+.act-bigbtn:active { transform: scale(.98); filter: brightness(.94); }
+
+/* Deshabilitado: apagado y sin reacción (p. ej. las flechas ← → al inicio y al final) */
+.btn:disabled, .icon-btn:disabled, .hud-btn:disabled, .lz-btn:disabled, .act-bigbtn:disabled {
+  opacity: .38; cursor: default;
+}
+.btn:disabled:hover, .btn:disabled:active, .icon-btn:disabled:active, .lz-btn:disabled:active,
+.hud-btn:disabled:active, .act-bigbtn:disabled:hover, .act-bigbtn:disabled:active { transform: none; filter: none; }
+.hud-btn:not(.on):disabled:hover, .hud-btn:not(.on):disabled:active { background: rgba(255,255,255,.1); }
+
+/* Foco con teclado o mando: anillo visible (con el mouse no aparece) */
+.btn:focus-visible, .icon-btn:focus-visible, .navlink:focus-visible, .tool-card:focus-visible,
+.lz-btn:focus-visible, .lz-item:focus-visible, .profile-card:focus-visible, .create-card:focus-visible {
+  outline: 3px solid var(--azul); outline-offset: 2px;
+}
+.hud-btn:focus-visible, .act-bigbtn:focus-visible, .act-option:focus-visible {
+  outline: 3px solid #FFFFFF; outline-offset: 3px;
+}
+
+/* Pantallas táctiles: el «mouse encima» no se queda pegado después de tocar */
+@media (hover: none) {
+  .btn:hover, .profile-card:hover, .pres-card2:hover, .tool-card:hover, .color-dot:hover, .act-bigbtn:hover { transform: none; }
+  .btn-primary:hover, .btn-white:hover, .act-bigbtn:hover { filter: none; }
+  .hud-btn:not(.on):hover { background: rgba(255,255,255,.1); }
+  .btn:active, .tool-card:active { transform: scale(.97); }
+  .act-bigbtn:active { transform: scale(.98); filter: brightness(.94); }
+  .hud-btn:not(.on):active { background: rgba(255,255,255,.32); }
+}
