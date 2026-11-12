@@ -141,7 +141,7 @@ function PodioGanador({ teams, onCerrar }) {
   );
 
   return (
-    <div style={{
+    <div className="panel-entra" style={{
       position: 'absolute', inset: 0, zIndex: 55,
       background: 'radial-gradient(1200px 600px at 50% -10%, rgba(17,108,245,.25), transparent 60%), rgba(6,8,6,.97)',
       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
@@ -193,7 +193,7 @@ function RemoteBadge({ code, onClose, count }) {
   const remoteUrl = location.origin + location.pathname + '?remote=' + code;
   const qr = 'https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=' + encodeURIComponent(remoteUrl);
   return (
-    <div style={{
+    <div className="panel-entra" style={{
       position: 'absolute', top: 18, left: 18, zIndex: 30,
       background: 'rgba(11,14,11,.82)', backdropFilter: 'blur(8px)',
       border: '2px solid #2A2F29', borderRadius: 18, padding: 16,
@@ -220,7 +220,7 @@ function ParticipationPanel({ fase, participants, elegido, sorteando, onSortear,
   const elegidoP = participants.find((p) => p.pid === elegido);
   const etiqueta = (p) => p.grupo ? (p.nombre + ' · ' + p.grupo) : p.nombre;
   return (
-    <div style={{
+    <div className="panel-entra" style={{
       position: 'absolute', right: 18, top: '50%', transform: 'translateY(-50%)',
       width: 340, zIndex: 35, background: 'rgba(11,14,11,.92)', backdropFilter: 'blur(10px)',
       border: '2px solid #116CF5', borderRadius: 20, padding: 18, color: '#F2F5EF',
@@ -281,7 +281,7 @@ function ParticipationPanel({ fase, participants, elegido, sorteando, onSortear,
 function PanelPuntos({ teams, onPunto, onCerrar }) {
   if (!teams || !teams.length) return null;
   return (
-    <div style={{
+    <div className="panel-entra" style={{
       position: 'absolute', right: 18, top: '50%', transform: 'translateY(-50%)',
       width: 320, zIndex: 36, background: 'rgba(11,14,11,.92)', backdropFilter: 'blur(10px)',
       border: '2px solid #11F555', borderRadius: 20, padding: 18, color: '#F2F5EF',

@@ -417,6 +417,16 @@
 .vg-opcion.correcta .vg-opcion-letra { background: #3DDC97; color: #04130B; }
 .vg-opcion.incorrecta { border-color: #F53711; background: rgba(245,55,17,.14); }
 .vg-opcion.apagada { opacity: .45; }
+/* Al revelar: ✓ / ✗ en la esquina, para no depender solo del verde y el rojo.
+   Va encima de la esquina (sin ocupar sitio): la tarjeta no cambia de tamaño. */
+.vg-opcion { position: relative; }
+.vg-opcion.correcta::after, .vg-opcion.incorrecta::after {
+  position: absolute; top: -.5em; right: -.5em; width: 1.5em; height: 1.5em; border-radius: 50%;
+  display: grid; place-items: center; font-family: var(--font-display); font-weight: 800; line-height: 1;
+  box-shadow: 0 2px 8px rgba(0,0,0,.45); animation: vgPop .3s cubic-bezier(.2,1.5,.4,1) both;
+}
+.vg-opcion.correcta::after { content: "✓"; background: #3DDC97; color: #04130B; }
+.vg-opcion.incorrecta::after { content: "✗"; background: #F53711; color: #FFFFFF; }
 .vg-revelar { margin-top: 14px; font-size: 16px; }
 
 @keyframes vgGira { from { transform: translate(-50%, -50%) rotate(0deg); } to { transform: translate(-50%, -50%) rotate(360deg); } }

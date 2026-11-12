@@ -403,6 +403,10 @@ input, textarea, select { font-family: var(--font-body); color: inherit; }
 @keyframes fadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
 .fade-up { animation: fadeUp .4s ease both; }
 @media (prefers-reduced-motion: reduce) { .fade-up { animation: none; } }
+/* Paneles de Presentar (participación, puntos, podio, código): entran con un fundido.
+   Solo opacidad: varios se centran con transform y no debe tocarse. */
+@keyframes panelEntra { from { opacity: 0; } to { opacity: 1; } }
+.panel-entra { animation: panelEntra .25s ease both; }
 
 /* ---------- pantalla principal estilo vibrante ---------- */
 .topnav {
