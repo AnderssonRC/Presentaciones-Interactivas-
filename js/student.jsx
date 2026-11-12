@@ -140,7 +140,7 @@ function StudentView({ code }) {
         {/* Cabecera */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
           <div>
-            <div style={{ color: '#9AA396', fontSize: 12, fontWeight: 600 }}>{nombre}{grupo ? ' · ' + grupo : ''}</div>
+            <div style={{ color: '#9AA396', fontSize: 13, fontWeight: 600 }}>{nombre}{grupo ? ' · ' + grupo : ''}</div>
             <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 16, color: '#F2F5EF' }}>{st.tema || 'Clase'}</div>
           </div>
           <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 18, color: '#11F555', background: '#141814', borderRadius: 10, padding: '6px 12px', border: '2px solid #2A2F29' }}>
@@ -152,7 +152,7 @@ function StudentView({ code }) {
         {actividadMontable ? (
           // La MISMA actividad del TV, montada en el celular en solo-lectura.
           <div style={{ marginBottom: 16 }}>
-            <div style={{ fontSize: 12, color: mirror.color || '#116CF5', fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', marginBottom: 8 }}>
+            <div style={{ fontSize: 13, color: mirror.color || '#116CF5', fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', marginBottom: 8 }}>
               {mirror.nombre || 'Actividad'}
             </div>
             <EspejoActividad toolId={mirror.tool} config={mirror.config} tool={toolMeta}
@@ -161,10 +161,10 @@ function StudentView({ code }) {
         ) : esActividad ? (
           // Actividad sin config reflejable: tarjeta con título e instrucciones.
           <div style={{ background: '#141814', border: '2px solid #2A2F29', borderRadius: 16, padding: 18, marginBottom: 16 }}>
-            <div style={{ fontSize: 12, color: mirror.color || '#116CF5', fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase' }}>{mirror.nombre || 'Actividad'}</div>
+            <div style={{ fontSize: 13, color: mirror.color || '#116CF5', fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase' }}>{mirror.nombre || 'Actividad'}</div>
             <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 22, color: '#F2F5EF', marginTop: 4 }}>{mirror.titulo}</div>
             {mirror.instrucciones && <div style={{ fontSize: 14, color: '#B9C2B5', marginTop: 8 }}>{mirror.instrucciones}</div>}
-            <div style={{ fontSize: 12.5, color: '#7B857A', marginTop: 10 }}>Mira el televisor: la actividad se ve allí.</div>
+            <div style={{ fontSize: 13, color: '#8A9488', marginTop: 10 }}>Mira el televisor: la actividad se ve allí.</div>
           </div>
         ) : mirror.slide && typeof ContenidoSlide === 'function' ? (
           // Réplica fiel de la diapositiva (lienzo libre) escalada al ancho del celular.
@@ -270,7 +270,7 @@ function QuizOptions({ quiz, onAnswer, mine, pid }) {
 const svWrap = {
   position: 'fixed', inset: 0, background: '#0B0E0B',
   display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-  padding: 18, boxSizing: 'border-box', overflowY: 'auto',
+  padding: '18px 18px calc(18px + env(safe-area-inset-bottom))', boxSizing: 'border-box', overflowY: 'auto',
 };
 /* Pantalla de unirse: ocupa todo el alto del celular y centra el formulario.
    Usa min-height con la unidad dinámica del móvil (dvh) en lugar de

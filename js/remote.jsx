@@ -177,7 +177,7 @@ function RemoteControl({ initialCode }) {
           )}
 
           {!permiteEstudiantes && (
-            <p style={{ color: '#7B857A', fontSize: 12.5, marginTop: 18 }}>
+            <p style={{ color: '#8A9488', fontSize: 13, marginTop: 18 }}>
               La participación de estudiantes está desactivada en esta presentación.
             </p>
           )}
@@ -251,7 +251,7 @@ function RemoteControl({ initialCode }) {
         {/* Cabecera con estado */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
           <div>
-            <div style={{ color: '#9AA396', fontSize: 12, fontWeight: 600, letterSpacing: '.06em' }}>CONECTADO · {code}</div>
+            <div style={{ color: '#9AA396', fontSize: 13, fontWeight: 600, letterSpacing: '.06em' }}>CONECTADO · {code}</div>
             <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 18, color: '#F2F5EF' }}>
               {st.tema || 'Presentación'}
             </div>
@@ -268,7 +268,7 @@ function RemoteControl({ initialCode }) {
           border: '2px solid ' + (enActividad ? '#116CF5' : '#2A2F29'),
           borderRadius: 14, padding: 14, marginBottom: 16, color: '#F2F5EF',
         }}>
-          <div style={{ fontSize: 12, color: '#9AA396', fontWeight: 600 }}>
+          <div style={{ fontSize: 13, color: '#9AA396', fontWeight: 600 }}>
             {enActividad ? 'ACTIVIDAD EN PANTALLA' : 'DIAPOSITIVA'}
           </div>
           <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 17 }}>
@@ -307,7 +307,7 @@ function RemoteControl({ initialCode }) {
               <button onClick={() => { send('activity', { action: 'next' }); buzz('→'); }}
                 style={navBtn('#2A2F29', '#F2F5EF')}>Siguiente paso</button>
             </div>
-            <div style={{ color: '#9AA396', fontSize: 12, marginTop: 8 }}>
+            <div style={{ color: '#9AA396', fontSize: 13, marginTop: 8 }}>
               Ej.: girar la ruleta, revelar respuesta, lanzar el dado.
             </div>
           </div>
@@ -321,7 +321,7 @@ function RemoteControl({ initialCode }) {
               <button onClick={() => { send('toggleScores'); buzz(st.hideScores ? '👁' : '🙈'); }}
                 style={{
                   background: 'transparent', border: '1px solid #2A2F29', color: '#9AA396',
-                  borderRadius: 10, padding: '6px 12px', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                  borderRadius: 10, padding: '6px 14px', minHeight: 44, fontSize: 13, fontWeight: 600, cursor: 'pointer',
                 }}>
                 {st.hideScores ? '👁 Mostrar en TV' : '🙈 Ocultar en TV'}
               </button>
@@ -397,7 +397,7 @@ const rcWrap = {
   overflowY: 'auto',
   WebkitOverflowScrolling: 'touch',
 };
-const rcLabel = { color: '#9AA396', fontSize: 12, fontWeight: 700, letterSpacing: '.08em', marginBottom: 4 };
+const rcLabel = { color: '#9AA396', fontSize: 13, fontWeight: 700, letterSpacing: '.08em', marginBottom: 4 };
 const navBtn = (bg, fg) => ({
   flex: 1, padding: '18px 0', fontSize: 17, fontWeight: 800,
   fontFamily: 'var(--font-display)', borderRadius: 14, border: 'none',
