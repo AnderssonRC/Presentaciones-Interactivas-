@@ -418,6 +418,11 @@ input, textarea, select { font-family: var(--font-body); color: inherit; }
    Solo opacidad: varios se centran con transform y no debe tocarse. */
 @keyframes panelEntra { from { opacity: 0; } to { opacity: 1; } }
 .panel-entra { animation: panelEntra .25s ease both; }
+/* Cambio de diapositiva en Presentar: fundido corto al entrar la nueva.
+   Solo opacidad: la diapositiva se centra y escala con transform (no tocarlo).
+   Los pasos dentro de una misma diapositiva no la vuelven a montar: no parpadean. */
+.slide-entra { animation: panelEntra var(--t-media) ease-out both; }
+@media (prefers-reduced-motion: reduce) { .slide-entra, .panel-entra { animation: none; } }
 
 /* ---------- pantalla principal estilo vibrante ---------- */
 .topnav {

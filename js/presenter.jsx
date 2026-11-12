@@ -815,7 +815,7 @@ function Presenter({ pres, onExit, onChange }) {
   return (
     <div className="presenter-overlay" data-screen-label={'Presentar · ' + String(idx + 1).padStart(2, '0')}>
       <div className="presenter-stagewrap">
-        <div className={'slide' + (brilloAlto ? ' slide-brillo' : '')} key={slide.id} style={{ position: 'absolute', left: '50%', top: '50%', transform: `translate(-50%, -50%) scale(${scale})`, transformOrigin: 'center', background: isAct ? '#0B0E0B' : '#FFFFFF', color: isAct ? '#F2F5EF' : '#0B0F0C' }}>
+        <div className={'slide slide-entra' + (brilloAlto ? ' slide-brillo' : '')} key={slide.id} style={{ position: 'absolute', left: '50%', top: '50%', transform: `translate(-50%, -50%) scale(${scale})`, transformOrigin: 'center', background: isAct ? '#0B0E0B' : '#FFFFFF', color: isAct ? '#F2F5EF' : '#0B0F0C' }}>
           {isAct
             ? <ActividadRun toolId={slide.tool} config={slide.config} tool={tool} remoteSignal={remoteSignal} equiposApi={equiposApi}
                 onQuiz={(qz) => recibirQuiz(slide.id, qz)}
