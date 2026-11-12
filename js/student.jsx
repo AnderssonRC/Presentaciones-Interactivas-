@@ -388,7 +388,7 @@ function EspejoActividad({ toolId, config, tool, qiControlado }) {
         {/* Pista visual de que se puede ampliar. */}
         <div style={{
           position: 'absolute', right: 8, bottom: 8, zIndex: 6,
-          background: 'rgba(0,0,0,.55)', color: '#F2F5EF', fontSize: 12, fontWeight: 700,
+          background: 'rgba(0,0,0,.55)', color: '#F2F5EF', fontSize: 13, fontWeight: 700,
           padding: '4px 10px', borderRadius: 999, pointerEvents: 'none',
         }}>⤢ Toca para ampliar</div>
       </div>

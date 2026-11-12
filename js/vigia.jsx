@@ -51,9 +51,9 @@ const VIGIA_MODULOS = [
   ['js/vigia/presentar-imagenes.jsx', '20261108a'],
   ['js/vigia/presentar-historia.jsx', '20261109a'],
 ];
-const VIGIA_ESTILOS = ['js/vigia/estilos.css', '20261111g'];
+const VIGIA_ESTILOS = ['js/vigia/estilos.css', '20261111h'];
 // Pantalla del mando en el celular (la carga remote.jsx solo en el celular).
-const VIGIA_MANDO_VERSION = '20261111a';
+const VIGIA_MANDO_VERSION = '20261111b';
 let promesaVigia = null;
 // Tipografía de los títulos de las tarjetas (Fraunces, cursiva "suave"): elegante y juguetona.
 const VIGIA_FUENTE = 'https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT,WONK@1,9..144,600..900,100,1&display=swap';

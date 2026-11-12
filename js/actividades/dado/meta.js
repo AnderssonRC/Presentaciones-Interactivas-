@@ -1,7 +1,7 @@
 /* Dado didáctico — datos de la actividad (código en dado.jsx). */
 Actividades.registrar({
   id: 'dado',
-  version: '20261017a',
+  version: '20261111a',
   nombre: 'Dado didáctico',
   desc: 'Lanza el dado y asigna el reto',
   color: '#11F555',

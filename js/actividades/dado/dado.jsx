@@ -14,10 +14,16 @@ function DadoRun({ config, tool, remoteSignal }) {
   const roll = () => {
     if (rolling) return;
     setRolling(true);
-    let i = 0;
-    const t = setInterval(() => { setVal(1 + Math.floor(Math.random() * 6)); i++; }, 100);
-    timersRef.current.interval = t;
-    timersRef.current.timeout = setTimeout(() => { clearInterval(t); setVal(1 + Math.floor(Math.random() * 6)); setRolling(false); }, 1400);
+    // Las caras cambian rápido y van frenando poco a poco (cada pausa un 15 % más larga);
+    // en unos 1,4 s se detiene en el resultado (antes: ritmo fijo y parada en seco).
+    let espera = 50, total = 0;
+    const paso = () => {
+      if (total >= 1400) { setVal(1 + Math.floor(Math.random() * 6)); setRolling(false); return; }
+      setVal(1 + Math.floor(Math.random() * 6));
+      espera *= 1.15; total += espera;
+      timersRef.current.timeout = setTimeout(paso, espera);
+    };
+    paso();
   };
   useRemoteAction(remoteSignal, { primary: roll, next: roll });
   const DOTS = { 1: [4], 2: [0, 8], 3: [0, 4, 8], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8] };

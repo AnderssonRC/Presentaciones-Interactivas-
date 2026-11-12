@@ -31,6 +31,13 @@
   --c-salida: cubic-bezier(.2,.8,.2,1);    /* entradas normales */
   --c-rebote: cubic-bezier(.2,1.5,.4,1);   /* entradas con rebote */
   --c-ciclo: ease-in-out;                  /* latidos y bucles */
+  /* Estilo: valores repetidos con nombre. Usarlos en lo nuevo y al tocar cada zona (no cambian nada por sí solos). */
+  --font-fraunces: 'Fraunces', Georgia, 'Times New Roman', serif;   /* títulos de Vigía, Capibara e Historia */
+  --r-chico: 8px; --r-medio: 12px; --r-grande: 16px; --r-pildora: 999px;   /* bordes redondeados más usados */
+  --jaguar-neon: #39FF14; --jaguar-tinta: #031006;      /* Modo Jaguar: verde neón y texto sobre él */
+  --capibara-papel: #FFFDF6; --capibara-tinta: #3A2614;  /* Modo Capibara: fondo de papel y texto */
+  /* Capas (z-index) de Vigía, de abajo arriba */
+  --z-vg-presentar: 70; --z-vg-marcador: 91; --z-vg-modal: 95; --z-vg-capa-total: 9000;
   /* Lo único que se anima en botones y tarjetas (en vez de «transition: all») */
   --tr-props: color, background-color, border-color, box-shadow, transform, opacity, filter;
 
@@ -604,15 +611,15 @@ input, textarea, select { font-family: var(--font-body); color: inherit; }
 }
 
 .anim-fade       { animation: a-fade .6s ease both; }
-.anim-slideUp    { animation: a-slideUp .6s cubic-bezier(.2,.8,.2,1) both; }
-.anim-slideDown  { animation: a-slideDown .6s cubic-bezier(.2,.8,.2,1) both; }
-.anim-slideLeft  { animation: a-slideLeft .6s cubic-bezier(.2,.8,.2,1) both; }
-.anim-slideRight { animation: a-slideRight .6s cubic-bezier(.2,.8,.2,1) both; }
-.anim-zoomIn     { animation: a-zoomIn .55s cubic-bezier(.2,.8,.2,1) both; }
-.anim-zoomOut    { animation: a-zoomOut .55s cubic-bezier(.2,.8,.2,1) both; }
+.anim-slideUp    { animation: a-slideUp .6s var(--c-salida) both; }
+.anim-slideDown  { animation: a-slideDown .6s var(--c-salida) both; }
+.anim-slideLeft  { animation: a-slideLeft .6s var(--c-salida) both; }
+.anim-slideRight { animation: a-slideRight .6s var(--c-salida) both; }
+.anim-zoomIn     { animation: a-zoomIn .55s var(--c-salida) both; }
+.anim-zoomOut    { animation: a-zoomOut .55s var(--c-salida) both; }
 .anim-pop        { animation: a-pop .6s cubic-bezier(.3,1.4,.5,1) both; }
 .anim-flip       { animation: a-flip .7s ease both; }
-.anim-rotate     { animation: a-rotate .7s cubic-bezier(.2,.8,.2,1) both; }
+.anim-rotate     { animation: a-rotate .7s var(--c-salida) both; }
 .anim-pulse      { animation: a-pulse 1.6s ease-in-out infinite; }
 .anim-shake      { animation: a-shake 1.2s ease-in-out infinite; }
 .anim-colorShift { animation: none; }
@@ -1135,7 +1142,7 @@ input, textarea, select { font-family: var(--font-body); color: inherit; }
 }
 .vigia-carga-logo {
   width: min(220px, 50vw); height: auto; border-radius: 28px;
-  animation: vigiaDespierta 1.6s ease both;
+  animation: vigiaDespierta .8s ease both;   /* a juego con los 800 ms mínimos de app.jsx */
 }
 @keyframes vigiaDespierta {
   0%   { opacity: 0; transform: scale(.82); filter: brightness(.3) drop-shadow(0 0 0 rgba(255,138,0,0)); }
@@ -1148,7 +1155,7 @@ input, textarea, select { font-family: var(--font-body); color: inherit; }
   display: block; height: 100%; width: 100%; transform-origin: left;
   background: linear-gradient(90deg, var(--vigia-naranja), var(--vigia-azul));
   box-shadow: 0 0 12px rgba(77,148,255,.8);
-  animation: vigiaBarra 1.5s ease-in-out both;
+  animation: vigiaBarra .75s ease-in-out both;
 }
 @keyframes vigiaBarra { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 @media (prefers-reduced-motion: reduce) {

@@ -19,14 +19,20 @@ function SelectorRun({ config, tool, remoteSignal }) {
   const pick = () => {
     if (picking || !names.length) return;
     setPicking(true); setPicked(false);
-    let i = 0;
-    const t = setInterval(() => { setDisplay(names[i % names.length]); i++; }, 90);
-    timersRef.current.interval = t;
-    timersRef.current.timeout = setTimeout(() => {
-      clearInterval(t);
-      setDisplay(names[Math.floor(Math.random() * names.length)]);
-      setPicking(false); setPicked(true);
-    }, 1800);
+    // Los nombres pasan rápido y van frenando poco a poco (cada pausa un 12 % más larga),
+    // como una ruleta; en unos 1,8 s se detiene en el elegido (antes: ritmo fijo y parada en seco).
+    let i = 0, espera = 60, total = 0;
+    const paso = () => {
+      if (total >= 1800) {
+        setDisplay(names[Math.floor(Math.random() * names.length)]);
+        setPicking(false); setPicked(true);
+        return;
+      }
+      setDisplay(names[i % names.length]); i++;
+      espera *= 1.12; total += espera;
+      timersRef.current.timeout = setTimeout(paso, espera);
+    };
+    paso();
   };
   useRemoteAction(remoteSignal, { primary: pick, next: pick });
   if (!names.length) return <FichaRun config={config} tool={tool} />;

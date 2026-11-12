@@ -13,10 +13,10 @@ const MANDO_CSS = `
 .vgm-cabeza img { width: 40px; height: 40px; border-radius: 10px; }
 .vgm-cabeza strong { display: block; font-size: 16px; line-height: 1.15; }
 .vgm-cabeza small { color: #B39A86; font-size: 13px; }
-.vgm-estado { margin-left: auto; font-size: 12px; font-weight: 800; padding: 4px 9px; border-radius: 999px; background: rgba(61,220,151,.15); color: #3DDC97; white-space: nowrap; }
+.vgm-estado { margin-left: auto; font-size: 13px; font-weight: 800; padding: 4px 9px; border-radius: 999px; background: rgba(61,220,151,.15); color: #3DDC97; white-space: nowrap; }
 .vgm-panel { border-radius: 18px; padding: 14px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,138,0,.25); display: flex; flex-direction: column; gap: 12px; }
 .vgm-panel.tarjeta { border-color: var(--c, #FF8A00); box-shadow: 0 0 24px -8px var(--c, #FF8A00); }
-.vgm-kicker { font-size: 12px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: #B39A86; }
+.vgm-kicker { font-size: 13px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: #B39A86; }
 .vgm-fila { display: flex; gap: 10px; align-items: stretch; }
 .vgm-fila > * { flex: 1; }
 .vgm-btn { border: 0; border-radius: 16px; padding: 16px 10px; font: inherit; font-weight: 800; font-size: 16px; cursor: pointer;

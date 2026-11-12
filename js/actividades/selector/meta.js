@@ -1,7 +1,7 @@
 /* Selector de estudiante — datos de la actividad (código en selector.jsx). */
 Actividades.registrar({
   id: 'selector',
-  version: '20261017a',
+  version: '20261111a',
   nombre: 'Selector de estudiante',
   desc: 'Elige un participante al azar',
   color: '#116CF5',

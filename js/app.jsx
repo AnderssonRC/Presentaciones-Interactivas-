@@ -47,7 +47,7 @@ function App() {
   };
   React.useEffect(() => {
     if (!vigiaCargando) return;
-    const t = setTimeout(() => setVigiaCargando(false), 1600);
+    const t = setTimeout(() => setVigiaCargando(false), 800);   // mínimo visible de la carga (antes 1600 ms)
     return () => clearTimeout(t);
   }, [vigiaCargando]);
   // Módulos del Modo Vigía (editor, presentar…): se cargan bajo demanda la

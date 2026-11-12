@@ -538,7 +538,7 @@ function Presenter({ pres, onExit, onChange }) {
   // Ref del intervalo del sorteo, para poder limpiarlo si el docente sale
   // de Presentar (o cambia de diapositiva) a mitad de la animación.
   const sorteoRef = React.useRef(null);
-  React.useEffect(() => () => { if (sorteoRef.current) clearInterval(sorteoRef.current); }, []);
+  React.useEffect(() => () => { if (sorteoRef.current) clearTimeout(sorteoRef.current); }, []);
 
   // --- Estudiantes / participación ---
   // Coincide con el checkbox del editor (editor.jsx: pres.estudiantes === true):
@@ -617,19 +617,23 @@ function Presenter({ pres, onExit, onChange }) {
     const manos = participants.filter((p) => p.hand);
     if (!manos.length || sorteando) return;
     setSorteando(true);
-    let n = 0;
-    if (sorteoRef.current) clearInterval(sorteoRef.current);
-    const t = setInterval(() => {
-      setElegido(manos[Math.floor(Math.random() * manos.length)].pid);
-      n++;
-      if (n > 12) {
-        clearInterval(t);
+    if (sorteoRef.current) clearTimeout(sorteoRef.current);
+    // Los nombres pasan rápido y van frenando poco a poco (cada pausa un 13 % más larga);
+    // en unos 1,4 s se detiene en el elegido (antes: ritmo fijo y parada en seco).
+    let espera = 60, total = 0;
+    const paso = () => {
+      if (total >= 1400) {
         setElegido(manos[Math.floor(Math.random() * manos.length)].pid);
         setSorteando(false);
         setRonda('sorteo');
+        sorteoRef.current = null;
+        return;
       }
-    }, 110);
-    sorteoRef.current = t;
+      setElegido(manos[Math.floor(Math.random() * manos.length)].pid);
+      espera *= 1.13; total += espera;
+      sorteoRef.current = setTimeout(paso, espera);
+    };
+    paso();
   };
   const cerrarParticipacion = () => { setRonda('idle'); setElegido(null); };
 
