@@ -3614,7 +3614,9 @@ html.vg-sin-cursor, html.vg-sin-cursor * { cursor: none !important; }
 @keyframes vgHsTrSaltar { from { opacity: 0; transform: translateY(100%); } 55% { opacity: 1; transform: translateY(-5%); } 78% { transform: translateY(2%); } to { opacity: 1; transform: none; } }
 
 /* ---------- Activaciones en vivo (en-vivo.jsx): crear y lanzar mientras se proyecta ---------- */
-.vg-vivo { position: relative; z-index: 89; }
+/* Solo una capa vacía para sus piezas (todas con position: fixed). Anula el fondo
+   oscuro y el alto de pantalla completa de .vigia: si no, tapaba el video. */
+.vg-vivo { position: relative; z-index: 89; min-height: 0; height: 0; background: none; }
 .vg-vivo-boton {
   position: fixed; top: 54px; right: 16px; z-index: 1; display: inline-flex; align-items: center; gap: 7px; padding: 7px 12px; border-radius: 999px; cursor: pointer;
   background: rgba(10,6,4,.78); border: 1px solid rgba(255,194,51,.5); color: #FFF3E6; font-family: inherit; font-size: 13px; font-weight: 700;

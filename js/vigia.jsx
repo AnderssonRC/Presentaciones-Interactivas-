@@ -52,7 +52,7 @@ const VIGIA_MODULOS = [
   ['js/vigia/presentar-historia.jsx', '20261109a'],
   ['js/vigia/en-vivo.jsx', '20261111a'],
 ];
-const VIGIA_ESTILOS = ['js/vigia/estilos.css', '20261111i'];
+const VIGIA_ESTILOS = ['js/vigia/estilos.css', '20261112a'];
 // Pantalla del mando en el celular (la carga remote.jsx solo en el celular).
 const VIGIA_MANDO_VERSION = '20261111c';
 let promesaVigia = null;
